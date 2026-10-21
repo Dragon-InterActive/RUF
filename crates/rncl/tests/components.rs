@@ -31,6 +31,12 @@ fn main() {
         ("tab_view", tab_view),
         ("text_list_properties", text_list_properties),
         ("kinds_and_classes", kinds_and_classes),
+        ("scroll_view", scroll_view),
+        ("dynamic_children", dynamic_children),
+        ("resize_and_shortcut", resize_and_shortcut),
+        ("timer", timer),
+        ("gui_sender", gui_sender),
+        ("text_area_code_editor", text_area_code_editor),
     ];
 
     for (name, test) in tests {
@@ -169,7 +175,7 @@ fn properties() {
 
 fn registry_create() {
     let registry = rncl::registry();
-    assert_eq!(registry.len(), 15);
+    assert_eq!(registry.len(), 16);
     assert!(registry.categories().contains(&"Container"));
 
     let window = registry.create("RnclWindow", None).unwrap();
@@ -418,6 +424,7 @@ fn kinds_and_classes() {
         ("RnclSlider", WidgetKind::Slider, "QSlider"),
         ("RnclProgressBar", WidgetKind::ProgressBar, "QProgressBar"),
         ("RnclTabView", WidgetKind::TabView, "QTabWidget"),
+        ("RnclScrollView", WidgetKind::ScrollArea, "QScrollArea"),
     ];
     for (type_name, kind, class) in expected {
         let c = registry.create(type_name, Some(window.widget())).unwrap();
@@ -428,4 +435,162 @@ fn kinds_and_classes() {
             assert!(c.property(d.name).is_some(), "{type_name}.{}", d.name);
         }
     }
+}
+
+/// Arbeitet Events ab, bis `done()` gilt (höchstens zwei Sekunden).
+fn wait_until(done: impl Fn() -> bool) -> bool {
+    let start = std::time::Instant::now();
+    while !done() {
+        if start.elapsed() > std::time::Duration::from_secs(2) {
+            return false;
+        }
+        Application::process_events();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    true
+}
+
+fn scroll_view() {
+    let window = RnclWindow::new("t");
+    let mut scroll = RnclScrollView::new(&window);
+    scroll.set_geometry(0, 0, 200, 100);
+    let check = RnclCheckBox::new(scroll.content(), "unten");
+    check.set_position(4, 400);
+    scroll.set_content_size(0, 430);
+    window.show();
+    Application::process_events();
+
+    assert!(scroll.content().widget().is_alive());
+    assert!(scroll.content_size().height >= 430);
+    // Breite 0 = Inhalt folgt dem sichtbaren Bereich (abzüglich Bildlaufleiste).
+    assert!(scroll.content_size().width > 100);
+    scroll.set_property("content_height", 500.into()).unwrap();
+    Application::process_events();
+    assert_eq!(scroll.property("content_height"), Some(500.into()));
+    // Auf anderen Widgets ist der Inhalt tot statt einer Panik.
+    assert!(!window.widget().scroll_content().is_alive());
+}
+
+fn dynamic_children() {
+    let window = RnclWindow::new("t");
+    window.show();
+    Application::process_events();
+    // Nach dem Anzeigen erzeugte Kinder müssen sofort sichtbar sein.
+    let late = RnclLabel::new(&window, "später");
+    assert!(late.is_visible());
+
+    late.widget().delete_later();
+    assert!(!late.is_visible());
+    assert!(wait_until(|| !late.widget().is_alive()));
+}
+
+fn resize_and_shortcut() {
+    let window = RnclWindow::new("t");
+    let size = Rc::new(Cell::new((0, 0)));
+    let s = size.clone();
+    window.on_resized(move |w, h| s.set((w, h)));
+    window.show();
+    window.set_size(333, 222);
+    Application::process_events();
+    assert_eq!(size.get(), (333, 222));
+
+    let allow = Rc::new(Cell::new(false));
+    let a = allow.clone();
+    window.on_close_requested(move || a.get());
+    window.close();
+    Application::process_events();
+    assert!(window.is_visible(), "abgelehntes Schließen");
+    allow.set(true);
+    window.close();
+    Application::process_events();
+    assert!(!window.is_visible());
+
+    assert!(window.add_shortcut("Ctrl+S", || {}));
+    assert!(!window.add_shortcut("", || {}));
+}
+
+fn timer() {
+    let fired = Rc::new(Cell::new(0));
+    let timer = ruf::Timer::new();
+    timer.set_single_shot(true);
+    let f = fired.clone();
+    timer.on_timeout(move || f.set(f.get() + 1));
+    timer.start(5);
+    assert!(timer.is_active());
+    assert_eq!(timer.interval(), 5);
+    assert!(wait_until(|| fired.get() == 1));
+    assert!(!timer.is_active());
+
+    let once = Rc::new(Cell::new(false));
+    let o = once.clone();
+    ruf::Timer::single_shot(1, move || o.set(true));
+    assert!(wait_until(|| once.get()));
+}
+
+fn gui_sender() {
+    let window = RnclWindow::new("t");
+    let label = RnclLabel::new(&window, "");
+    let received = Rc::new(RefCell::new(Vec::new()));
+    let (l, r) = (label.clone(), received.clone());
+    let sender = GuiSender::new(move |n: u32| {
+        // Läuft im GUI-Thread: Widgets dürfen angefasst werden.
+        l.set_text(&n.to_string());
+        r.borrow_mut().push(n);
+    });
+
+    let workers: Vec<_> = (0..3)
+        .map(|_| {
+            let tx = sender.clone();
+            std::thread::spawn(move || {
+                for n in 0..10 {
+                    assert!(tx.send(n));
+                }
+            })
+        })
+        .collect();
+    for w in workers {
+        w.join().unwrap();
+    }
+    drop(sender);
+    assert!(wait_until(|| received.borrow().len() == 30));
+    // Reihenfolge je Thread bleibt erhalten; der letzte Wert ist eine 9.
+    assert_eq!(label.text(), "9");
+
+    // Panik im Handler wird abgefangen, der Sender bleibt benutzbar.
+    let count = Rc::new(Cell::new(0));
+    let c = count.clone();
+    let sender = GuiSender::new(move |fail: bool| {
+        c.set(c.get() + 1);
+        assert!(!fail, "Testpanik");
+    });
+    sender.send(true);
+    sender.send(false);
+    assert!(wait_until(|| count.get() == 2));
+}
+
+fn text_area_code_editor() {
+    let window = RnclWindow::new("t");
+    let mut code = RnclTextArea::new(&window);
+    code.set_text("[package]\nname = \"x\"\n# Kommentar");
+    code.set_monospace(true);
+    assert!(code.is_monospace());
+    assert_eq!(code.property("monospace"), Some(true.into()));
+    code.set_property("monospace", false.into()).unwrap();
+
+    assert!(code.add_highlight_rule(r"^\s*\[.*\]", "#2e86c1", true));
+    assert!(code.add_highlight_rule("#.*$", "gray", false));
+    assert!(!code.add_highlight_rule("(", "red", false)); // ungültiges Muster
+    assert!(!code.add_highlight_rule("x", "keine-farbe", false));
+    code.clear_highlight_rules();
+
+    let mut label = RnclLabel::new(&window, "lang");
+    assert!(!label.is_word_wrap());
+    label.set_property("word_wrap", true.into()).unwrap();
+    assert!(label.is_word_wrap());
+
+    code.set_marked_line(Some(1), "#ffdddd");
+    code.goto_line(2);
+    code.set_marked_line(None, "");
+    code.set_marked_line(Some(99), "red"); // außerhalb: kein Absturz
+    assert_eq!(code.text().lines().count(), 3);
 }

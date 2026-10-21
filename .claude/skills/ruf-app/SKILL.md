@@ -42,14 +42,14 @@ fn main() {
 
 | Typ | Konstruktor | Wichtigste API |
 |---|---|---|
-| `RnclWindow` | `new(title)` | `set_title`, `close` |
+| `RnclWindow` | `new(title)` | `set_title`, `close`, `on_resized`, `on_close_requested`, `add_shortcut` |
 | `RnclPanel` | `new(&parent)` | Container, Positionen relativ |
 | `RnclGroupBox` | `new(&parent, title)` | Container mit Rahmen; Titel belegt oben ~20 px |
 | `RnclTabView` | `new(&parent)` | `add_tab(title) -> RnclPanel`, `remove_tab`, `set_current_index`, `on_current_index_changed` |
 | `RnclButton` | `new(&parent, text)` | `set_text`, `on_clicked`, `click` |
-| `RnclLabel` | `new(&parent, text)` | `set_text` (einfaches HTML erlaubt) |
+| `RnclLabel` | `new(&parent, text)` | `set_text` (einfaches HTML erlaubt), `set_word_wrap` |
 | `RnclTextField` | `new(&parent)` | `set_text`, `set_placeholder`, `set_password_mode`, `set_read_only`, `on_text_changed`, `on_return_pressed` |
-| `RnclTextArea` | `new(&parent)` | `set_text`, `append_line`, `set_read_only`, `on_text_changed` |
+| `RnclTextArea` | `new(&parent)` | `set_text`, `append_line`, `set_read_only`, `on_text_changed`; Code-Editor: `set_monospace`, `add_highlight_rule`, `set_marked_line`, `goto_line` |
 | `RnclCheckBox` | `new(&parent, text)` | `set_checked`, `is_checked`, `on_toggled`, `click` |
 | `RnclRadioButton` | `new(&parent, text)` | wie CheckBox; exklusiv je Elternteil → Gruppen per `RnclGroupBox` |
 | `RnclComboBox` | `new(&parent)` | `set_items`, `current_index`, `current_text`, `set_editable`, `on_current_index_changed`, `on_text_changed` |
@@ -57,10 +57,30 @@ fn main() {
 | `RnclSpinBox` | `new(&parent)` | `set_range`, `set_value`, `on_value_changed` (Standard 0…99) |
 | `RnclSlider` | `new(&parent)` | `set_range`, `set_value`, `set_vertical`, `on_value_changed` (Standard 0…99) |
 | `RnclProgressBar` | `new(&parent)` | `set_value`, `set_range`, `set_busy` (Standard 0…100) |
+| `RnclScrollView` | `new(&parent)` | Kinder in `content()`, `set_content_size(0, höhe)` |
 
 Alle (Trait `Component`, kommt mit der prelude): `set_position`, `set_size`,
 `set_geometry`, `show`, `hide`, `set_enabled`, `set_tool_tip`, `set_style_sheet`,
 `set_name`, `property`/`set_property`.
+
+## Dynamische Oberflächen und Hintergrundarbeit
+
+- **Layout bei Größenänderung:** RUF positioniert absolut. `window.on_resized(|w, h| …)`
+  bzw. `panel.widget().on_resized(…)` (z. B. für Tab-Seiten) aufrufen und dort
+  `set_geometry` der Kinder setzen.
+- **Zur Laufzeit erzeugte Kinder** sind sofort sichtbar; entfernen mit
+  `komponente.widget().delete_later()`.
+- **Entprellen:** `ruf::Timer` (single shot) bei jeder Eingabe neu `start(ms)`.
+- **Netzwerk/Dateien/Prozesse:** im `std::thread` ausführen, Ergebnis per
+  `ruf::GuiSender::new(move |v: T| …)` zurück – der Handler läuft im GUI-Thread.
+  Veraltete Antworten mit einem Generationszähler verwerfen.
+- **Rückfragen:** `ruf::dialog::{information, warning, error, confirm}` (modal –
+  nicht in Tests), Schließen abfangen mit `window.on_close_requested(|| bool)`.
+- **Signale beim Befüllen:** Setter lösen Signale aus. Beim programmatischen
+  Befüllen ein `Cell<bool>`-Flag setzen und in den Handlern prüfen.
+
+Größeres Praxisbeispiel: `../CT-Editor` (Suche mit Hintergrund-Threads, dynamische
+Checkbox-Listen, Code-Editor, Tabs mit eigener Layout-Funktion).
 
 ## Regeln, die Fehler vermeiden
 

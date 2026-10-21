@@ -4,7 +4,10 @@ use cxx::UniquePtr;
 use cxx_qt_lib::QString;
 
 use crate::Application;
-use crate::ffi::{RufBoolCallback, RufCallback, RufIntCallback, RufStringCallback, ffi};
+use crate::ffi::{
+    RufBoolCallback, RufCallback, RufCloseCallback, RufIntCallback, RufSizeCallback,
+    RufStringCallback, ffi,
+};
 use crate::geometry::{Point, Rect, Size};
 
 pub use crate::ffi::ffi::WidgetKind;
@@ -74,6 +77,16 @@ impl Widget {
             // SAFETY: vom Aufrufer zugesichert.
             handle: unsafe { ffi::widget_wrap(widget) },
         }
+    }
+
+    /// Ein leerer Verweis (für optionale Elternteile in der Brücke).
+    pub(crate) fn null() -> Self {
+        // SAFETY: null ist ausdrücklich erlaubt.
+        unsafe { Self::from_raw(std::ptr::null_mut()) }
+    }
+
+    pub(crate) fn handle(&self) -> &ffi::WidgetHandle {
+        &self.handle
     }
 
     /// Der rohe Zeiger auf das `QWidget` (null, wenn es nicht mehr existiert).
@@ -201,6 +214,70 @@ impl Widget {
         ffi::widget_save_screenshot(&self.handle, &QString::from(&*path))
     }
 
+    /// Entfernt das Widget samt Kindern aus der Oberfläche und gibt es frei,
+    /// sobald der Event-Loop wieder an der Reihe ist. Alle Verweise darauf
+    /// werden danach tot ([`Widget::is_alive`] == `false`).
+    ///
+    /// Gedacht für dynamische Oberflächen, z. B. Listen aus Checkboxen, die
+    /// neu aufgebaut werden.
+    pub fn delete_later(&self) {
+        ffi::widget_delete_later(&self.handle);
+    }
+
+    /// Meldet ein Tastenkürzel an (z. B. `"Ctrl+S"`, `"F5"`), das gilt, solange
+    /// das Fenster dieses Widgets aktiv ist. `false` bei ungültiger Tastenfolge.
+    pub fn add_shortcut(&self, sequence: &str, f: impl FnMut() + 'static) -> bool {
+        ffi::widget_add_shortcut(&self.handle, &QString::from(sequence), RufCallback::new(f))
+    }
+
+    /// Der Inhalt einer Scrollfläche ([`WidgetKind::ScrollArea`]); bei anderen
+    /// Widgets nicht lebendig.
+    pub fn scroll_content(&self) -> Widget {
+        Widget {
+            handle: ffi::widget_scroll_content(&self.handle),
+        }
+    }
+
+    // --- Code-Editor (Textbereich) -------------------------------------------
+
+    /// Schrift mit fester Zeichenbreite (Systemschrift für Code).
+    pub fn set_monospace(&self, monospace: bool) {
+        ffi::widget_set_monospace(&self.handle, monospace);
+    }
+
+    /// Hat die aktuelle Schrift eine feste Zeichenbreite?
+    pub fn is_monospace(&self) -> bool {
+        ffi::widget_is_monospace(&self.handle)
+    }
+
+    /// Hebt alle Treffer des regulären Ausdrucks `pattern` (Qt/PCRE-Syntax) in
+    /// der Farbe `color` (z. B. `"#c0392b"` oder `"darkblue"`) hervor. Regeln
+    /// gelten zeilenweise; spätere überschreiben frühere. `false`, wenn das
+    /// Widget kein Textbereich oder Muster bzw. Farbe ungültig ist.
+    pub fn add_highlight_rule(&self, pattern: &str, color: &str, bold: bool) -> bool {
+        ffi::widget_add_highlight_rule(
+            &self.handle,
+            &QString::from(pattern),
+            &QString::from(color),
+            bold,
+        )
+    }
+
+    pub fn clear_highlight_rules(&self) {
+        ffi::widget_clear_highlight_rules(&self.handle);
+    }
+
+    /// Hinterlegt die Zeile `line` (ab 0) farbig, z. B. für eine Fehlerzeile.
+    /// `None` entfernt die Markierung.
+    pub fn set_marked_line(&self, line: Option<i32>, color: &str) {
+        ffi::widget_set_marked_line(&self.handle, line.unwrap_or(-1), &QString::from(color));
+    }
+
+    /// Setzt den Cursor an den Anfang der Zeile `line` (ab 0) und scrollt dorthin.
+    pub fn goto_line(&self, line: i32) {
+        ffi::widget_goto_line(&self.handle, line);
+    }
+
     // --- Inhalt -----------------------------------------------------------
 
     /// Fenstertitel bzw. Button-, Label- oder Eingabefeldtext.
@@ -210,6 +287,15 @@ impl Widget {
 
     pub fn text(&self) -> String {
         ffi::widget_text(&self.handle).to_string()
+    }
+
+    /// Automatischer Zeilenumbruch eines Labels (Text oben links ausgerichtet).
+    pub fn set_word_wrap(&self, wrap: bool) {
+        ffi::widget_set_word_wrap(&self.handle, wrap);
+    }
+
+    pub fn is_word_wrap(&self) -> bool {
+        ffi::widget_is_word_wrap(&self.handle)
     }
 
     /// Platzhaltertext eines Eingabefelds; bei anderen Widgets ohne Wirkung.
@@ -393,6 +479,19 @@ impl Widget {
     /// Auswahlwechsel in Combobox oder Liste bzw. Seitenwechsel einer Registerkarte.
     pub fn on_current_index_changed(&self, f: impl FnMut(i32) + 'static) -> bool {
         ffi::widget_connect_current_index_changed(&self.handle, RufIntCallback::new(f))
+    }
+
+    /// Größenänderung (neue Breite, Höhe) – bei jedem Widget, z. B. um Kinder
+    /// eines Fensters an dessen Größe anzupassen.
+    pub fn on_resized(&self, f: impl FnMut(i32, i32) + 'static) -> bool {
+        ffi::widget_connect_resized(&self.handle, RufSizeCallback::new(f))
+    }
+
+    /// Wird aufgerufen, bevor ein Fenster geschlossen wird (Klick auf "X",
+    /// [`Widget::close`]). Liefert `f` `false`, bleibt das Fenster offen –
+    /// z. B. nach der Rückfrage "Ungespeicherte Änderungen verwerfen?".
+    pub fn on_close_requested(&self, f: impl FnMut() -> bool + 'static) -> bool {
+        ffi::widget_connect_close_requested(&self.handle, RufCloseCallback::new(f))
     }
 }
 

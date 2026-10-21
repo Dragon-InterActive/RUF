@@ -8,7 +8,7 @@ RAD tool **Freya TD**.*
 | Crate | Rolle / Role |
 | --- | --- |
 | [`ruf`](crates/ruf) | System-Ebene (cxx-qt-Brücke) und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
-| [`rncl`](crates/rncl) | Rust native Component Library: 15 Standardkomponenten – Fenster, Container, Registerkarten, Buttons, Text-, Listen- und Zahleneingaben, Fortschrittsanzeige |
+| [`rncl`](crates/rncl) | Rust native Component Library: 16 Standardkomponenten – Fenster, Container, Registerkarten, Scrollbereich, Buttons, Text-, Listen- und Zahleneingaben, Code-Editor, Fortschrittsanzeige |
 
 ```toml
 [dependencies]

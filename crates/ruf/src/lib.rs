@@ -29,18 +29,23 @@ compile_error!("ruf benötigt ein Backend-Feature, z. B. `features = [\"qt6\"]`"
 
 mod app;
 mod component;
+pub mod dialog;
 mod ffi;
 mod geometry;
+mod gui_sender;
 mod property;
 mod registry;
+mod timer;
 mod version;
 mod widget;
 
 pub use app::{Application, ColorScheme};
 pub use component::{Component, base};
 pub use geometry::{Point, Rect, Size};
+pub use gui_sender::{GuiSender, post_to_gui};
 pub use property::{PropertyDescriptor, PropertyError, PropertyType, PropertyValue};
 pub use registry::{ComponentFactory, ComponentInfo, ComponentRegistry, RegistryError};
+pub use timer::Timer;
 pub use version::QtVersion;
 pub use widget::{AsWidget, Widget, WidgetKind};
 
@@ -64,7 +69,7 @@ pub use cxx_qt_lib as qt;
 /// [`Component`]-Trait (für `.set_position()` & Co.) in den Scope.
 pub mod prelude {
     pub use crate::{
-        Application, AsWidget, Component, ComponentInfo, ComponentRegistry, Point, PropertyValue,
-        Rect, Size, Widget, WidgetKind,
+        Application, AsWidget, Component, ComponentInfo, ComponentRegistry, GuiSender, Point,
+        PropertyValue, Rect, Size, Timer, Widget, WidgetKind,
     };
 }

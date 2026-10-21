@@ -20,6 +20,7 @@
 //! | [`RnclSlider`]    | `QSlider`     | nein      |
 //! | [`RnclProgressBar`] | `QProgressBar` | nein   |
 //! | [`RnclTabView`]   | `QTabWidget`  | ja (Seiten) |
+//! | [`RnclScrollView`] | `QScrollArea` | ja (Inhalt) |
 //!
 //! ```no_run
 //! use rncl::prelude::*;
@@ -54,6 +55,7 @@ mod panel;
 mod progress_bar;
 mod props;
 mod radio_button;
+mod scroll_view;
 mod slider;
 mod spin_box;
 mod tab_view;
@@ -70,6 +72,7 @@ pub use list_box::RnclListBox;
 pub use panel::RnclPanel;
 pub use progress_bar::RnclProgressBar;
 pub use radio_button::RnclRadioButton;
+pub use scroll_view::RnclScrollView;
 pub use slider::RnclSlider;
 pub use spin_box::RnclSpinBox;
 pub use tab_view::RnclTabView;
@@ -98,6 +101,7 @@ pub fn register_all(registry: &mut ComponentRegistry) -> Result<(), RegistryErro
     registry.register(RnclSlider::info())?;
     registry.register(RnclProgressBar::info())?;
     registry.register(RnclTabView::info())?;
+    registry.register(RnclScrollView::info())?;
     Ok(())
 }
 
@@ -112,8 +116,8 @@ pub fn registry() -> ComponentRegistry {
 pub mod prelude {
     pub use crate::{
         RnclButton, RnclCheckBox, RnclComboBox, RnclGroupBox, RnclLabel, RnclListBox, RnclPanel,
-        RnclProgressBar, RnclRadioButton, RnclSlider, RnclSpinBox, RnclTabView, RnclTextArea,
-        RnclTextField, RnclWindow,
+        RnclProgressBar, RnclRadioButton, RnclScrollView, RnclSlider, RnclSpinBox, RnclTabView,
+        RnclTextArea, RnclTextField, RnclWindow,
     };
     pub use ruf::prelude::*;
 }

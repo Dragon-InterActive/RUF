@@ -56,6 +56,23 @@ QObject::connect(s, &QSlider::valueChanged, s, [cb](int v) { invoke_int_callback
 
 Panics werden in `guarded` abgefangen, Re-Entranz per `RefCell::try_borrow_mut`.
 
+Vorhandene Callback-Typen: `RufCallback` (), `RufBoolCallback` (bool),
+`RufStringCallback` (QString), `RufIntCallback` (i32), `RufSizeCallback` (i32, i32),
+`RufCloseCallback` (() -> bool), `RufSendCallback` (einmalig, `Send`, für `post_to_gui`).
+
+## Rezept: Ereignisse ohne Signal (Resize, Close …)
+
+Qt meldet manche Dinge nur als Event. Muster `ResizeFilter`/`CloseFilter` in
+`ruf_widgets.cpp`: eine kleine `QObject`-Unterklasse **ohne** `Q_OBJECT` (kein moc
+nötig), Kind des Widgets (lebt also genauso lange), überschreibt `eventFilter`,
+wird per `w->installEventFilter(new XxxFilter(w, share(std::move(cb))))` angemeldet.
+
+## Rezept: Aufruf aus anderen Threads
+
+Nur `post_to_gui` darf aus fremden Threads aufgerufen werden: es reicht eine
+`Send`-Closure per `QMetaObject::invokeMethod(app, …, Qt::QueuedConnection)` an den
+GUI-Thread. Alles andere in der Brücke ist GUI-Thread-only.
+
 ## Neuere Qt-Versionen
 
 RUF soll Features jenseits von Qt 6.0 nutzen. Immer mit Fallback kapseln:

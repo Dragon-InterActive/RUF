@@ -63,6 +63,11 @@ und `set_property()` ergänzt.
 `Widget` und alle Komponenten sind **nicht `Send`/`Sync`** – der Compiler verhindert,
 dass Widgets aus anderen Threads benutzt werden (Qt-Regel).
 
+Für Arbeit im Hintergrund gibt es `ruf::GuiSender`: Der Sender ist `Send` und
+reicht Werte an einen Handler weiter, der im GUI-Thread läuft (intern
+`QMetaObject::invokeMethod` mit `Qt::QueuedConnection`). `ruf::post_to_gui` führt eine
+`Send`-Closure im GUI-Thread aus. Siehe [Komponenten → Dienste](komponenten.md#dienste-für-dynamische-oberflächen).
+
 ## 3. Designer-Ebene
 
 Freya TD erzeugt Komponenten nur über die `ComponentRegistry` (per Typname) und

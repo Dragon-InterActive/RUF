@@ -41,6 +41,8 @@ pub mod ffi {
         ProgressBar = 13,
         /// `QTabWidget`
         TabView = 14,
+        /// `QScrollArea` mit einem Container als Inhalt
+        ScrollArea = 15,
     }
 
     /// Farbschema der Anwendung (Qt >= 6.5 liest, Qt >= 6.8 setzt).
@@ -56,11 +58,17 @@ pub mod ffi {
         type RufBoolCallback;
         type RufStringCallback;
         type RufIntCallback;
+        type RufSizeCallback;
+        type RufSendCallback;
+        type RufCloseCallback;
 
         fn invoke_callback(callback: &RufCallback);
         fn invoke_bool_callback(callback: &RufBoolCallback, value: bool);
         fn invoke_string_callback(callback: &RufStringCallback, value: &QString);
         fn invoke_int_callback(callback: &RufIntCallback, value: i32);
+        fn invoke_size_callback(callback: &RufSizeCallback, width: i32, height: i32);
+        fn invoke_send_callback(callback: &RufSendCallback);
+        fn invoke_close_callback(callback: &RufCloseCallback) -> bool;
     }
 
     unsafe extern "C++" {
@@ -80,6 +88,7 @@ pub mod ffi {
 
         type Application;
         type WidgetHandle;
+        type TimerHandle;
 
         fn application_new(args: &Vec<String>) -> UniquePtr<Application>;
         fn application_exists() -> bool;
@@ -90,8 +99,21 @@ pub mod ffi {
         fn application_name() -> QString;
         fn application_color_scheme() -> ColorScheme;
         fn application_set_color_scheme(scheme: ColorScheme) -> bool;
+        fn post_to_gui(callback: Box<RufSendCallback>) -> bool;
+        fn dialog_message(parent: &WidgetHandle, kind: i32, title: &QString, text: &QString);
+        fn dialog_confirm(parent: &WidgetHandle, title: &QString, text: &QString) -> bool;
         fn qt_compile_version() -> i32;
         fn qt_runtime_version() -> QString;
+
+        fn timer_new() -> UniquePtr<TimerHandle>;
+        fn timer_connect_timeout(timer: &TimerHandle, callback: Box<RufCallback>);
+        fn timer_start(timer: &TimerHandle, msec: i32);
+        fn timer_stop(timer: &TimerHandle);
+        fn timer_is_active(timer: &TimerHandle) -> bool;
+        fn timer_set_single_shot(timer: &TimerHandle, single_shot: bool);
+        fn timer_is_single_shot(timer: &TimerHandle) -> bool;
+        fn timer_interval(timer: &TimerHandle) -> i32;
+        fn timer_single_shot(msec: i32, callback: Box<RufCallback>);
 
         fn widget_create(kind: WidgetKind) -> UniquePtr<WidgetHandle>;
         fn widget_create_child(kind: WidgetKind, parent: &WidgetHandle) -> UniquePtr<WidgetHandle>;
@@ -120,9 +142,30 @@ pub mod ffi {
         fn widget_object_name(handle: &WidgetHandle) -> QString;
         fn widget_close(handle: &WidgetHandle);
         fn widget_save_screenshot(handle: &WidgetHandle, path: &QString) -> bool;
+        fn widget_delete_later(handle: &WidgetHandle);
+        fn widget_add_shortcut(
+            handle: &WidgetHandle,
+            sequence: &QString,
+            callback: Box<RufCallback>,
+        ) -> bool;
+        fn widget_scroll_content(handle: &WidgetHandle) -> UniquePtr<WidgetHandle>;
+
+        fn widget_set_monospace(handle: &WidgetHandle, monospace: bool);
+        fn widget_is_monospace(handle: &WidgetHandle) -> bool;
+        fn widget_add_highlight_rule(
+            handle: &WidgetHandle,
+            pattern: &QString,
+            color: &QString,
+            bold: bool,
+        ) -> bool;
+        fn widget_clear_highlight_rules(handle: &WidgetHandle);
+        fn widget_set_marked_line(handle: &WidgetHandle, line: i32, color: &QString);
+        fn widget_goto_line(handle: &WidgetHandle, line: i32);
 
         fn widget_set_text(handle: &WidgetHandle, text: &QString);
         fn widget_text(handle: &WidgetHandle) -> QString;
+        fn widget_set_word_wrap(handle: &WidgetHandle, wrap: bool);
+        fn widget_is_word_wrap(handle: &WidgetHandle) -> bool;
         fn widget_set_placeholder(handle: &WidgetHandle, text: &QString);
         fn widget_placeholder(handle: &WidgetHandle) -> QString;
         fn widget_set_password_mode(handle: &WidgetHandle, enabled: bool);
@@ -170,6 +213,11 @@ pub mod ffi {
             handle: &WidgetHandle,
             callback: Box<RufIntCallback>,
         ) -> bool;
+        fn widget_connect_resized(handle: &WidgetHandle, callback: Box<RufSizeCallback>) -> bool;
+        fn widget_connect_close_requested(
+            handle: &WidgetHandle,
+            callback: Box<RufCloseCallback>,
+        ) -> bool;
     }
 }
 
@@ -183,6 +231,10 @@ pub struct RufCallback(RefCell<Box<dyn FnMut()>>);
 pub struct RufBoolCallback(RefCell<Box<dyn FnMut(bool)>>);
 pub struct RufStringCallback(RefCell<Box<dyn FnMut(String)>>);
 pub struct RufIntCallback(RefCell<Box<dyn FnMut(i32)>>);
+pub struct RufSizeCallback(RefCell<Box<dyn FnMut(i32, i32)>>);
+pub struct RufCloseCallback(RefCell<Box<dyn FnMut() -> bool>>);
+// Wird in einem beliebigen Thread erzeugt und genau einmal im GUI-Thread ausgeführt.
+pub struct RufSendCallback(RefCell<Option<Box<dyn FnOnce() + Send>>>);
 
 impl RufCallback {
     pub fn new(f: impl FnMut() + 'static) -> Box<Self> {
@@ -208,9 +260,27 @@ impl RufIntCallback {
     }
 }
 
+impl RufSizeCallback {
+    pub fn new(f: impl FnMut(i32, i32) + 'static) -> Box<Self> {
+        Box::new(Self(RefCell::new(Box::new(f))))
+    }
+}
+
+impl RufCloseCallback {
+    pub fn new(f: impl FnMut() -> bool + 'static) -> Box<Self> {
+        Box::new(Self(RefCell::new(Box::new(f))))
+    }
+}
+
+impl RufSendCallback {
+    pub fn new(f: impl FnOnce() + Send + 'static) -> Box<Self> {
+        Box::new(Self(RefCell::new(Some(Box::new(f)))))
+    }
+}
+
 // Eine Panik darf nicht über die C++-Grenze laufen (das bräche den Prozess ab).
 // Sie wird hier abgefangen und gemeldet; der Event-Loop läuft weiter.
-fn guarded(f: impl FnOnce()) {
+pub(crate) fn guarded(f: impl FnOnce()) {
     if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
         let message = panic
             .downcast_ref::<&str>()
@@ -244,4 +314,28 @@ fn invoke_int_callback(callback: &RufIntCallback, value: i32) {
     if let Ok(mut f) = callback.0.try_borrow_mut() {
         guarded(|| f(value));
     }
+}
+
+fn invoke_size_callback(callback: &RufSizeCallback, width: i32, height: i32) {
+    if let Ok(mut f) = callback.0.try_borrow_mut() {
+        guarded(|| f(width, height));
+    }
+}
+
+fn invoke_send_callback(callback: &RufSendCallback) {
+    let f = callback.0.borrow_mut().take();
+    if let Some(f) = f {
+        guarded(f);
+    }
+}
+
+fn invoke_close_callback(callback: &RufCloseCallback) -> bool {
+    // Im Zweifel (Re-Entranz, Panik) schließen lassen – ein Fenster, das sich
+    // nie mehr schließen lässt, wäre schlimmer.
+    let Ok(mut f) = callback.0.try_borrow_mut() else {
+        return true;
+    };
+    let mut accept = true;
+    guarded(|| accept = f());
+    accept
 }

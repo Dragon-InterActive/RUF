@@ -65,6 +65,7 @@ impl Application {
     }
 
     /// Arbeitet anstehende Events ab, ohne zu blockieren – nützlich in Tests.
+    /// Erledigt auch ausstehende [`Widget::delete_later`](crate::Widget::delete_later).
     pub fn process_events() {
         ffi::application_process_events();
     }

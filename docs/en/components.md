@@ -23,7 +23,7 @@ entries and page titles).
 
 | Category | Components |
 |---|---|
-| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView` |
+| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView`, `RnclScrollView` |
 | Standard | `RnclButton`, `RnclLabel` |
 | Eingabe (input) | `RnclTextField`, `RnclTextArea`, `RnclCheckBox`, `RnclRadioButton`, `RnclComboBox`, `RnclListBox`, `RnclSpinBox`, `RnclSlider` |
 | Anzeige (display) | `RnclProgressBar` |
@@ -42,6 +42,12 @@ let window = RnclWindow::new("Title");   // default size 640×480, initially hid
 window.set_size(400, 300);
 window.show();
 window.close();                          // last window closed → exec() returns
+
+window.on_resized(|w, h| println!("{w}×{h}"));          // re-arrange children
+window.add_shortcut("Ctrl+S", || println!("save"));
+window.on_close_requested(|| {                           // false = keep open
+    ruf::dialog::confirm(None, "Quit", "Really close?")
+});
 ```
 
 | Property | Type | |
@@ -79,11 +85,13 @@ Qt: `QLabel` · category *Standard*
 ```rust
 let label = RnclLabel::new(&window, "Status: <b>ready</b>"); // simple HTML
 label.set_text("Done");
+label.set_word_wrap(true);                  // wrap long texts
 ```
 
 | Property | Type | |
 |---|---|---|
 | `text` | Text | displayed text |
+| `word_wrap` | Bool | word wrap |
 
 ## `RnclTextField` – line edit
 
@@ -168,11 +176,28 @@ notes.append_line("line 2");
 notes.on_text_changed(|t| println!("{} chars", t.len()));
 ```
 
+As a **code editor** (fixed-width font, syntax highlighting via regular expressions,
+marked error line):
+
+```rust
+let code = RnclTextArea::new(&window);
+code.set_monospace(true);
+code.add_highlight_rule(r"^\s*\[.*\]", "#8e44ad", true);   // TOML sections, bold
+code.add_highlight_rule("#.*$", "gray", false);             // comments
+code.set_marked_line(Some(4), "#f5b7b1");                   // highlight line 5
+code.goto_line(4);
+code.set_marked_line(None, "");                             // remove the mark
+```
+
+Rules apply per line; later rules override earlier ones. `add_highlight_rule`
+returns `false` for an invalid pattern or colour.
+
 | Property | Type | |
 |---|---|---|
 | `text` | Text | content |
 | `placeholder` | Text | hint while empty |
 | `read_only` | Bool | read-only |
+| `monospace` | Bool | fixed-width font |
 
 ## `RnclComboBox` – drop-down list
 
@@ -274,6 +299,81 @@ tabs.remove_tab(1);                               // removes the page and its co
 |---|---|---|
 | `tabs` | List | page titles (setting renames, adds or removes pages) |
 | `current_index` | Int | visible page |
+
+## `RnclScrollView` – scroll area
+
+Qt: `QScrollArea` · container (content) · category *Container*
+
+For content larger than the visible area – e.g. a list of check boxes created at
+runtime. Children go into `content()`.
+
+```rust
+let scroll = RnclScrollView::new(&window);
+scroll.set_geometry(10, 10, 300, 200);
+for i in 0..30 {
+    RnclCheckBox::new(scroll.content(), &format!("Option {i}")).set_position(8, 8 + i * 24);
+}
+scroll.set_content_size(0, 8 + 30 * 24);   // width 0 = follow the visible area
+```
+
+| Property | Type | |
+|---|---|---|
+| `content_width` / `content_height` | Int | minimum content size |
+
+---
+
+## Services for dynamic user interfaces
+
+### Creating and removing widgets at runtime
+
+Children created after the parent's `show()` are visible immediately.
+`widget().delete_later()` removes a widget including its children; all references
+to it become "dead" (`is_alive() == false`) without crashing.
+
+```rust
+let row = RnclCheckBox::new(scroll.content(), "new");   // visible right away
+row.widget().delete_later();                            // remove it again
+```
+
+### `ruf::Timer` – timed callbacks
+
+```rust
+let timer = ruf::Timer::new();
+timer.set_single_shot(true);
+timer.on_timeout(|| println!("300 ms of silence"));
+timer.start(300);              // calling start() again restarts the wait (debouncing)
+ruf::Timer::single_shot(1000, || println!("once after 1 s"));
+```
+
+### `ruf::GuiSender` – results from background threads
+
+Widgets may only be used on the GUI thread. Long-running work (network, files,
+external programs) runs on its own thread and sends the result back through a
+`GuiSender`; the handler runs on the GUI thread and may touch widgets.
+
+```rust
+let label = RnclLabel::new(&window, "loading …");
+let l = label.clone();
+let sender = ruf::GuiSender::new(move |text: String| l.set_text(&text));
+std::thread::spawn(move || {
+    let answer = "done".to_owned();        // e.g. an HTTP response
+    sender.send(answer);
+});
+```
+
+`GuiSender` is `Clone + Send + Sync`; panics in the handler are caught.
+
+### `ruf::dialog` – standard dialogs
+
+```rust
+ruf::dialog::information(Some(window.widget()), "Note", "Saved.");
+ruf::dialog::warning(None, "Attention", "File missing.");
+ruf::dialog::error(None, "Error", "Saving failed.");
+if ruf::dialog::confirm(None, "Question", "Discard changes?") { /* … */ }
+```
+
+The dialogs are modal and block until answered – do not call them in automated
+tests.
 
 ---
 

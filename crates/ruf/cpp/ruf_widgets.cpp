@@ -4,9 +4,23 @@
 // die Rust-Funktionen zum Aufruf der Callbacks.
 #include "ruf/src/ffi.cxxqt.h"
 
+#include <QtCore/QEvent>
+#include <QtCore/QMetaObject>
+#include <QtCore/QRegularExpression>
+#include <QtGui/QFontDatabase>
+#include <QtGui/QFontInfo>
 #include <QtGui/QGuiApplication>
+#include <QtGui/QKeySequence>
 #include <QtGui/QPixmap>
+#include <QtGui/QResizeEvent>
+#include <QtGui/QShortcut>
 #include <QtGui/QStyleHints>
+#include <QtGui/QSyntaxHighlighter>
+#include <QtGui/QColor>
+#include <QtGui/QTextBlock>
+#include <QtGui/QTextCharFormat>
+#include <QtGui/QTextCursor>
+#include <QtGui/QTextDocument>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QComboBox>
@@ -14,10 +28,12 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QListWidget>
+#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QRadioButton>
+#include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSlider>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QTabWidget>
@@ -81,6 +97,15 @@ QWidget* create(WidgetKind kind, QWidget* parent)
     case WidgetKind::TabView:
         widget = new QTabWidget(parent);
         break;
+    case WidgetKind::ScrollArea: {
+        // Der Inhalt wächst mit dem sichtbaren Bereich, mindestens aber auf seine
+        // Mindestgröße – darüber hinaus wird gescrollt.
+        auto* area = new QScrollArea(parent);
+        area->setWidgetResizable(true);
+        area->setWidget(create(WidgetKind::Container, nullptr));
+        widget = area;
+        break;
+    }
     default:
         widget = new QWidget(parent);
         kind = WidgetKind::Container;
@@ -96,6 +121,109 @@ template <typename T>
 std::shared_ptr<rust::Box<T>> share(rust::Box<T> box)
 {
     return std::make_shared<rust::Box<T>>(std::move(box));
+}
+
+// Meldet Größenänderungen des beobachteten Widgets. Kind des Widgets, lebt
+// also genau so lange wie dieses.
+class ResizeFilter : public QObject {
+public:
+    ResizeFilter(QWidget* widget, std::shared_ptr<rust::Box<RufSizeCallback>> callback)
+        : QObject(widget)
+        , m_callback(std::move(callback))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() == QEvent::Resize && watched == parent()) {
+            auto* resize = static_cast<QResizeEvent*>(event);
+            invoke_size_callback(**m_callback, resize->size().width(), resize->size().height());
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::shared_ptr<rust::Box<RufSizeCallback>> m_callback;
+};
+
+// Fragt vor dem Schließen nach; ein abgelehntes Close-Event bleibt ignoriert.
+class CloseFilter : public QObject {
+public:
+    CloseFilter(QWidget* widget, std::shared_ptr<rust::Box<RufCloseCallback>> callback)
+        : QObject(widget)
+        , m_callback(std::move(callback))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() == QEvent::Close && watched == parent()) {
+            if (!invoke_close_callback(**m_callback)) {
+                event->ignore();
+                return true;
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::shared_ptr<rust::Box<RufCloseCallback>> m_callback;
+};
+
+// Einfache, zeilenweise Syntax-Hervorhebung über reguläre Ausdrücke.
+// Spätere Regeln überschreiben frühere, falls sie dieselben Zeichen treffen.
+class RuleHighlighter : public QSyntaxHighlighter {
+public:
+    explicit RuleHighlighter(QTextDocument* document)
+        : QSyntaxHighlighter(document)
+    {
+        setObjectName(QStringLiteral("_ruf_highlighter"));
+    }
+
+    void addRule(QRegularExpression pattern, QTextCharFormat format)
+    {
+        m_rules.push_back({ std::move(pattern), std::move(format) });
+        rehighlight();
+    }
+
+    void clearRules()
+    {
+        m_rules.clear();
+        rehighlight();
+    }
+
+protected:
+    void highlightBlock(QString const& text) override
+    {
+        for (auto const& rule : m_rules) {
+            auto it = rule.pattern.globalMatch(text);
+            while (it.hasNext()) {
+                auto const match = it.next();
+                if (match.capturedLength() > 0) {
+                    setFormat(match.capturedStart(), match.capturedLength(), rule.format);
+                }
+            }
+        }
+    }
+
+private:
+    struct Rule {
+        QRegularExpression pattern;
+        QTextCharFormat format;
+    };
+    std::vector<Rule> m_rules;
+};
+
+RuleHighlighter* highlighter(QPlainTextEdit* area, bool create)
+{
+    auto* existing = area->document()->findChild<QSyntaxHighlighter*>(
+        QStringLiteral("_ruf_highlighter"), Qt::FindDirectChildrenOnly);
+    if (auto* rules = dynamic_cast<RuleHighlighter*>(existing)) {
+        return rules;
+    }
+    return create ? new RuleHighlighter(area->document()) : nullptr;
 }
 
 } // namespace
@@ -146,6 +274,9 @@ void application_quit()
 void application_process_events()
 {
     QCoreApplication::processEvents();
+    // Außerhalb von exec() verarbeitet processEvents() kein deleteLater();
+    // ohne das blieben per delete_later() entfernte Widgets bis zum Ende bestehen.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 }
 
 void application_set_name(QString const& name)
@@ -191,6 +322,102 @@ bool application_set_color_scheme(ColorScheme scheme)
 #endif
 }
 
+bool post_to_gui(rust::Box<RufSendCallback> callback)
+{
+    QCoreApplication* app = QCoreApplication::instance();
+    if (!app) {
+        return false;
+    }
+    auto cb = share(std::move(callback));
+    // Queued: der Funktor läuft im Thread der Anwendung, also im GUI-Thread.
+    QMetaObject::invokeMethod(app, [cb]() { invoke_send_callback(**cb); }, Qt::QueuedConnection);
+    return true;
+}
+
+void dialog_message(WidgetHandle const& parent, std::int32_t kind, QString const& title, QString const& text)
+{
+    switch (kind) {
+    case 1:
+        QMessageBox::warning(parent.get(), title, text);
+        break;
+    case 2:
+        QMessageBox::critical(parent.get(), title, text);
+        break;
+    default:
+        QMessageBox::information(parent.get(), title, text);
+        break;
+    }
+}
+
+bool dialog_confirm(WidgetHandle const& parent, QString const& title, QString const& text)
+{
+    return QMessageBox::question(parent.get(), title, text) == QMessageBox::Yes;
+}
+
+// ---------------------------------------------------------------------------
+// Timer
+// ---------------------------------------------------------------------------
+
+TimerHandle::TimerHandle()
+    : m_timer(std::make_unique<QTimer>())
+{
+}
+
+TimerHandle::~TimerHandle()
+{
+    // Ohne QApplication gibt es auch keinen Timer mehr, der feuern könnte.
+    if (QCoreApplication::instance() == nullptr) {
+        (void)m_timer.release();
+    }
+}
+
+std::unique_ptr<TimerHandle> timer_new()
+{
+    return std::make_unique<TimerHandle>();
+}
+
+void timer_connect_timeout(TimerHandle const& timer, rust::Box<RufCallback> callback)
+{
+    auto cb = share(std::move(callback));
+    QObject::connect(timer.get(), &QTimer::timeout, timer.get(), [cb]() { invoke_callback(**cb); });
+}
+
+void timer_start(TimerHandle const& timer, std::int32_t msec)
+{
+    timer.get()->start(msec);
+}
+
+void timer_stop(TimerHandle const& timer)
+{
+    timer.get()->stop();
+}
+
+bool timer_is_active(TimerHandle const& timer)
+{
+    return timer.get()->isActive();
+}
+
+void timer_set_single_shot(TimerHandle const& timer, bool singleShot)
+{
+    timer.get()->setSingleShot(singleShot);
+}
+
+bool timer_is_single_shot(TimerHandle const& timer)
+{
+    return timer.get()->isSingleShot();
+}
+
+std::int32_t timer_interval(TimerHandle const& timer)
+{
+    return timer.get()->interval();
+}
+
+void timer_single_shot(std::int32_t msec, rust::Box<RufCallback> callback)
+{
+    auto cb = share(std::move(callback));
+    QTimer::singleShot(msec, QCoreApplication::instance(), [cb]() { invoke_callback(**cb); });
+}
+
 std::int32_t qt_compile_version()
 {
     return QT_VERSION;
@@ -228,7 +455,13 @@ std::unique_ptr<WidgetHandle> widget_create(WidgetKind kind)
 
 std::unique_ptr<WidgetHandle> widget_create_child(WidgetKind kind, WidgetHandle const& parent)
 {
-    return std::make_unique<WidgetHandle>(create(kind, parent.get()), true);
+    QWidget* widget = create(kind, parent.get());
+    // Qt zeigt Kinder nur mit dem Elternteil an. Wird ein Kind erst danach erzeugt
+    // (dynamische Oberflächen), bliebe es sonst unsichtbar.
+    if (parent.get() && parent.get()->isVisible() && !widget->isWindow()) {
+        widget->show();
+    }
+    return std::make_unique<WidgetHandle>(widget, true);
 }
 
 std::unique_ptr<WidgetHandle> widget_wrap(QWidget* widget)
@@ -295,6 +528,9 @@ WidgetKind widget_kind(WidgetHandle const& handle)
     }
     if (qobject_cast<QTabWidget*>(w)) {
         return WidgetKind::TabView;
+    }
+    if (qobject_cast<QScrollArea*>(w)) {
+        return WidgetKind::ScrollArea;
     }
     return w->isWindow() ? WidgetKind::Window : WidgetKind::Container;
 }
@@ -431,6 +667,122 @@ bool widget_save_screenshot(WidgetHandle const& handle, QString const& path)
     return w->grab().save(path);
 }
 
+void widget_delete_later(WidgetHandle const& handle)
+{
+    if (QWidget* w = handle.get()) {
+        w->hide();
+        w->deleteLater();
+    }
+}
+
+bool widget_add_shortcut(WidgetHandle const& handle, QString const& sequence, rust::Box<RufCallback> callback)
+{
+    QWidget* w = handle.get();
+    QKeySequence const keys(sequence);
+    if (!w || keys.isEmpty()) {
+        return false;
+    }
+    auto* shortcut = new QShortcut(keys, w);
+    shortcut->setContext(Qt::WindowShortcut);
+    auto cb = share(std::move(callback));
+    QObject::connect(shortcut, &QShortcut::activated, shortcut, [cb]() { invoke_callback(**cb); });
+    return true;
+}
+
+std::unique_ptr<WidgetHandle> widget_scroll_content(WidgetHandle const& handle)
+{
+    auto* area = qobject_cast<QScrollArea*>(handle.get());
+    // Der Inhalt gehört der Scrollfläche, nicht dem Handle.
+    return std::make_unique<WidgetHandle>(area ? area->widget() : nullptr, false);
+}
+
+void widget_set_monospace(WidgetHandle const& handle, bool monospace)
+{
+    QWidget* w = handle.get();
+    if (!w) {
+        return;
+    }
+    if (monospace) {
+        QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+        font.setStyleHint(QFont::TypeWriter);
+        font.setPointSizeF(w->font().pointSizeF());
+        w->setFont(font);
+    } else {
+        w->setFont(QFont());
+    }
+    // Merken, was gewünscht war: die tatsächlich aufgelöste Schrift hängt von
+    // der Plattform ab (offscreen gibt es z. B. keine echte Schriftauswahl).
+    w->setProperty("_ruf_monospace", monospace);
+}
+
+bool widget_is_monospace(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (!w) {
+        return false;
+    }
+    QVariant const wanted = w->property("_ruf_monospace");
+    return wanted.isValid() ? wanted.toBool() : QFontInfo(w->font()).fixedPitch();
+}
+
+bool widget_add_highlight_rule(WidgetHandle const& handle, QString const& pattern, QString const& color, bool bold)
+{
+    auto* area = qobject_cast<QPlainTextEdit*>(handle.get());
+    QRegularExpression const regex(pattern);
+    QColor const qcolor = QColor::fromString(color);
+    if (!area || !regex.isValid() || pattern.isEmpty() || !qcolor.isValid()) {
+        return false;
+    }
+    QTextCharFormat format;
+    format.setForeground(qcolor);
+    if (bold) {
+        format.setFontWeight(QFont::Bold);
+    }
+    highlighter(area, true)->addRule(regex, format);
+    return true;
+}
+
+void widget_clear_highlight_rules(WidgetHandle const& handle)
+{
+    if (auto* area = qobject_cast<QPlainTextEdit*>(handle.get())) {
+        if (auto* rules = highlighter(area, false)) {
+            rules->clearRules();
+        }
+    }
+}
+
+void widget_set_marked_line(WidgetHandle const& handle, std::int32_t line, QString const& color)
+{
+    auto* area = qobject_cast<QPlainTextEdit*>(handle.get());
+    if (!area) {
+        return;
+    }
+    QList<QTextEdit::ExtraSelection> selections;
+    QTextBlock const block = area->document()->findBlockByNumber(line);
+    QColor const qcolor = QColor::fromString(color);
+    if (line >= 0 && block.isValid() && qcolor.isValid()) {
+        QTextEdit::ExtraSelection selection;
+        selection.format.setBackground(qcolor);
+        selection.format.setProperty(QTextFormat::FullWidthSelection, true);
+        selection.cursor = QTextCursor(block);
+        selections.append(selection);
+    }
+    area->setExtraSelections(selections);
+}
+
+void widget_goto_line(WidgetHandle const& handle, std::int32_t line)
+{
+    auto* area = qobject_cast<QPlainTextEdit*>(handle.get());
+    if (!area) {
+        return;
+    }
+    QTextBlock const block = area->document()->findBlockByNumber(line);
+    if (block.isValid()) {
+        area->setTextCursor(QTextCursor(block));
+        area->ensureCursorVisible();
+    }
+}
+
 void widget_set_text(WidgetHandle const& handle, QString const& text)
 {
     QWidget* w = handle.get();
@@ -484,6 +836,20 @@ QString widget_text(WidgetHandle const& handle)
         return combo->currentText();
     }
     return w->windowTitle();
+}
+
+void widget_set_word_wrap(WidgetHandle const& handle, bool wrap)
+{
+    if (auto* label = qobject_cast<QLabel*>(handle.get())) {
+        label->setWordWrap(wrap);
+        label->setAlignment(wrap ? Qt::AlignLeft | Qt::AlignTop : Qt::AlignLeft | Qt::AlignVCenter);
+    }
+}
+
+bool widget_is_word_wrap(WidgetHandle const& handle)
+{
+    auto* label = qobject_cast<QLabel*>(handle.get());
+    return label && label->wordWrap();
 }
 
 void widget_set_placeholder(WidgetHandle const& handle, QString const& text)
@@ -914,6 +1280,26 @@ bool widget_connect_current_index_changed(WidgetHandle const& handle, rust::Box<
         return true;
     }
     return false;
+}
+
+bool widget_connect_resized(WidgetHandle const& handle, rust::Box<RufSizeCallback> callback)
+{
+    QWidget* w = handle.get();
+    if (!w) {
+        return false;
+    }
+    w->installEventFilter(new ResizeFilter(w, share(std::move(callback))));
+    return true;
+}
+
+bool widget_connect_close_requested(WidgetHandle const& handle, rust::Box<RufCloseCallback> callback)
+{
+    QWidget* w = handle.get();
+    if (!w) {
+        return false;
+    }
+    w->installEventFilter(new CloseFilter(w, share(std::move(callback))));
+    return true;
 }
 
 } // namespace ruf

@@ -63,6 +63,11 @@ methods. Custom properties are added via `properties()`, `property()` and
 `Widget` and all components are **not `Send`/`Sync`** – the compiler prevents using
 widgets from other threads (a Qt rule).
 
+For background work there is `ruf::GuiSender`: the sender is `Send` and forwards
+values to a handler running on the GUI thread (internally `QMetaObject::invokeMethod`
+with `Qt::QueuedConnection`). `ruf::post_to_gui` runs a `Send` closure on the GUI
+thread. See [Components → Services](components.md#services-for-dynamic-user-interfaces).
+
 ## 3. Designer layer
 
 Freya TD creates components only through the `ComponentRegistry` (by type name) and

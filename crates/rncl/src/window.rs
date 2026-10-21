@@ -32,6 +32,22 @@ impl RnclWindow {
         self.widget.text()
     }
 
+    /// Wird bei jeder Größenänderung mit neuer Breite und Höhe aufgerufen –
+    /// hier die Kinder neu anordnen.
+    pub fn on_resized(&self, f: impl FnMut(i32, i32) + 'static) {
+        self.widget.on_resized(f);
+    }
+
+    /// Wird vor dem Schließen aufgerufen; `false` hält das Fenster offen.
+    pub fn on_close_requested(&self, f: impl FnMut() -> bool + 'static) {
+        self.widget.on_close_requested(f);
+    }
+
+    /// Tastenkürzel für dieses Fenster, z. B. `"Ctrl+S"`. `false` bei ungültiger Folge.
+    pub fn add_shortcut(&self, sequence: &str, f: impl FnMut() + 'static) -> bool {
+        self.widget.add_shortcut(sequence, f)
+    }
+
     /// Schließt das Fenster. Ist es das letzte, endet `Application::exec`.
     pub fn close(&self) {
         self.widget.close();

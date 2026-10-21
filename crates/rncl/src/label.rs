@@ -1,6 +1,6 @@
 use ruf::{
-    AsWidget, Component, ComponentInfo, PropertyDescriptor, PropertyError, PropertyValue, Widget,
-    WidgetKind, base,
+    AsWidget, Component, ComponentInfo, PropertyDescriptor, PropertyError, PropertyType,
+    PropertyValue, Widget, WidgetKind, base,
 };
 
 use crate::props::text;
@@ -13,6 +13,7 @@ pub struct RnclLabel {
 
 impl RnclLabel {
     pub const TYPE_NAME: &'static str = "RnclLabel";
+    pub const WORD_WRAP: &'static str = "word_wrap";
 
     pub fn new<P: AsWidget + ?Sized>(parent: &P, text: &str) -> Self {
         Self::with_parent(Some(parent.as_widget()), text)
@@ -33,6 +34,15 @@ impl RnclLabel {
 
     pub fn text(&self) -> String {
         self.widget.text()
+    }
+
+    /// Lange Texte innerhalb der Breite umbrechen (Text dann oben ausgerichtet).
+    pub fn set_word_wrap(&self, wrap: bool) {
+        self.widget.set_word_wrap(wrap);
+    }
+
+    pub fn is_word_wrap(&self) -> bool {
+        self.widget.is_word_wrap()
     }
 
     pub fn info() -> ComponentInfo {
@@ -56,16 +66,25 @@ impl Component for RnclLabel {
     fn properties(&self) -> Vec<PropertyDescriptor> {
         let mut props = base::descriptors();
         props.push(text::descriptor("Angezeigter Text"));
+        props.push(PropertyDescriptor::new(
+            Self::WORD_WRAP,
+            PropertyType::Bool,
+            "Zeilenumbruch",
+        ));
         props
     }
 
     fn property(&self, name: &str) -> Option<PropertyValue> {
-        text::get(&self.widget, name).or_else(|| base::get(&self.widget, name))
+        match name {
+            Self::WORD_WRAP => Some(self.is_word_wrap().into()),
+            _ => text::get(&self.widget, name).or_else(|| base::get(&self.widget, name)),
+        }
     }
 
     fn set_property(&mut self, name: &str, value: PropertyValue) -> Result<(), PropertyError> {
         match name {
             text::TEXT => self.set_text(base::expect_text(name, &value)?),
+            Self::WORD_WRAP => self.set_word_wrap(base::expect_bool(name, &value)?),
             _ => return base::set(&self.widget, name, value),
         }
         Ok(())
