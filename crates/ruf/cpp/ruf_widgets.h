@@ -25,6 +25,7 @@ namespace ruf {
 struct RufCallback;
 struct RufBoolCallback;
 struct RufStringCallback;
+struct RufIntCallback;
 enum class WidgetKind : ::std::uint8_t;
 enum class ColorScheme : ::std::uint8_t;
 
@@ -127,11 +128,39 @@ bool widget_is_password_mode(WidgetHandle const& handle);
 void widget_set_checked(WidgetHandle const& handle, bool checked);
 bool widget_is_checked(WidgetHandle const& handle);
 bool widget_click(WidgetHandle const& handle);
+void widget_set_read_only(WidgetHandle const& handle, bool readOnly);
+bool widget_is_read_only(WidgetHandle const& handle);
+void widget_set_editable(WidgetHandle const& handle, bool editable);
+bool widget_is_editable(WidgetHandle const& handle);
+
+// Einträge: Combobox, Liste und – für Titel, Anzahl, Entfernen – Registerkarten.
+void widget_add_item(WidgetHandle const& handle, QString const& text);
+void widget_insert_item(WidgetHandle const& handle, std::int32_t index, QString const& text);
+void widget_remove_item(WidgetHandle const& handle, std::int32_t index);
+void widget_clear_items(WidgetHandle const& handle);
+std::int32_t widget_item_count(WidgetHandle const& handle);
+QString widget_item_text(WidgetHandle const& handle, std::int32_t index);
+void widget_set_item_text(WidgetHandle const& handle, std::int32_t index, QString const& text);
+void widget_set_current_index(WidgetHandle const& handle, std::int32_t index);
+std::int32_t widget_current_index(WidgetHandle const& handle);
+// Neue Seite einer Registerkarte; bei anderen Widgets ein leeres Handle.
+std::unique_ptr<WidgetHandle> widget_tab_add(WidgetHandle const& handle, QString const& title);
+
+// Wertebereich: Spinbox, Schieberegler, Fortschrittsbalken.
+void widget_set_range(WidgetHandle const& handle, std::int32_t minimum, std::int32_t maximum);
+std::int32_t widget_minimum(WidgetHandle const& handle);
+std::int32_t widget_maximum(WidgetHandle const& handle);
+void widget_set_value(WidgetHandle const& handle, std::int32_t value);
+std::int32_t widget_value(WidgetHandle const& handle);
+void widget_set_vertical(WidgetHandle const& handle, bool vertical);
+bool widget_is_vertical(WidgetHandle const& handle);
 
 // Signale -> Rust-Closures. Liefert false, wenn das Widget das Signal nicht kennt.
 bool widget_connect_clicked(WidgetHandle const& handle, rust::Box<RufCallback> callback);
 bool widget_connect_toggled(WidgetHandle const& handle, rust::Box<RufBoolCallback> callback);
 bool widget_connect_text_changed(WidgetHandle const& handle, rust::Box<RufStringCallback> callback);
 bool widget_connect_return_pressed(WidgetHandle const& handle, rust::Box<RufCallback> callback);
+bool widget_connect_value_changed(WidgetHandle const& handle, rust::Box<RufIntCallback> callback);
+bool widget_connect_current_index_changed(WidgetHandle const& handle, rust::Box<RufIntCallback> callback);
 
 } // namespace ruf

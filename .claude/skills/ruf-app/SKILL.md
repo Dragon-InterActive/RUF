@@ -38,16 +38,25 @@ fn main() {
 }
 ```
 
-## Komponenten (Stand 0.1)
+## Komponenten (Stand 0.1 – vollständige Referenz: `docs/de/komponenten.md`)
 
 | Typ | Konstruktor | Wichtigste API |
 |---|---|---|
 | `RnclWindow` | `new(title)` | `set_title`, `close` |
 | `RnclPanel` | `new(&parent)` | Container, Positionen relativ |
+| `RnclGroupBox` | `new(&parent, title)` | Container mit Rahmen; Titel belegt oben ~20 px |
+| `RnclTabView` | `new(&parent)` | `add_tab(title) -> RnclPanel`, `remove_tab`, `set_current_index`, `on_current_index_changed` |
 | `RnclButton` | `new(&parent, text)` | `set_text`, `on_clicked`, `click` |
 | `RnclLabel` | `new(&parent, text)` | `set_text` (einfaches HTML erlaubt) |
-| `RnclTextField` | `new(&parent)` | `set_text`, `set_placeholder`, `set_password_mode`, `on_text_changed`, `on_return_pressed` |
+| `RnclTextField` | `new(&parent)` | `set_text`, `set_placeholder`, `set_password_mode`, `set_read_only`, `on_text_changed`, `on_return_pressed` |
+| `RnclTextArea` | `new(&parent)` | `set_text`, `append_line`, `set_read_only`, `on_text_changed` |
 | `RnclCheckBox` | `new(&parent, text)` | `set_checked`, `is_checked`, `on_toggled`, `click` |
+| `RnclRadioButton` | `new(&parent, text)` | wie CheckBox; exklusiv je Elternteil → Gruppen per `RnclGroupBox` |
+| `RnclComboBox` | `new(&parent)` | `set_items`, `current_index`, `current_text`, `set_editable`, `on_current_index_changed`, `on_text_changed` |
+| `RnclListBox` | `new(&parent)` | `set_items`, `add_item`, `current_index`, `current_text() -> Option`, `on_current_index_changed` |
+| `RnclSpinBox` | `new(&parent)` | `set_range`, `set_value`, `on_value_changed` (Standard 0…99) |
+| `RnclSlider` | `new(&parent)` | `set_range`, `set_value`, `set_vertical`, `on_value_changed` (Standard 0…99) |
+| `RnclProgressBar` | `new(&parent)` | `set_value`, `set_range`, `set_busy` (Standard 0…100) |
 
 Alle (Trait `Component`, kommt mit der prelude): `set_position`, `set_size`,
 `set_geometry`, `show`, `hide`, `set_enabled`, `set_tool_tip`, `set_style_sheet`,
@@ -79,7 +88,8 @@ QT_QPA_PLATFORM=offscreen cargo run --example mein_beispiel
 ```
 
 Danach das PNG ansehen und Layout (Überlappungen, abgeschnittene Texte) prüfen.
-Fertiges Beispiel: `cargo run -p rncl --example designer -- --screenshot /tmp/form.png`.
+Fertige Beispiele: `cargo run -p rncl --example designer -- --screenshot /tmp/form.png`
+und `cargo run -p rncl --example gallery -- --screenshot /tmp/gallery.png` (alle Komponenten).
 
 ## Tests
 

@@ -8,7 +8,7 @@ RAD tool **Freya TD**.*
 | Crate | Rolle / Role |
 | --- | --- |
 | [`ruf`](crates/ruf) | System-Ebene (cxx-qt-Brücke) und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
-| [`rncl`](crates/rncl) | Rust native Component Library: `RnclWindow`, `RnclPanel`, `RnclButton`, `RnclLabel`, `RnclTextField`, `RnclCheckBox` |
+| [`rncl`](crates/rncl) | Rust native Component Library: 15 Standardkomponenten – Fenster, Container, Registerkarten, Buttons, Text-, Listen- und Zahleneingaben, Fortschrittsanzeige |
 
 ```toml
 [dependencies]
@@ -36,7 +36,7 @@ fn main() {
 
 ```bash
 cargo test --workspace                 # Tests gegen echtes Qt (offscreen)
-cargo run -p rncl --example hello      # weitere: counter, form, custom_component, designer
+cargo run -p rncl --example hello      # weitere: counter, form, gallery, custom_component, designer
 ```
 
 ## Dokumentation / Documentation

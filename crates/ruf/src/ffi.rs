@@ -23,6 +23,24 @@ pub mod ffi {
         LineEdit = 4,
         /// `QCheckBox`
         CheckBox = 5,
+        /// `QRadioButton`
+        RadioButton = 6,
+        /// `QGroupBox`
+        GroupBox = 7,
+        /// `QPlainTextEdit`
+        TextArea = 8,
+        /// `QComboBox`
+        ComboBox = 9,
+        /// `QListWidget`
+        ListBox = 10,
+        /// `QSpinBox`
+        SpinBox = 11,
+        /// `QSlider` (waagerecht)
+        Slider = 12,
+        /// `QProgressBar`
+        ProgressBar = 13,
+        /// `QTabWidget`
+        TabView = 14,
     }
 
     /// Farbschema der Anwendung (Qt >= 6.5 liest, Qt >= 6.8 setzt).
@@ -37,10 +55,12 @@ pub mod ffi {
         type RufCallback;
         type RufBoolCallback;
         type RufStringCallback;
+        type RufIntCallback;
 
         fn invoke_callback(callback: &RufCallback);
         fn invoke_bool_callback(callback: &RufBoolCallback, value: bool);
         fn invoke_string_callback(callback: &RufStringCallback, value: &QString);
+        fn invoke_int_callback(callback: &RufIntCallback, value: i32);
     }
 
     unsafe extern "C++" {
@@ -110,6 +130,29 @@ pub mod ffi {
         fn widget_set_checked(handle: &WidgetHandle, checked: bool);
         fn widget_is_checked(handle: &WidgetHandle) -> bool;
         fn widget_click(handle: &WidgetHandle) -> bool;
+        fn widget_set_read_only(handle: &WidgetHandle, read_only: bool);
+        fn widget_is_read_only(handle: &WidgetHandle) -> bool;
+        fn widget_set_editable(handle: &WidgetHandle, editable: bool);
+        fn widget_is_editable(handle: &WidgetHandle) -> bool;
+
+        fn widget_add_item(handle: &WidgetHandle, text: &QString);
+        fn widget_insert_item(handle: &WidgetHandle, index: i32, text: &QString);
+        fn widget_remove_item(handle: &WidgetHandle, index: i32);
+        fn widget_clear_items(handle: &WidgetHandle);
+        fn widget_item_count(handle: &WidgetHandle) -> i32;
+        fn widget_item_text(handle: &WidgetHandle, index: i32) -> QString;
+        fn widget_set_item_text(handle: &WidgetHandle, index: i32, text: &QString);
+        fn widget_set_current_index(handle: &WidgetHandle, index: i32);
+        fn widget_current_index(handle: &WidgetHandle) -> i32;
+        fn widget_tab_add(handle: &WidgetHandle, title: &QString) -> UniquePtr<WidgetHandle>;
+
+        fn widget_set_range(handle: &WidgetHandle, minimum: i32, maximum: i32);
+        fn widget_minimum(handle: &WidgetHandle) -> i32;
+        fn widget_maximum(handle: &WidgetHandle) -> i32;
+        fn widget_set_value(handle: &WidgetHandle, value: i32);
+        fn widget_value(handle: &WidgetHandle) -> i32;
+        fn widget_set_vertical(handle: &WidgetHandle, vertical: bool);
+        fn widget_is_vertical(handle: &WidgetHandle) -> bool;
 
         fn widget_connect_clicked(handle: &WidgetHandle, callback: Box<RufCallback>) -> bool;
         fn widget_connect_toggled(handle: &WidgetHandle, callback: Box<RufBoolCallback>) -> bool;
@@ -119,6 +162,14 @@ pub mod ffi {
         ) -> bool;
         fn widget_connect_return_pressed(handle: &WidgetHandle, callback: Box<RufCallback>)
         -> bool;
+        fn widget_connect_value_changed(
+            handle: &WidgetHandle,
+            callback: Box<RufIntCallback>,
+        ) -> bool;
+        fn widget_connect_current_index_changed(
+            handle: &WidgetHandle,
+            callback: Box<RufIntCallback>,
+        ) -> bool;
     }
 }
 
@@ -131,6 +182,7 @@ use cxx_qt_lib::QString;
 pub struct RufCallback(RefCell<Box<dyn FnMut()>>);
 pub struct RufBoolCallback(RefCell<Box<dyn FnMut(bool)>>);
 pub struct RufStringCallback(RefCell<Box<dyn FnMut(String)>>);
+pub struct RufIntCallback(RefCell<Box<dyn FnMut(i32)>>);
 
 impl RufCallback {
     pub fn new(f: impl FnMut() + 'static) -> Box<Self> {
@@ -146,6 +198,12 @@ impl RufBoolCallback {
 
 impl RufStringCallback {
     pub fn new(f: impl FnMut(String) + 'static) -> Box<Self> {
+        Box::new(Self(RefCell::new(Box::new(f))))
+    }
+}
+
+impl RufIntCallback {
+    pub fn new(f: impl FnMut(i32) + 'static) -> Box<Self> {
         Box::new(Self(RefCell::new(Box::new(f))))
     }
 }
@@ -178,6 +236,12 @@ fn invoke_bool_callback(callback: &RufBoolCallback, value: bool) {
 fn invoke_string_callback(callback: &RufStringCallback, value: &QString) {
     if let Ok(mut f) = callback.0.try_borrow_mut() {
         let value = value.to_string();
+        guarded(|| f(value));
+    }
+}
+
+fn invoke_int_callback(callback: &RufIntCallback, value: i32) {
+    if let Ok(mut f) = callback.0.try_borrow_mut() {
         guarded(|| f(value));
     }
 }

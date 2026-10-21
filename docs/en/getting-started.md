@@ -4,7 +4,7 @@
 
 | What | Version | Note |
 |---|---|---|
-| Rust | ≥ 1.88 (edition 2024) | `rustup update` |
+| Rust | ≥ 1.99.1 (edition 2024) | `rustup update` |
 | Qt | ≥ 6.0, ≥ 6.8 recommended | modules Core, Gui, Widgets incl. headers |
 | C++ compiler | C++17 | GCC, Clang or MSVC |
 
@@ -41,6 +41,7 @@ cargo test --workspace      # integration tests run offscreen – no display nee
 cargo run -p rncl --example hello              # minimal example
 cargo run -p rncl --example counter            # counter with shared state
 cargo run -p rncl --example form               # login form with validation
+cargo run -p rncl --example gallery            # all components, wired together
 cargo run -p rncl --example custom_component   # custom component + registry
 cargo run -p rncl --example designer           # form built from a text description
 cargo run -p rncl --example designer -- --dump # print all properties

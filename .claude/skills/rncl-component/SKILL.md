@@ -33,7 +33,11 @@ besitzt und `ruf::Component` implementiert. Referenzimplementierung:
 - [ ] `impl Component`: `widget`, `type_name`, und bei eigenen Eigenschaften
       `properties` (`base::descriptors()` + eigene), `property`, `set_property`
       – unbekannte Namen immer an `base::get` / `base::set` delegieren,
-      Werte mit `base::expect_text/int/bool(name, &value)?` prüfen.
+      Werte mit `base::expect_text/int/bool/text_list(name, &value)?` prüfen.
+      Gleichartige Eigenschaften nicht neu schreiben, sondern die Helfer aus
+      `crates/rncl/src/props.rs` nutzen (`text`, `items`, `range`, `orientation`);
+      deren `set` liefert `None`, wenn der Name nicht passt → Kette mit
+      `.or_else(..).unwrap_or_else(|| base::set(..))`, Vorbild `slider.rs`.
 - [ ] In `crates/rncl/src/lib.rs`: `mod`, `pub use`, `register_all`, `prelude`,
       Tabelle im Crate-Doc.
 - [ ] Test in `crates/rncl/tests/components.rs` ergänzen (Funktion schreiben **und**

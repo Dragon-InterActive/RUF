@@ -105,7 +105,7 @@ pub trait Component {
 /// Die Basis-Eigenschaften, die jede Komponente automatisch besitzt.
 pub mod base {
     use super::*;
-    use crate::property::PropertyType::{Bool, Int, Text};
+    use crate::property::PropertyType::{Bool, Int, Text, TextList};
 
     pub const NAME: &str = "name";
     pub const X: &str = "x";
@@ -182,6 +182,16 @@ pub mod base {
         value
             .as_text()
             .ok_or_else(|| PropertyError::type_mismatch(name, Text, value))
+    }
+
+    /// Hilfsfunktion für eigene Komponenten: erwartet eine Textliste.
+    pub fn expect_text_list<'a>(
+        name: &str,
+        value: &'a PropertyValue,
+    ) -> Result<&'a [String], PropertyError> {
+        value
+            .as_text_list()
+            .ok_or_else(|| PropertyError::type_mismatch(name, TextList, value))
     }
 
     /// Hilfsfunktion für eigene Komponenten: erwartet einen Ganzzahl-Wert.

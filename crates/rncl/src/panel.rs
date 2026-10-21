@@ -23,6 +23,12 @@ impl RnclPanel {
         Self { widget }
     }
 
+    /// Macht ein vorhandenes Widget zum Panel, z. B. eine Seite von
+    /// [`RnclTabView::add_tab`](crate::RnclTabView::add_tab).
+    pub fn from_widget(widget: Widget) -> Self {
+        Self { widget }
+    }
+
     pub fn info() -> ComponentInfo {
         ComponentInfo::new(Self::TYPE_NAME, |parent| {
             Box::new(Self::with_parent(parent))

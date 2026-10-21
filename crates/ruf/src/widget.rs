@@ -4,7 +4,7 @@ use cxx::UniquePtr;
 use cxx_qt_lib::QString;
 
 use crate::Application;
-use crate::ffi::{RufBoolCallback, RufCallback, RufStringCallback, ffi};
+use crate::ffi::{RufBoolCallback, RufCallback, RufIntCallback, RufStringCallback, ffi};
 use crate::geometry::{Point, Rect, Size};
 
 pub use crate::ffi::ffi::WidgetKind;
@@ -245,6 +245,121 @@ impl Widget {
         ffi::widget_click(&self.handle)
     }
 
+    /// Nur lesbar (Eingabefeld, Textbereich, Spinbox).
+    pub fn set_read_only(&self, read_only: bool) {
+        ffi::widget_set_read_only(&self.handle, read_only);
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        ffi::widget_is_read_only(&self.handle)
+    }
+
+    /// Freie Texteingabe in einer Combobox erlauben.
+    pub fn set_editable(&self, editable: bool) {
+        ffi::widget_set_editable(&self.handle, editable);
+    }
+
+    pub fn is_editable(&self) -> bool {
+        ffi::widget_is_editable(&self.handle)
+    }
+
+    // --- Einträge (Combobox, Liste, Registerkarten) -------------------------
+    //
+    // Bei Registerkarten sind die "Einträge" die Seitentitel; neue Seiten
+    // entstehen über [`Widget::add_tab`].
+
+    pub fn add_item(&self, text: &str) {
+        ffi::widget_add_item(&self.handle, &QString::from(text));
+    }
+
+    pub fn insert_item(&self, index: i32, text: &str) {
+        ffi::widget_insert_item(&self.handle, index, &QString::from(text));
+    }
+
+    /// Entfernt einen Eintrag; bei Registerkarten samt Seite und Inhalt.
+    pub fn remove_item(&self, index: i32) {
+        ffi::widget_remove_item(&self.handle, index);
+    }
+
+    pub fn clear_items(&self) {
+        ffi::widget_clear_items(&self.handle);
+    }
+
+    pub fn item_count(&self) -> i32 {
+        ffi::widget_item_count(&self.handle)
+    }
+
+    /// Text eines Eintrags (leer bei ungültigem Index).
+    pub fn item_text(&self, index: i32) -> String {
+        ffi::widget_item_text(&self.handle, index).to_string()
+    }
+
+    pub fn set_item_text(&self, index: i32, text: &str) {
+        ffi::widget_set_item_text(&self.handle, index, &QString::from(text));
+    }
+
+    /// Alle Einträge als Liste.
+    pub fn items(&self) -> Vec<String> {
+        (0..self.item_count()).map(|i| self.item_text(i)).collect()
+    }
+
+    /// Ersetzt alle Einträge (nicht für Registerkarten – dort `add_tab`).
+    pub fn set_items<S: AsRef<str>>(&self, items: &[S]) {
+        self.clear_items();
+        for item in items {
+            self.add_item(item.as_ref());
+        }
+    }
+
+    /// Ausgewählter Eintrag bzw. aktive Seite; `-1` = keine Auswahl.
+    pub fn set_current_index(&self, index: i32) {
+        ffi::widget_set_current_index(&self.handle, index);
+    }
+
+    pub fn current_index(&self) -> i32 {
+        ffi::widget_current_index(&self.handle)
+    }
+
+    /// Fügt einer Registerkarte eine Seite hinzu und liefert sie als Container.
+    /// Bei anderen Widgets ist das Ergebnis nicht lebendig (`is_alive() == false`).
+    pub fn add_tab(&self, title: &str) -> Widget {
+        Widget {
+            handle: ffi::widget_tab_add(&self.handle, &QString::from(title)),
+        }
+    }
+
+    // --- Wertebereich (Spinbox, Schieberegler, Fortschrittsbalken) ----------
+
+    pub fn set_range(&self, minimum: i32, maximum: i32) {
+        ffi::widget_set_range(&self.handle, minimum, maximum);
+    }
+
+    pub fn minimum(&self) -> i32 {
+        ffi::widget_minimum(&self.handle)
+    }
+
+    pub fn maximum(&self) -> i32 {
+        ffi::widget_maximum(&self.handle)
+    }
+
+    /// Setzt den Wert; Qt begrenzt ihn auf den Wertebereich.
+    pub fn set_value(&self, value: i32) {
+        ffi::widget_set_value(&self.handle, value);
+    }
+
+    pub fn value(&self) -> i32 {
+        ffi::widget_value(&self.handle)
+    }
+
+    /// Senkrechte statt waagerechte Ausrichtung (Schieberegler, Fortschrittsbalken).
+    pub fn set_vertical(&self, vertical: bool) {
+        ffi::widget_set_vertical(&self.handle, vertical);
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        ffi::widget_is_vertical(&self.handle)
+    }
+
     // --- Signale ----------------------------------------------------------
     //
     // Jede Methode liefert `false`, wenn das Widget das Signal nicht besitzt.
@@ -260,7 +375,7 @@ impl Widget {
         ffi::widget_connect_toggled(&self.handle, RufBoolCallback::new(f))
     }
 
-    /// Textänderung in einem Eingabefeld.
+    /// Textänderung in Eingabefeld, Textbereich oder (editierbarer) Combobox.
     pub fn on_text_changed(&self, f: impl FnMut(String) + 'static) -> bool {
         ffi::widget_connect_text_changed(&self.handle, RufStringCallback::new(f))
     }
@@ -268,6 +383,16 @@ impl Widget {
     /// Enter-Taste in einem Eingabefeld.
     pub fn on_return_pressed(&self, f: impl FnMut() + 'static) -> bool {
         ffi::widget_connect_return_pressed(&self.handle, RufCallback::new(f))
+    }
+
+    /// Wertänderung einer Spinbox, eines Schiebereglers oder Fortschrittsbalkens.
+    pub fn on_value_changed(&self, f: impl FnMut(i32) + 'static) -> bool {
+        ffi::widget_connect_value_changed(&self.handle, RufIntCallback::new(f))
+    }
+
+    /// Auswahlwechsel in Combobox oder Liste bzw. Seitenwechsel einer Registerkarte.
+    pub fn on_current_index_changed(&self, f: impl FnMut(i32) + 'static) -> bool {
+        ffi::widget_connect_current_index_changed(&self.handle, RufIntCallback::new(f))
     }
 }
 

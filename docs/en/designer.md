@@ -48,6 +48,13 @@ for d in button.properties() {
 | `TypeMismatch { name, expected, found }` | wrong value type |
 | `ReadOnly { name }` | the property is read-only |
 
+Value types (`PropertyType`): `Bool`, `Int`, `Text` and `TextList` (e.g. `items` of a
+combo box or `tabs` of a tab view):
+
+```rust
+combo.set_property("items", ["Berlin", "Hamburg"].into())?;
+```
+
 ## Loading a form from a description
 
 `crates/rncl/examples/designer.rs` builds a form from a text description – a preview of

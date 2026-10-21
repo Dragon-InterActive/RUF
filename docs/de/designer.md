@@ -49,6 +49,13 @@ for d in button.properties() {
 | `TypeMismatch { name, expected, found }` | falscher Werttyp |
 | `ReadOnly { name }` | Eigenschaft ist nur lesbar |
 
+Werttypen (`PropertyType`): `Bool`, `Int`, `Text` und `TextList` (z. B. `items` einer
+Combobox oder `tabs` einer Registerkarte):
+
+```rust
+combo.set_property("items", ["Berlin", "Hamburg"].into())?;
+```
+
 ## Formular aus einer Beschreibung laden
 
 `crates/rncl/examples/designer.rs` baut ein Formular aus einer Textbeschreibung auf –

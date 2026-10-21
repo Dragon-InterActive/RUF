@@ -62,7 +62,7 @@ RUF/
 │   │   └── src/               ffi (bridge), Widget, Component, Registry …
 │   └── rncl/                  standard components
 │       ├── src/               RnclWindow, RnclButton, …
-│       ├── examples/          hello, counter, form, custom_component, designer
+│       ├── examples/          hello, counter, form, gallery, custom_component, designer
 │       └── tests/             integration tests against real Qt (offscreen)
 ├── docs/{de,en}/              this documentation
 └── .claude/skills/            skills for AI assistants

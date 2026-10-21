@@ -9,7 +9,7 @@ use ruf::{
     WidgetKind, base,
 };
 
-use crate::text;
+use crate::props::text;
 
 /// Eine Schaltfläche (`QPushButton`).
 ///

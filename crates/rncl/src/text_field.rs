@@ -3,7 +3,7 @@ use ruf::{
     PropertyValue, Widget, WidgetKind, base,
 };
 
-use crate::text;
+use crate::props::text;
 
 /// Ein einzeiliges Eingabefeld (`QLineEdit`).
 #[derive(Debug, Clone)]
@@ -15,6 +15,7 @@ impl RnclTextField {
     pub const TYPE_NAME: &'static str = "RnclTextField";
     pub const PLACEHOLDER: &'static str = "placeholder";
     pub const PASSWORD: &'static str = "password";
+    pub const READ_ONLY: &'static str = "read_only";
 
     /// Erzeugt ein leeres Eingabefeld (Standardbreite 160 px).
     pub fn new<P: AsWidget + ?Sized>(parent: &P) -> Self {
@@ -54,6 +55,14 @@ impl RnclTextField {
 
     pub fn is_password_mode(&self) -> bool {
         self.widget.is_password_mode()
+    }
+
+    pub fn set_read_only(&self, read_only: bool) {
+        self.widget.set_read_only(read_only);
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        self.widget.is_read_only()
     }
 
     /// Wird bei jeder Änderung mit dem neuen Text aufgerufen – auch bei `set_text`.
@@ -97,6 +106,11 @@ impl Component for RnclTextField {
             PropertyType::Bool,
             "Eingabe verdecken (Passwortfeld)",
         ));
+        props.push(PropertyDescriptor::new(
+            Self::READ_ONLY,
+            PropertyType::Bool,
+            "Nur lesbar",
+        ));
         props
     }
 
@@ -104,6 +118,7 @@ impl Component for RnclTextField {
         match name {
             Self::PLACEHOLDER => Some(self.placeholder().into()),
             Self::PASSWORD => Some(self.is_password_mode().into()),
+            Self::READ_ONLY => Some(self.is_read_only().into()),
             _ => text::get(&self.widget, name).or_else(|| base::get(&self.widget, name)),
         }
     }
@@ -113,6 +128,7 @@ impl Component for RnclTextField {
             text::TEXT => self.set_text(base::expect_text(name, &value)?),
             Self::PLACEHOLDER => self.set_placeholder(base::expect_text(name, &value)?),
             Self::PASSWORD => self.set_password_mode(base::expect_bool(name, &value)?),
+            Self::READ_ONLY => self.set_read_only(base::expect_bool(name, &value)?),
             _ => return base::set(&self.widget, name, value),
         }
         Ok(())

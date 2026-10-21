@@ -9,9 +9,18 @@
 #include <QtGui/QStyleHints>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QCheckBox>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QListWidget>
+#include <QtWidgets/QPlainTextEdit>
+#include <QtWidgets/QProgressBar>
 #include <QtWidgets/QPushButton>
+#include <QtWidgets/QRadioButton>
+#include <QtWidgets/QSlider>
+#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QTabWidget>
 
 namespace ruf {
 
@@ -41,6 +50,36 @@ QWidget* create(WidgetKind kind, QWidget* parent)
         break;
     case WidgetKind::CheckBox:
         widget = new QCheckBox(parent);
+        break;
+    case WidgetKind::RadioButton:
+        widget = new QRadioButton(parent);
+        break;
+    case WidgetKind::GroupBox:
+        widget = new QGroupBox(parent);
+        break;
+    case WidgetKind::TextArea:
+        widget = new QPlainTextEdit(parent);
+        break;
+    case WidgetKind::ComboBox:
+        widget = new QComboBox(parent);
+        break;
+    case WidgetKind::ListBox:
+        widget = new QListWidget(parent);
+        break;
+    case WidgetKind::SpinBox:
+        widget = new QSpinBox(parent);
+        break;
+    case WidgetKind::Slider:
+        widget = new QSlider(Qt::Horizontal, parent);
+        break;
+    case WidgetKind::ProgressBar: {
+        auto* bar = new QProgressBar(parent);
+        bar->setValue(0); // Qt startet sonst mit -1 ("zurückgesetzt")
+        widget = bar;
+        break;
+    }
+    case WidgetKind::TabView:
+        widget = new QTabWidget(parent);
         break;
     default:
         widget = new QWidget(parent);
@@ -224,11 +263,38 @@ WidgetKind widget_kind(WidgetHandle const& handle)
     if (qobject_cast<QCheckBox*>(w)) {
         return WidgetKind::CheckBox;
     }
+    if (qobject_cast<QRadioButton*>(w)) {
+        return WidgetKind::RadioButton;
+    }
     if (qobject_cast<QLabel*>(w)) {
         return WidgetKind::Label;
     }
     if (qobject_cast<QLineEdit*>(w)) {
         return WidgetKind::LineEdit;
+    }
+    if (qobject_cast<QGroupBox*>(w)) {
+        return WidgetKind::GroupBox;
+    }
+    if (qobject_cast<QPlainTextEdit*>(w)) {
+        return WidgetKind::TextArea;
+    }
+    if (qobject_cast<QComboBox*>(w)) {
+        return WidgetKind::ComboBox;
+    }
+    if (qobject_cast<QListWidget*>(w)) {
+        return WidgetKind::ListBox;
+    }
+    if (qobject_cast<QSpinBox*>(w)) {
+        return WidgetKind::SpinBox;
+    }
+    if (qobject_cast<QSlider*>(w)) {
+        return WidgetKind::Slider;
+    }
+    if (qobject_cast<QProgressBar*>(w)) {
+        return WidgetKind::ProgressBar;
+    }
+    if (qobject_cast<QTabWidget*>(w)) {
+        return WidgetKind::TabView;
     }
     return w->isWindow() ? WidgetKind::Window : WidgetKind::Container;
 }
@@ -377,6 +443,17 @@ void widget_set_text(WidgetHandle const& handle, QString const& text)
         label->setText(text);
     } else if (auto* edit = qobject_cast<QLineEdit*>(w)) {
         edit->setText(text);
+    } else if (auto* group = qobject_cast<QGroupBox*>(w)) {
+        group->setTitle(text);
+    } else if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        area->setPlainText(text);
+    } else if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        // Editierbar: freier Text; sonst wird der passende Eintrag ausgewählt.
+        if (combo->isEditable()) {
+            combo->setEditText(text);
+        } else {
+            combo->setCurrentText(text);
+        }
     } else {
         w->setWindowTitle(text);
     }
@@ -397,20 +474,43 @@ QString widget_text(WidgetHandle const& handle)
     if (auto* edit = qobject_cast<QLineEdit*>(w)) {
         return edit->text();
     }
+    if (auto* group = qobject_cast<QGroupBox*>(w)) {
+        return group->title();
+    }
+    if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        return area->toPlainText();
+    }
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        return combo->currentText();
+    }
     return w->windowTitle();
 }
 
 void widget_set_placeholder(WidgetHandle const& handle, QString const& text)
 {
-    if (auto* edit = qobject_cast<QLineEdit*>(handle.get())) {
+    QWidget* w = handle.get();
+    if (auto* edit = qobject_cast<QLineEdit*>(w)) {
         edit->setPlaceholderText(text);
+    } else if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        area->setPlaceholderText(text);
+    } else if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->setPlaceholderText(text);
     }
 }
 
 QString widget_placeholder(WidgetHandle const& handle)
 {
-    auto* edit = qobject_cast<QLineEdit*>(handle.get());
-    return edit ? edit->placeholderText() : QString();
+    QWidget* w = handle.get();
+    if (auto* edit = qobject_cast<QLineEdit*>(w)) {
+        return edit->placeholderText();
+    }
+    if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        return area->placeholderText();
+    }
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        return combo->placeholderText();
+    }
+    return QString();
 }
 
 void widget_set_password_mode(WidgetHandle const& handle, bool enabled)
@@ -450,6 +550,268 @@ bool widget_click(WidgetHandle const& handle)
     return true;
 }
 
+void widget_set_read_only(WidgetHandle const& handle, bool readOnly)
+{
+    QWidget* w = handle.get();
+    if (auto* edit = qobject_cast<QLineEdit*>(w)) {
+        edit->setReadOnly(readOnly);
+    } else if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        area->setReadOnly(readOnly);
+    } else if (auto* spin = qobject_cast<QAbstractSpinBox*>(w)) {
+        spin->setReadOnly(readOnly);
+    }
+}
+
+bool widget_is_read_only(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* edit = qobject_cast<QLineEdit*>(w)) {
+        return edit->isReadOnly();
+    }
+    if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        return area->isReadOnly();
+    }
+    if (auto* spin = qobject_cast<QAbstractSpinBox*>(w)) {
+        return spin->isReadOnly();
+    }
+    return false;
+}
+
+void widget_set_editable(WidgetHandle const& handle, bool editable)
+{
+    if (auto* combo = qobject_cast<QComboBox*>(handle.get())) {
+        combo->setEditable(editable);
+    }
+}
+
+bool widget_is_editable(WidgetHandle const& handle)
+{
+    auto* combo = qobject_cast<QComboBox*>(handle.get());
+    return combo && combo->isEditable();
+}
+
+void widget_add_item(WidgetHandle const& handle, QString const& text)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->addItem(text);
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        list->addItem(text);
+    }
+}
+
+void widget_insert_item(WidgetHandle const& handle, std::int32_t index, QString const& text)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->insertItem(index, text);
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        list->insertItem(index, text);
+    }
+}
+
+void widget_remove_item(WidgetHandle const& handle, std::int32_t index)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->removeItem(index);
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        delete list->takeItem(index);
+    } else if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        // Die Seite samt Inhalt gehört uns – removeTab() allein würde sie verwaisen lassen.
+        delete tabs->widget(index);
+    }
+}
+
+void widget_clear_items(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->clear();
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        list->clear();
+    } else if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        while (tabs->count() > 0) {
+            delete tabs->widget(0);
+        }
+    }
+}
+
+std::int32_t widget_item_count(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        return combo->count();
+    }
+    if (auto* list = qobject_cast<QListWidget*>(w)) {
+        return list->count();
+    }
+    if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        return tabs->count();
+    }
+    return 0;
+}
+
+QString widget_item_text(WidgetHandle const& handle, std::int32_t index)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        return combo->itemText(index);
+    }
+    if (auto* list = qobject_cast<QListWidget*>(w)) {
+        QListWidgetItem* item = list->item(index);
+        return item ? item->text() : QString();
+    }
+    if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        return tabs->tabText(index);
+    }
+    return QString();
+}
+
+void widget_set_item_text(WidgetHandle const& handle, std::int32_t index, QString const& text)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->setItemText(index, text);
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        if (QListWidgetItem* item = list->item(index)) {
+            item->setText(text);
+        }
+    } else if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        tabs->setTabText(index, text);
+    }
+}
+
+void widget_set_current_index(WidgetHandle const& handle, std::int32_t index)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        combo->setCurrentIndex(index);
+    } else if (auto* list = qobject_cast<QListWidget*>(w)) {
+        list->setCurrentRow(index);
+    } else if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        tabs->setCurrentIndex(index);
+    }
+}
+
+std::int32_t widget_current_index(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        return combo->currentIndex();
+    }
+    if (auto* list = qobject_cast<QListWidget*>(w)) {
+        return list->currentRow();
+    }
+    if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        return tabs->currentIndex();
+    }
+    return -1;
+}
+
+std::unique_ptr<WidgetHandle> widget_tab_add(WidgetHandle const& handle, QString const& title)
+{
+    auto* tabs = qobject_cast<QTabWidget*>(handle.get());
+    if (!tabs) {
+        return std::make_unique<WidgetHandle>(nullptr, false);
+    }
+    QWidget* page = create(WidgetKind::Container, nullptr);
+    tabs->addTab(page, title);
+    return std::make_unique<WidgetHandle>(page, true);
+}
+
+void widget_set_range(WidgetHandle const& handle, std::int32_t minimum, std::int32_t maximum)
+{
+    QWidget* w = handle.get();
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        spin->setRange(minimum, maximum);
+    } else if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        slider->setRange(minimum, maximum);
+    } else if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        bar->setRange(minimum, maximum);
+    }
+}
+
+std::int32_t widget_minimum(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        return spin->minimum();
+    }
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        return slider->minimum();
+    }
+    if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        return bar->minimum();
+    }
+    return 0;
+}
+
+std::int32_t widget_maximum(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        return spin->maximum();
+    }
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        return slider->maximum();
+    }
+    if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        return bar->maximum();
+    }
+    return 0;
+}
+
+void widget_set_value(WidgetHandle const& handle, std::int32_t value)
+{
+    QWidget* w = handle.get();
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        spin->setValue(value);
+    } else if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        slider->setValue(value);
+    } else if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        bar->setValue(value);
+    }
+}
+
+std::int32_t widget_value(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        return spin->value();
+    }
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        return slider->value();
+    }
+    if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        return bar->value();
+    }
+    return 0;
+}
+
+void widget_set_vertical(WidgetHandle const& handle, bool vertical)
+{
+    Qt::Orientation const orientation = vertical ? Qt::Vertical : Qt::Horizontal;
+    QWidget* w = handle.get();
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        slider->setOrientation(orientation);
+    } else if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        bar->setOrientation(orientation);
+    }
+}
+
+bool widget_is_vertical(WidgetHandle const& handle)
+{
+    QWidget* w = handle.get();
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        return slider->orientation() == Qt::Vertical;
+    }
+    if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        return bar->orientation() == Qt::Vertical;
+    }
+    return false;
+}
+
 bool widget_connect_clicked(WidgetHandle const& handle, rust::Box<RufCallback> callback)
 {
     auto* button = qobject_cast<QAbstractButton*>(handle.get());
@@ -478,15 +840,27 @@ bool widget_connect_toggled(WidgetHandle const& handle, rust::Box<RufBoolCallbac
 
 bool widget_connect_text_changed(WidgetHandle const& handle, rust::Box<RufStringCallback> callback)
 {
-    auto* edit = qobject_cast<QLineEdit*>(handle.get());
-    if (!edit) {
-        return false;
-    }
+    QWidget* w = handle.get();
     auto cb = share(std::move(callback));
-    QObject::connect(edit, &QLineEdit::textChanged, edit, [cb](QString const& text) {
-        invoke_string_callback(**cb, text);
-    });
-    return true;
+    if (auto* edit = qobject_cast<QLineEdit*>(w)) {
+        QObject::connect(edit, &QLineEdit::textChanged, edit, [cb](QString const& text) {
+            invoke_string_callback(**cb, text);
+        });
+        return true;
+    }
+    if (auto* area = qobject_cast<QPlainTextEdit*>(w)) {
+        QObject::connect(area, &QPlainTextEdit::textChanged, area, [cb, area]() {
+            invoke_string_callback(**cb, area->toPlainText());
+        });
+        return true;
+    }
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        QObject::connect(combo, &QComboBox::currentTextChanged, combo, [cb](QString const& text) {
+            invoke_string_callback(**cb, text);
+        });
+        return true;
+    }
+    return false;
 }
 
 bool widget_connect_return_pressed(WidgetHandle const& handle, rust::Box<RufCallback> callback)
@@ -500,6 +874,46 @@ bool widget_connect_return_pressed(WidgetHandle const& handle, rust::Box<RufCall
         invoke_callback(**cb);
     });
     return true;
+}
+
+bool widget_connect_value_changed(WidgetHandle const& handle, rust::Box<RufIntCallback> callback)
+{
+    QWidget* w = handle.get();
+    auto cb = share(std::move(callback));
+    auto forward = [cb](int value) { invoke_int_callback(**cb, value); };
+    if (auto* spin = qobject_cast<QSpinBox*>(w)) {
+        QObject::connect(spin, &QSpinBox::valueChanged, spin, forward);
+        return true;
+    }
+    if (auto* slider = qobject_cast<QAbstractSlider*>(w)) {
+        QObject::connect(slider, &QAbstractSlider::valueChanged, slider, forward);
+        return true;
+    }
+    if (auto* bar = qobject_cast<QProgressBar*>(w)) {
+        QObject::connect(bar, &QProgressBar::valueChanged, bar, forward);
+        return true;
+    }
+    return false;
+}
+
+bool widget_connect_current_index_changed(WidgetHandle const& handle, rust::Box<RufIntCallback> callback)
+{
+    QWidget* w = handle.get();
+    auto cb = share(std::move(callback));
+    auto forward = [cb](int index) { invoke_int_callback(**cb, index); };
+    if (auto* combo = qobject_cast<QComboBox*>(w)) {
+        QObject::connect(combo, &QComboBox::currentIndexChanged, combo, forward);
+        return true;
+    }
+    if (auto* list = qobject_cast<QListWidget*>(w)) {
+        QObject::connect(list, &QListWidget::currentRowChanged, list, forward);
+        return true;
+    }
+    if (auto* tabs = qobject_cast<QTabWidget*>(w)) {
+        QObject::connect(tabs, &QTabWidget::currentChanged, tabs, forward);
+        return true;
+    }
+    return false;
 }
 
 } // namespace ruf

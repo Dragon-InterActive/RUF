@@ -11,6 +11,15 @@
 //! | [`RnclLabel`]     | `QLabel`      | nein      |
 //! | [`RnclTextField`] | `QLineEdit`   | nein      |
 //! | [`RnclCheckBox`]  | `QCheckBox`   | nein      |
+//! | [`RnclRadioButton`] | `QRadioButton` | nein   |
+//! | [`RnclGroupBox`]  | `QGroupBox`   | ja        |
+//! | [`RnclTextArea`]  | `QPlainTextEdit` | nein   |
+//! | [`RnclComboBox`]  | `QComboBox`   | nein      |
+//! | [`RnclListBox`]   | `QListWidget` | nein      |
+//! | [`RnclSpinBox`]   | `QSpinBox`    | nein      |
+//! | [`RnclSlider`]    | `QSlider`     | nein      |
+//! | [`RnclProgressBar`] | `QProgressBar` | nein   |
+//! | [`RnclTabView`]   | `QTabWidget`  | ja (Seiten) |
 //!
 //! ```no_run
 //! use rncl::prelude::*;
@@ -37,15 +46,34 @@
 
 mod button;
 mod checkbox;
+mod combo_box;
+mod group_box;
 mod label;
+mod list_box;
 mod panel;
+mod progress_bar;
+mod props;
+mod radio_button;
+mod slider;
+mod spin_box;
+mod tab_view;
+mod text_area;
 mod text_field;
 mod window;
 
 pub use button::RnclButton;
 pub use checkbox::RnclCheckBox;
+pub use combo_box::RnclComboBox;
+pub use group_box::RnclGroupBox;
 pub use label::RnclLabel;
+pub use list_box::RnclListBox;
 pub use panel::RnclPanel;
+pub use progress_bar::RnclProgressBar;
+pub use radio_button::RnclRadioButton;
+pub use slider::RnclSlider;
+pub use spin_box::RnclSpinBox;
+pub use tab_view::RnclTabView;
+pub use text_area::RnclTextArea;
 pub use text_field::RnclTextField;
 pub use window::RnclWindow;
 
@@ -61,6 +89,15 @@ pub fn register_all(registry: &mut ComponentRegistry) -> Result<(), RegistryErro
     registry.register(RnclLabel::info())?;
     registry.register(RnclTextField::info())?;
     registry.register(RnclCheckBox::info())?;
+    registry.register(RnclRadioButton::info())?;
+    registry.register(RnclGroupBox::info())?;
+    registry.register(RnclTextArea::info())?;
+    registry.register(RnclComboBox::info())?;
+    registry.register(RnclListBox::info())?;
+    registry.register(RnclSpinBox::info())?;
+    registry.register(RnclSlider::info())?;
+    registry.register(RnclProgressBar::info())?;
+    registry.register(RnclTabView::info())?;
     Ok(())
 }
 
@@ -73,21 +110,10 @@ pub fn registry() -> ComponentRegistry {
 
 /// `use rncl::prelude::*;` – alle Komponenten plus [`ruf::prelude`].
 pub mod prelude {
-    pub use crate::{RnclButton, RnclCheckBox, RnclLabel, RnclPanel, RnclTextField, RnclWindow};
+    pub use crate::{
+        RnclButton, RnclCheckBox, RnclComboBox, RnclGroupBox, RnclLabel, RnclListBox, RnclPanel,
+        RnclProgressBar, RnclRadioButton, RnclSlider, RnclSpinBox, RnclTabView, RnclTextArea,
+        RnclTextField, RnclWindow,
+    };
     pub use ruf::prelude::*;
-}
-
-/// Gemeinsame Hilfen für Komponenten mit einer `text`-Eigenschaft.
-pub(crate) mod text {
-    use ruf::{PropertyDescriptor, PropertyType, PropertyValue, Widget};
-
-    pub const TEXT: &str = "text";
-
-    pub fn descriptor(description: &'static str) -> PropertyDescriptor {
-        PropertyDescriptor::new(TEXT, PropertyType::Text, description)
-    }
-
-    pub fn get(widget: &Widget, name: &str) -> Option<PropertyValue> {
-        (name == TEXT).then(|| widget.text().into())
-    }
 }

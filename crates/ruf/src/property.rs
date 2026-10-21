@@ -13,6 +13,8 @@ pub enum PropertyType {
     Bool,
     Int,
     Text,
+    /// Liste von Texten, z. B. Einträge einer Combobox oder Seitentitel.
+    TextList,
 }
 
 impl fmt::Display for PropertyType {
@@ -21,6 +23,7 @@ impl fmt::Display for PropertyType {
             Self::Bool => "bool",
             Self::Int => "int",
             Self::Text => "text",
+            Self::TextList => "list",
         })
     }
 }
@@ -31,6 +34,7 @@ pub enum PropertyValue {
     Bool(bool),
     Int(i32),
     Text(String),
+    TextList(Vec<String>),
 }
 
 impl PropertyValue {
@@ -39,6 +43,7 @@ impl PropertyValue {
             Self::Bool(_) => PropertyType::Bool,
             Self::Int(_) => PropertyType::Int,
             Self::Text(_) => PropertyType::Text,
+            Self::TextList(_) => PropertyType::TextList,
         }
     }
 
@@ -62,6 +67,13 @@ impl PropertyValue {
             _ => None,
         }
     }
+
+    pub fn as_text_list(&self) -> Option<&[String]> {
+        match self {
+            Self::TextList(v) => Some(v),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for PropertyValue {
@@ -70,6 +82,7 @@ impl fmt::Display for PropertyValue {
             Self::Bool(v) => write!(f, "{v}"),
             Self::Int(v) => write!(f, "{v}"),
             Self::Text(v) => f.write_str(v),
+            Self::TextList(v) => write!(f, "[{}]", v.join(", ")),
         }
     }
 }
@@ -95,6 +108,24 @@ impl From<&str> for PropertyValue {
 impl From<String> for PropertyValue {
     fn from(v: String) -> Self {
         Self::Text(v)
+    }
+}
+
+impl From<Vec<String>> for PropertyValue {
+    fn from(v: Vec<String>) -> Self {
+        Self::TextList(v)
+    }
+}
+
+impl From<&[&str]> for PropertyValue {
+    fn from(v: &[&str]) -> Self {
+        Self::TextList(v.iter().map(|s| (*s).to_owned()).collect())
+    }
+}
+
+impl<const N: usize> From<[&str; N]> for PropertyValue {
+    fn from(v: [&str; N]) -> Self {
+        Self::from(&v[..])
     }
 }
 
@@ -186,6 +217,10 @@ mod tests {
         assert_eq!(PropertyValue::from(3).as_int(), Some(3));
         assert_eq!(PropertyValue::from("a").as_text(), Some("a"));
         assert_eq!(PropertyValue::from("a").as_int(), None);
+        let list = PropertyValue::from(["a", "b"]);
+        assert_eq!(list.ty(), PropertyType::TextList);
+        assert_eq!(list.as_text_list().map(<[String]>::len), Some(2));
+        assert_eq!(list.to_string(), "[a, b]");
     }
 
     #[test]

@@ -5,10 +5,10 @@ members = ["crates/ruf", "crates/rncl"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 authors = ["Dragon Software <info@dragon-software.net>"]
-repository = "https://github.com/dragon-software/ruf"
-rust-version = "1.88"
+repository = "https://github.com/Dragon-InterActive/Freya-TD"
+rust-version = "1.99.1"
 
 [workspace.dependencies]
 cxx = "1.0.205"

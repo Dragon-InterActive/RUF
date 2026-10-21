@@ -3,7 +3,7 @@ use ruf::{
     PropertyValue, Widget, WidgetKind, base,
 };
 
-use crate::text;
+use crate::props::text;
 
 /// Ein Kontrollkästchen (`QCheckBox`).
 #[derive(Debug, Clone)]

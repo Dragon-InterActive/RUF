@@ -8,6 +8,8 @@
 //! <Typname> <name> [eigenschaft=wert ...]
 //! ```
 //!
+//! Listen-Eigenschaften (z. B. `items`) trennen ihre Einträge mit `;`.
+//!
 //! cargo run -p rncl --example designer            # Fenster anzeigen
 //! cargo run -p rncl --example designer -- --dump  # Eigenschaften ausgeben
 //! cargo run -p rncl --example designer -- --screenshot form.png
@@ -19,9 +21,11 @@ const FORM: &str = r#"
 RnclWindow    frmMain   title="Designer-Demo" width=360 height=200
 RnclLabel     lblName   text="Name:" x=20 y=24
 RnclTextField txtName   x=100 y=20 width=230 placeholder="Vor- und Nachname"
-RnclCheckBox  chkNews   text="Newsletter" x=100 y=60 checked=true
-RnclButton    btnOk     text="OK" x=100 y=110 width=100
-RnclButton    btnCancel text="Abbrechen" x=210 y=110 width=100 enabled=false
+RnclLabel     lblCity   text="Stadt:" x=20 y=60
+RnclComboBox  cmbCity   x=100 y=56 width=230 items="Berlin;Hamburg;München" current_index=1
+RnclCheckBox  chkNews   text="Newsletter" x=100 y=96 checked=true
+RnclButton    btnOk     text="OK" x=100 y=140 width=100
+RnclButton    btnCancel text="Abbrechen" x=210 y=140 width=100 enabled=false
 "#;
 
 fn main() {
@@ -52,6 +56,9 @@ fn main() {
             let value = match ty {
                 Some(PropertyType::Int) => PropertyValue::Int(raw.parse().expect("Zahl")),
                 Some(PropertyType::Bool) => PropertyValue::Bool(raw == "true"),
+                Some(PropertyType::TextList) => {
+                    PropertyValue::TextList(raw.split(';').map(str::to_owned).collect())
+                }
                 _ => PropertyValue::Text(raw.to_owned()),
             };
             if let Err(e) = component.set_property(key, value) {
