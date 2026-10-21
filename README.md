@@ -6,7 +6,7 @@ RAD-Tools **Freya TD**.
 RAD tool **Freya TD**.*
 
 | Crate | Rolle / Role |
-|---|---|
+| --- | --- |
 | [`ruf`](crates/ruf) | System-Ebene (cxx-qt-Brücke) und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
 | [`rncl`](crates/rncl) | Rust native Component Library: `RnclWindow`, `RnclPanel`, `RnclButton`, `RnclLabel`, `RnclTextField`, `RnclCheckBox` |
 
@@ -51,4 +51,4 @@ andere Assistenten in [`AGENTS.md`](AGENTS.md).
 
 ## Lizenz / License
 
-MIT OR Apache-2.0
+Apache-2.0
