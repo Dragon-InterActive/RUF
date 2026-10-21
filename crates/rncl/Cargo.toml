@@ -1,0 +1,19 @@
+[package]
+name = "rncl"
+description = "RNCL – Rust native Component Library: native System-Widgets (Button, Label, Textfeld, Checkbox …) auf Basis von RUF"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["gui", "qt", "widgets", "components", "rad"]
+categories = ["gui"]
+
+[dependencies]
+ruf = { workspace = true, features = ["qt6"] }
+
+[[test]]
+name = "components"
+# Qt verlangt, dass QApplication im Hauptthread lebt – der Test bringt sein eigenes main() mit.
+harness = false

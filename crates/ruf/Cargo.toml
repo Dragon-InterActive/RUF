@@ -1,0 +1,25 @@
+[package]
+name = "ruf"
+description = "RUF – Rust native UI Framework: das native Qt-Fundament für RNCL-Komponenten und Freya TD"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+links = "ruf"
+keywords = ["gui", "qt", "widgets", "ui", "rad"]
+categories = ["gui"]
+
+[features]
+default = ["qt6"]
+# Backend: Qt >= 6 (QtWidgets). Weitere Backends (z. B. Qt 7) werden als eigene Features ergänzt.
+qt6 = []
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib.workspace = true
+
+[build-dependencies]
+cxx-qt-build.workspace = true

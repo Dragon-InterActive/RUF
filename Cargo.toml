@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = ["crates/ruf", "crates/rncl"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+authors = ["Dragon Software <info@dragon-software.net>"]
+repository = "https://github.com/dragon-software/ruf"
+rust-version = "1.88"
+
+[workspace.dependencies]
+cxx = "1.0.205"
+cxx-qt = "0.10.0"
+cxx-qt-lib = "0.10.0"
+cxx-qt-build = "0.10.0"
+ruf = { path = "crates/ruf", version = "0.1.0", default-features = false }
+rncl = { path = "crates/rncl", version = "0.1.0" }
