@@ -330,6 +330,8 @@ fn range_components() {
     let window = RnclWindow::new("t");
 
     let spin = RnclSpinBox::new(&window);
+    // Zusammengesetzte Steuerelemente (Cocoa: Textfeld + Pfeile) brauchen eine echte Größe.
+    assert!(spin.size().height >= 16 && spin.size().width >= 40, "{:?}", spin.size());
     let seen = Rc::new(Cell::new(0));
     let s = seen.clone();
     spin.on_value_changed(move |v| s.set(v));

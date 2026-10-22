@@ -896,15 +896,18 @@ impl Backend for Cocoa {
                 match &native.extra {
                     Extra::Group(b) => b.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), frame.size)),
                     Extra::Spin { field, stepper } => {
-                        let w = frame.size.width;
-                        let h = frame.size.height;
+                        // Beide in natürlicher Höhe, senkrecht mittig.
+                        let (w, h) = (frame.size.width, frame.size.height);
+                        let step = stepper.fittingSize();
+                        let (step_w, step_h) = (step.width.max(15.0), step.height.max(1.0).min(h));
+                        let field_h = field.fittingSize().height.max(1.0).min(h);
                         field.setFrame(NSRect::new(
-                            NSPoint::new(0.0, 0.0),
-                            NSSize::new((w - 20.0).max(0.0), h),
+                            NSPoint::new(0.0, (h - field_h) / 2.0),
+                            NSSize::new((w - step_w - 2.0).max(0.0), field_h),
                         ));
                         stepper.setFrame(NSRect::new(
-                            NSPoint::new((w - 18.0).max(0.0), 0.0),
-                            NSSize::new(18.0, h),
+                            NSPoint::new((w - step_w).max(0.0), (h - step_h) / 2.0),
+                            NSSize::new(step_w, step_h),
                         ));
                     }
                     _ => {}
@@ -914,8 +917,29 @@ impl Backend for Cocoa {
     }
 
     fn preferred_size(native: &CocoaNative, _kind: WidgetKind) -> Size {
-        let size = native.view().fittingSize();
-        Size::new(size.width.ceil() as i32, size.height.ceil() as i32)
+        let size = match &native.extra {
+            // Zusammengesetzt: ein Container-View kennt keine eigene Größe
+            // (`fittingSize` wäre 0×0) – aus Textfeld und Pfeilen berechnen.
+            Extra::Spin { field, stepper } => {
+                let (f, s) = (field.fittingSize(), stepper.fittingSize());
+                NSSize::new(f.width.max(40.0) + s.width + 2.0, f.height.max(s.height))
+            }
+            _ => native.view().fittingSize(),
+        };
+        // Views ohne eigene Größenangabe (Container, Scrollbereiche) melden 0 –
+        // dann eine brauchbare Mindestgröße statt eines unsichtbaren Widgets.
+        Size::new(
+            if size.width >= 1.0 {
+                size.width.ceil() as i32
+            } else {
+                100
+            },
+            if size.height >= 1.0 {
+                size.height.ceil() as i32
+            } else {
+                24
+            },
+        )
     }
 
     fn set_visible(native: &CocoaNative, _kind: WidgetKind, visible: bool) {
