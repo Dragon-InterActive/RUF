@@ -10,7 +10,7 @@ All components implement `ruf::Component` and therefore provide:
 | `show()` / `hide()` / `is_visible()` | visibility |
 | `set_enabled(b)` / `is_enabled()` | interactivity |
 | `set_tool_tip(text)` | tooltip |
-| `set_style_sheet(css)` | Qt style sheet, e.g. `"color: red; font-weight: bold;"` |
+| `set_style_sheet(css)` | styling via a CSS subset, e.g. `"color: red; font-weight: bold;"` – see [Styling](#styling) |
 | `set_name(n)` / `name()` | unique identifier (`objectName`) |
 | `widget()` | the underlying `ruf::Widget` |
 | `properties()` / `property(n)` / `set_property(n, v)` | property model |
@@ -35,7 +35,7 @@ Every component has two constructors: `new(&parent, …)` and
 
 ## `RnclWindow` – window
 
-Qt: `QWidget` (top-level) · container · category *Container*
+Native: GTK `GtkWindow` · Win32 `RufWindow` · Cocoa `NSWindow` · container · category *Container*
 
 ```rust
 let window = RnclWindow::new("Title");   // default size 640×480, initially hidden
@@ -56,7 +56,7 @@ window.on_close_requested(|| {                           // false = keep open
 
 ## `RnclPanel` – container
 
-Qt: `QWidget` · container · category *Container*
+Native: GTK `RufFixed` · Win32 `RufContainer` · Cocoa `RufView` · container · category *Container*
 
 ```rust
 let panel = RnclPanel::new(&window);
@@ -66,7 +66,7 @@ let ok = RnclButton::new(&panel, "OK");  // position relative to the panel
 
 ## `RnclButton` – push button
 
-Qt: `QPushButton` · category *Standard*
+Native: GTK `GtkButton` · Win32 `BUTTON` · Cocoa `NSButton` · category *Standard*
 
 ```rust
 let button = RnclButton::new(&window, "Save");
@@ -80,10 +80,10 @@ button.click();                          // click programmatically
 
 ## `RnclLabel` – text
 
-Qt: `QLabel` · category *Standard*
+Native: GTK `GtkLabel` · Win32 `STATIC` · Cocoa `NSTextField` · category *Standard*
 
 ```rust
-let label = RnclLabel::new(&window, "Status: <b>ready</b>"); // simple HTML
+let label = RnclLabel::new(&window, "Status: <b>ready</b>"); // simple HTML¹
 label.set_text("Done");
 label.set_word_wrap(true);                  // wrap long texts
 ```
@@ -93,9 +93,12 @@ label.set_word_wrap(true);                  // wrap long texts
 | `text` | Text | displayed text |
 | `word_wrap` | Bool | word wrap |
 
+¹ `<b> <i> <u> <small> <br>` – formatted on GTK, plain text on Windows and macOS
+(tags removed, `<br>` becomes a line break).
+
 ## `RnclTextField` – line edit
 
-Qt: `QLineEdit` · category *Eingabe* (input)
+Native: GTK `GtkEntry` · Win32 `EDIT` · Cocoa `NSTextField` · category *Eingabe* (input)
 
 ```rust
 let field = RnclTextField::new(&window);
@@ -116,7 +119,7 @@ pass.set_password_mode(true);
 
 ## `RnclCheckBox` – check box
 
-Qt: `QCheckBox` · category *Eingabe* (input)
+Native: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · category *Eingabe* (input)
 
 ```rust
 let check = RnclCheckBox::new(&window, "Accept terms");
@@ -131,7 +134,7 @@ check.set_checked(true);
 
 ## `RnclRadioButton` – radio button
 
-Qt: `QRadioButton` · category *Eingabe* (input)
+Native: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · category *Eingabe* (input)
 
 Radio buttons with the same parent are mutually exclusive – for several groups use
 one `RnclGroupBox` (or `RnclPanel`) per group.
@@ -153,7 +156,7 @@ cash.on_toggled(|on| println!("cash: {on}"));
 
 ## `RnclGroupBox` – framed group
 
-Qt: `QGroupBox` · container · category *Container*
+Native: GTK `GtkFrame` · Win32 `BUTTON (group)` · Cocoa `NSBox` · container · category *Container*
 
 ```rust
 let group = RnclGroupBox::new(&window, "Address");
@@ -167,7 +170,7 @@ RnclTextField::new(&group).set_position(12, 28);   // the title takes ~20 px at 
 
 ## `RnclTextArea` – multi-line text (memo)
 
-Qt: `QPlainTextEdit` · category *Eingabe* (input)
+Native: GTK `GtkTextView` · Win32 `RichEdit 5` · Cocoa `NSTextView` · category *Eingabe* (input)
 
 ```rust
 let notes = RnclTextArea::new(&window);          // default size 240×120
@@ -189,19 +192,22 @@ code.goto_line(4);
 code.set_marked_line(None, "");                             // remove the mark
 ```
 
-Rules apply per line; later rules override earlier ones. `add_highlight_rule`
-returns `false` for an invalid pattern or colour.
+Rules apply per line; later rules override earlier ones. Patterns follow the syntax
+of the [`regex` crate](https://docs.rs/regex) – without lookarounds. Replacement: if
+a pattern has a **group 1**, only that group is coloured, e.g. `^\s*(\w+)\s*=` colours
+only the key before the equals sign. `add_highlight_rule` returns `false` for an
+invalid pattern or colour.
 
 | Property | Type | |
 |---|---|---|
 | `text` | Text | content |
-| `placeholder` | Text | hint while empty |
+| `placeholder` | Text | hint while empty (Windows/macOS: stored only, not shown) |
 | `read_only` | Bool | read-only |
 | `monospace` | Bool | fixed-width font |
 
 ## `RnclComboBox` – drop-down list
 
-Qt: `QComboBox` · category *Eingabe* (input)
+Native: GTK `GtkComboBoxText` · Win32 `COMBOBOX` · Cocoa `NSPopUpButton / NSComboBox` · category *Eingabe* (input)
 
 ```rust
 let city = RnclComboBox::new(&window);
@@ -220,7 +226,7 @@ city.set_editable(true);                          // allow free text as well
 
 ## `RnclListBox` – list
 
-Qt: `QListWidget` · category *Eingabe* (input)
+Native: GTK `GtkListBox` · Win32 `LISTBOX` · Cocoa `NSTableView` · category *Eingabe* (input)
 
 ```rust
 let list = RnclListBox::new(&window);             // default size 160×120
@@ -236,7 +242,7 @@ if let Some(t) = list.current_text() { println!("{t}"); }
 
 ## `RnclSpinBox` – number field
 
-Qt: `QSpinBox` · category *Eingabe* (input) · default range 0…99
+Native: GTK `GtkSpinButton` · Win32 `EDIT + UpDown` · Cocoa `NSTextField + NSStepper` · category *Eingabe* (input) · default range 0…99
 
 ```rust
 let age = RnclSpinBox::new(&window);
@@ -252,7 +258,7 @@ age.on_value_changed(|v| println!("{v}"));
 
 ## `RnclSlider` – slider
 
-Qt: `QSlider` · category *Eingabe* (input) · default range 0…99, horizontal
+Native: GTK `GtkScale` · Win32 `Trackbar` · Cocoa `NSSlider` · category *Eingabe* (input) · default range 0…99, horizontal
 
 ```rust
 let volume = RnclSlider::new(&window);
@@ -268,7 +274,7 @@ volume.set_vertical(true);                        // swap width/height if needed
 
 ## `RnclProgressBar` – progress bar
 
-Qt: `QProgressBar` · category *Anzeige* (display) · default range 0…100
+Native: GTK `GtkProgressBar` · Win32 `Progress` · Cocoa `NSProgressIndicator` · category *Anzeige* (display) · default range 0…100
 
 ```rust
 let bar = RnclProgressBar::new(&window);
@@ -283,7 +289,7 @@ bar.set_busy(true);                               // "busy" without a percentage
 
 ## `RnclTabView` – tabs
 
-Qt: `QTabWidget` · container (pages) · category *Container*
+Native: GTK `GtkNotebook` · Win32 `SysTabControl32` · Cocoa `NSTabView` · container (pages) · category *Container*
 
 ```rust
 let tabs = RnclTabView::new(&window);
@@ -302,7 +308,7 @@ tabs.remove_tab(1);                               // removes the page and its co
 
 ## `RnclScrollView` – scroll area
 
-Qt: `QScrollArea` · container (content) · category *Container*
+Native: GTK `GtkScrolledWindow` · Win32 `RufContainer` · Cocoa `NSScrollView` · container (content) · category *Container*
 
 For content larger than the visible area – e.g. a list of check boxes created at
 runtime. Children go into `content()`.
@@ -321,6 +327,25 @@ scroll.set_content_size(0, 8 + 30 * 24);   // width 0 = follow the visible area
 | `content_width` / `content_height` | Int | minimum content size |
 
 ---
+
+## Styling
+
+`set_style_sheet` (or the property `style_sheet`) understands the same CSS subset on
+every system:
+
+| Declaration | Effect |
+|---|---|
+| `color: #c0392b` | text colour |
+| `background: #fff8e1` / `background-color: …` | background |
+| `font-weight: bold` | bold (`normal` = regular) |
+
+Colours: `#rgb`, `#rrggbb` or names such as `red`, `gray`, `darkblue`
+(see `ruf::Color::NAMES`). Other declarations are ignored – the system determines
+the rest of the appearance.
+
+```rust
+status.set_style_sheet("color: #1e8449; font-weight: bold;");
+```
 
 ## Services for dynamic user interfaces
 

@@ -11,9 +11,9 @@ keywords = ["gui", "qt", "widgets", "components", "rad"]
 categories = ["gui"]
 
 [dependencies]
-ruf = { workspace = true, features = ["qt6"] }
+ruf = { workspace = true }
 
 [[test]]
 name = "components"
-# Qt verlangt, dass QApplication im Hauptthread lebt – der Test bringt sein eigenes main() mit.
+# Native Toolkits verlangen den Hauptthread – der Test bringt sein eigenes main() mit.
 harness = false

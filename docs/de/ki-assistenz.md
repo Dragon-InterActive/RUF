@@ -12,27 +12,30 @@ eine passende Aufgabe ansteht:
 |---|---|
 | `ruf-app` | Anwendung/Formular mit RUF und RNCL bauen, Sichtprüfung per Screenshot |
 | `rncl-component` | neue RNCL-Komponente schreiben oder erweitern (Checkliste + Gerüst) |
-| `ruf-bridge` | C++/Qt-Brücke erweitern: neue Widgets, Signale, Qt-Versionsweichen |
+| `ruf-backend` | System-Ebene erweitern: neue Steuerelemente oder Fähigkeiten in GTK-, Win32- und Cocoa-Backend |
 
 Andere KI-Werkzeuge finden dieselben Regeln kompakt in [`AGENTS.md`](../../AGENTS.md).
 
 ### Beispiel-Prompts
 
 - „Baue mit RNCL ein Fenster zur Kundenerfassung mit Name, E-Mail und Speichern-Button."
-- „Erstelle eine RNCL-Komponente `RnclSlider` auf Basis von `QSlider` mit Eigenschaft `value`."
-- „Nutze in RUF das neue Qt-6.9-Feature X, mit Fallback für ältere Versionen."
+- „Erstelle eine RNCL-Komponente `RnclDatePicker` mit Eigenschaft `date` für alle drei Backends."
+- „Ergänze im Win32-Backend Dunkelmodus, wo das System ihn anbietet."
 
 ## Warum das für KIs gut funktioniert
 
 - **Selbstbeschreibende Komponenten**: `properties()` liefert Name, Typ und
   Beschreibung jeder Eigenschaft – eine KI kann Formulare über das Eigenschaftsmodell
   bauen, ohne den Quelltext jeder Komponente zu kennen.
-- **Sichtprüfung ohne Bildschirm**: `QT_QPA_PLATFORM=offscreen` +
+- **Sichtprüfung ohne Bildschirm**: `xvfb-run` (Linux) bzw. Wine (Windows-Build) +
   `Widget::save_screenshot()` erlauben es einem Agenten, das Ergebnis als Bild zu
   prüfen (Überlappungen, abgeschnittene Texte).
 - **Robuste API**: keine hängenden Zeiger, abgefangene Panics in Callbacks, klare
   Fehlermeldungen (`Application` fehlt, falscher Eigenschaftstyp …).
-- **Schnelles Feedback**: `cargo test --workspace` testet gegen echtes Qt in Sekunden.
+- **Schnelles Feedback**: `cargo test --workspace` testet gegen das echte Toolkit in
+  Sekunden; von Linux aus lassen sich auch die Windows-Tests unter Wine ausführen.
+- **Ein Kern für alle Systeme**: Signale und Semantik liegen einmalig in `core.rs`;
+  ein Backend-Fehler zeigt sich in denselben Tests auf jeder Plattform.
 
 ## Eigene Skills ergänzen
 

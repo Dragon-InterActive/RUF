@@ -75,5 +75,5 @@ cargo run -p rncl --example designer -- --screenshot form.png
 ## Preview images
 
 `Widget::save_screenshot(path)` renders any component including its children into an
-image file – offscreen too. The designer can use it to generate preview images for the
+image file – also without a display (`xvfb-run`). The designer can use it to generate preview images for the
 palette or documentation.

@@ -1,13 +1,18 @@
-//! Die Anwendung und ihr Event-Loop.
+//! Die Anwendung und ihre Event-Schleife.
 
-use cxx::UniquePtr;
-use cxx_qt_lib::QString;
+use crate::backend::{Backend, Platform};
+use crate::core;
 
-use crate::ffi::ffi;
+/// Farbschema der Anwendung.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ColorScheme {
+    /// Unbekannt bzw. "dem System folgen".
+    Unknown,
+    Light,
+    Dark,
+}
 
-pub use crate::ffi::ffi::ColorScheme;
-
-/// Die native Anwendung (`QApplication`).
+/// Die native Anwendung.
 ///
 /// Muss als **erstes** erzeugt werden – vor jeder Komponente – und lebt bis zum
 /// Programmende. Rust gibt lokale Variablen in umgekehrter Reihenfolge frei;
@@ -18,81 +23,95 @@ pub use crate::ffi::ffi::ColorScheme;
 /// // ... Fenster und Komponenten anlegen ...
 /// std::process::exit(app.exec());
 /// ```
+///
+/// Läuft auf Linux mit GTK 4, auf Windows mit Win32 und auf macOS mit Cocoa
+/// – siehe [`toolkit`](crate::toolkit).
 pub struct Application {
-    _inner: UniquePtr<ffi::Application>,
+    name: std::cell::RefCell<String>,
+    _not_send: std::marker::PhantomData<*const ()>,
 }
 
 impl Application {
-    /// Erzeugt die Anwendung mit den Kommandozeilenargumenten des Prozesses.
+    /// Erzeugt die Anwendung.
     ///
     /// # Panics
     ///
-    /// Wenn bereits eine Anwendung existiert.
+    /// Wenn bereits eine Anwendung existiert oder das Toolkit nicht
+    /// initialisiert werden kann (z. B. Linux ohne grafische Sitzung).
     pub fn new() -> Self {
-        Self::with_args(std::env::args())
-    }
-
-    /// Erzeugt die Anwendung mit eigenen Argumenten (z. B. `["app", "-platform", "offscreen"]`).
-    pub fn with_args<I, S>(args: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
         assert!(
             !Self::exists(),
             "ruf: Es darf nur eine Application pro Prozess existieren"
         );
-        let args: Vec<String> = args.into_iter().map(Into::into).collect();
+        core::app_init();
         Self {
-            _inner: ffi::application_new(&args),
+            name: std::cell::RefCell::new(String::new()),
+            _not_send: std::marker::PhantomData,
         }
+    }
+
+    /// Wie [`Application::new`]. Die Argumente werden ignoriert; die
+    /// Funktion bleibt für Kompatibilität mit älteren RUF-Versionen erhalten.
+    pub fn with_args<I, S>(_args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self::new()
     }
 
     /// Gibt es bereits eine laufende Anwendung?
     pub fn exists() -> bool {
-        ffi::application_exists()
+        core::app_exists()
     }
 
-    /// Startet den Event-Loop und blockiert bis [`Application::quit`]
+    /// Startet die Event-Schleife und blockiert bis [`Application::quit`]
     /// aufgerufen oder das letzte Fenster geschlossen wird. Liefert den Exit-Code.
     pub fn exec(&self) -> i32 {
-        ffi::application_exec()
+        core::run();
+        0
     }
 
-    /// Beendet den Event-Loop (kann aus jedem Callback aufgerufen werden).
+    /// Beendet die Event-Schleife (kann aus jedem Callback aufgerufen werden).
     pub fn quit() {
-        ffi::application_quit();
+        core::quit();
     }
 
-    /// Arbeitet anstehende Events ab, ohne zu blockieren – nützlich in Tests.
-    /// Erledigt auch ausstehende [`Widget::delete_later`](crate::Widget::delete_later).
+    /// Arbeitet anstehende Ereignisse ab, ohne zu blockieren – nützlich in
+    /// Tests. Erledigt auch ausstehende [`Widget::delete_later`](crate::Widget::delete_later).
     pub fn process_events() {
-        ffi::application_process_events();
+        core::process_events();
     }
 
-    /// Setzt den Anwendungsnamen (wird u. a. für Einstellungen genutzt).
+    /// Setzt den Anwendungsnamen.
     pub fn set_name(&self, name: &str) {
-        ffi::application_set_name(&QString::from(name));
+        *self.name.borrow_mut() = name.to_owned();
     }
 
     pub fn name(&self) -> String {
-        ffi::application_name().to_string()
+        self.name.borrow().clone()
     }
 
-    /// Das aktuelle Farbschema des Systems bzw. der Anwendung (Qt >= 6.5).
+    /// Das aktuelle Farbschema des Systems bzw. der Anwendung.
     pub fn color_scheme() -> ColorScheme {
-        ffi::application_color_scheme()
+        Platform::color_scheme()
     }
 
     /// Erzwingt ein Farbschema; `ColorScheme::Unknown` folgt wieder dem System.
-    /// Benötigt Qt >= 6.8 – liefert `false`, wenn das gebundene Qt das nicht kann.
+    /// Liefert `false`, wenn das Backend das nicht kann (Win32).
     pub fn set_color_scheme(scheme: ColorScheme) -> bool {
-        ffi::application_set_color_scheme(scheme)
+        Platform::set_color_scheme(scheme)
     }
 }
 
 impl Default for Application {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Drop for Application {
+    fn drop(&mut self) {
+        core::app_shutdown();
     }
 }

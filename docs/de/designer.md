@@ -76,5 +76,5 @@ cargo run -p rncl --example designer -- --screenshot form.png
 ## Vorschau-Bilder
 
 `Widget::save_screenshot(pfad)` rendert jede Komponente samt Kindern in eine Bilddatei –
-auch offscreen. Der Designer kann damit Vorschaubilder für Palette oder Dokumentation
+auch ohne Bildschirm (`xvfb-run`). Der Designer kann damit Vorschaubilder für Palette oder Dokumentation
 erzeugen.

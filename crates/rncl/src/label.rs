@@ -27,7 +27,8 @@ impl RnclLabel {
         Self { widget }
     }
 
-    /// Setzt den Text. Qt erkennt einfaches HTML (z. B. `<b>fett</b>`) automatisch.
+    /// Setzt den Text. Einfaches HTML (z. B. `<b>fett</b>`, `<br>`) wird unter GTK
+    /// formatiert, unter Windows und macOS als reiner Text dargestellt.
     pub fn set_text(&self, text: &str) {
         self.widget.set_text(text);
     }

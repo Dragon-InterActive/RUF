@@ -3,15 +3,16 @@
 🇬🇧 [English version](../en/README.md)
 
 **RUF** (Rust native UI Framework) ist das native Fundament für Desktop-Oberflächen
-in Rust auf Basis von **Qt ≥ 6**. **RNCL** (Rust native Component Library) liefert
+in Rust mit den **nativen Steuerelementen des Systems** – GTK 4 unter Linux, Win32
+unter Windows, Cocoa unter macOS. **RNCL** (Rust native Component Library) liefert
 darauf die UI-Elemente – Fenster, Buttons, Textfelder, Checkboxen … – als
 eigenständige, austauschbare Komponenten. Beide bilden die Basis des RAD-Tools
 **Freya TD**.
 
 ```toml
 [dependencies]
-ruf  = { version = "0.1.0", features = ["qt6"] } # Das native Fundament
-rncl = { version = "0.1.0" }                    # Die nativen System-Widgets
+ruf  = { version = "0.2.0" } # Das native Fundament (GTK 4 / Win32 / Cocoa – automatisch)
+rncl = { version = "0.2.0" } # Die nativen System-Widgets
 ```
 
 ## Inhalt
@@ -19,7 +20,7 @@ rncl = { version = "0.1.0" }                    # Die nativen System-Widgets
 | Kapitel | Worum es geht |
 |---|---|
 | [Erste Schritte](erste-schritte.md) | Installation, erstes Fenster, Beispiele ausführen |
-| [Architektur](architektur.md) | Die drei Ebenen, Besitzmodell, Threads, Qt-Versionen |
+| [Architektur](architektur.md) | Die Ebenen, Backends, Kern, Besitzmodell, Threads |
 | [Komponenten](komponenten.md) | Referenz aller RNCL-Komponenten |
 | [Eigene Komponenten](eigene-komponenten.md) | Eigene RNCL-Komponenten schreiben und registrieren |
 | [Designer-Anbindung](designer.md) | Registry und Eigenschaftsmodell für Freya TD |
@@ -57,13 +58,15 @@ fn main() {
 RUF/
 ├── Cargo.toml                 Workspace
 ├── crates/
-│   ├── ruf/                   System-Ebene + Logik-Basis
-│   │   ├── cpp/               C++-Shim über QtWidgets
-│   │   └── src/               ffi (Brücke), Widget, Component, Registry …
+│   ├── ruf/                   Fundament
+│   │   └── src/
+│   │       ├── backend/       System-Ebene: gtk.rs (Linux), win32.rs (Windows), cocoa.rs (macOS)
+│   │       ├── core.rs        Kern: Registry, Signale, Geometrie, Timer
+│   │       └── …              Widget, Component, Registry, Eigenschaften, Stil
 │   └── rncl/                  Standardkomponenten
 │       ├── src/               RnclWindow, RnclButton, …
 │       ├── examples/          hello, counter, form, gallery, custom_component, designer
-│       └── tests/             Integrationstests gegen echtes Qt (offscreen)
+│       └── tests/             Integrationstests gegen das echte Toolkit
 ├── docs/{de,en}/              diese Dokumentation
 └── .claude/skills/            Skills für KI-Assistenten
 ```

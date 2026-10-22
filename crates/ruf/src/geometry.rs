@@ -1,7 +1,5 @@
-//! Reine Rust-Geometrietypen – unabhängig von Qt, damit Logik und Designer
-//! ohne FFI damit rechnen können.
-
-use cxx_qt_lib::QRect;
+//! Reine Rust-Geometrietypen – unabhängig vom Backend, damit Logik und
+//! Designer ohne FFI damit rechnen können.
 
 /// Ein Punkt in Pixeln, relativ zum Elternelement.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -66,18 +64,6 @@ impl Rect {
             && point.y >= self.y
             && point.x < self.x + self.width
             && point.y < self.y + self.height
-    }
-}
-
-impl From<Rect> for QRect {
-    fn from(r: Rect) -> Self {
-        QRect::new(r.x, r.y, r.width, r.height)
-    }
-}
-
-impl From<&QRect> for Rect {
-    fn from(r: &QRect) -> Self {
-        Rect::new(r.x(), r.y(), r.width(), r.height())
     }
 }
 

@@ -1,26 +1,26 @@
 //! # RNCL – Rust native Component Library
 //!
 //! Die nativen System-Widgets für [RUF](ruf): pure Rust-Strukturen, die jeweils
-//! ein echtes Qt-Widget steuern.
+//! ein echtes Steuerelement des Systems steuern (GTK 4, Win32 oder Cocoa).
 //!
-//! | Komponente        | Qt-Widget     | Container |
-//! |-------------------|---------------|-----------|
-//! | [`RnclWindow`]    | `QWidget`     | ja        |
-//! | [`RnclPanel`]     | `QWidget`     | ja        |
-//! | [`RnclButton`]    | `QPushButton` | nein      |
-//! | [`RnclLabel`]     | `QLabel`      | nein      |
-//! | [`RnclTextField`] | `QLineEdit`   | nein      |
-//! | [`RnclCheckBox`]  | `QCheckBox`   | nein      |
-//! | [`RnclRadioButton`] | `QRadioButton` | nein   |
-//! | [`RnclGroupBox`]  | `QGroupBox`   | ja        |
-//! | [`RnclTextArea`]  | `QPlainTextEdit` | nein   |
-//! | [`RnclComboBox`]  | `QComboBox`   | nein      |
-//! | [`RnclListBox`]   | `QListWidget` | nein      |
-//! | [`RnclSpinBox`]   | `QSpinBox`    | nein      |
-//! | [`RnclSlider`]    | `QSlider`     | nein      |
-//! | [`RnclProgressBar`] | `QProgressBar` | nein   |
-//! | [`RnclTabView`]   | `QTabWidget`  | ja (Seiten) |
-//! | [`RnclScrollView`] | `QScrollArea` | ja (Inhalt) |
+//! | Komponente | GTK | Win32 | Cocoa | Container |
+//! |---|---|---|---|---|
+//! | [`RnclWindow`] | `GtkWindow` | `RufWindow` | `NSWindow` | ja |
+//! | [`RnclPanel`] | `RufFixed` | `RufContainer` | `RufView` | ja |
+//! | [`RnclButton`] | `GtkButton` | `BUTTON` | `NSButton` | nein |
+//! | [`RnclLabel`] | `GtkLabel` | `STATIC` | `NSTextField` | nein |
+//! | [`RnclTextField`] | `GtkEntry` | `EDIT` | `NSTextField` | nein |
+//! | [`RnclCheckBox`] | `GtkCheckButton` | `BUTTON` | `NSButton` | nein |
+//! | [`RnclRadioButton`] | `GtkCheckButton` | `BUTTON` | `NSButton` | nein |
+//! | [`RnclGroupBox`] | `GtkFrame` | `BUTTON` | `NSBox` | ja |
+//! | [`RnclTextArea`] | `GtkTextView` | RichEdit | `NSTextView` | nein |
+//! | [`RnclComboBox`] | `GtkComboBoxText` | `COMBOBOX` | `NSPopUpButton`/`NSComboBox` | nein |
+//! | [`RnclListBox`] | `GtkListBox` | `LISTBOX` | `NSTableView` | nein |
+//! | [`RnclSpinBox`] | `GtkSpinButton` | `EDIT`+UpDown | `NSTextField`+`NSStepper` | nein |
+//! | [`RnclSlider`] | `GtkScale` | Trackbar | `NSSlider` | nein |
+//! | [`RnclProgressBar`] | `GtkProgressBar` | Progress | `NSProgressIndicator` | nein |
+//! | [`RnclTabView`] | `GtkNotebook` | Tab Control | `NSTabView` | ja (Seiten) |
+//! | [`RnclScrollView`] | `GtkScrolledWindow` | `RufContainer` | `NSScrollView` | ja (Inhalt) |
 //!
 //! ```no_run
 //! use rncl::prelude::*;

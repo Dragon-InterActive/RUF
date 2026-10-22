@@ -1,16 +1,13 @@
-//! [`Widget`]: der sichere Rust-Verweis auf ein natives Qt-Widget.
+//! [`Widget`]: der sichere Rust-Verweis auf ein natives Steuerelement.
 
-use cxx::UniquePtr;
-use cxx_qt_lib::QString;
-
-use crate::Application;
-use crate::ffi::{
-    RufBoolCallback, RufCallback, RufCloseCallback, RufIntCallback, RufSizeCallback,
-    RufStringCallback, ffi,
-};
+use crate::backend::{Backend, Platform};
+use crate::core::{self, Id, ItemChange};
 use crate::geometry::{Point, Rect, Size};
+use crate::style::Color;
+use crate::style::Style;
+use crate::text::HighlightRule;
 
-pub use crate::ffi::ffi::WidgetKind;
+pub use crate::core::WidgetKind;
 
 /// Ein Verweis auf ein natives Widget.
 ///
@@ -18,41 +15,49 @@ pub use crate::ffi::ffi::WidgetKind;
 ///
 /// * Ein Widget **ohne** Elternteil (z. B. ein Fenster) wird freigegeben, wenn
 ///   der erzeugende `Widget`-Wert gedroppt wird.
-/// * Ein Widget **mit** Elternteil gehört – wie in Qt üblich – seinem Elternteil.
-///   Den Rust-Wert zu droppen entfernt es nicht aus der Oberfläche.
+/// * Ein Widget **mit** Elternteil gehört seinem Elternteil. Den Rust-Wert
+///   zu droppen entfernt es nicht aus der Oberfläche.
 /// * [`Clone`] erzeugt einen *nicht besitzenden* Verweis, ideal für Closures.
-/// * Wurde das Widget von Qt zerstört, werden alle Aufrufe zu No-Ops und
-///   Getter liefern Standardwerte ([`Widget::is_alive`] ist dann `false`).
+/// * Wurde das Widget zerstört, werden alle Aufrufe zu No-Ops und Getter
+///   liefern Standardwerte ([`Widget::is_alive`] ist dann `false`).
 ///
-/// `Widget` ist bewusst weder `Send` noch `Sync`: Qt-Widgets dürfen nur im
-/// GUI-Thread benutzt werden.
+/// `Widget` ist bewusst weder `Send` noch `Sync`: native Steuerelemente
+/// dürfen nur im GUI-Thread benutzt werden. Für Hintergrundarbeit gibt es
+/// [`GuiSender`](crate::GuiSender).
 pub struct Widget {
-    handle: UniquePtr<ffi::WidgetHandle>,
+    id: Id,
+    owned: bool,
+    // Nicht Send/Sync: nur im GUI-Thread benutzbar.
+    _not_send: std::marker::PhantomData<*const ()>,
 }
 
 impl Widget {
+    fn wrap(id: Id, owned: bool) -> Self {
+        Self {
+            id,
+            owned,
+            _not_send: std::marker::PhantomData,
+        }
+    }
+
     /// Erzeugt ein Widget ohne Elternteil (z. B. ein Fenster).
     ///
     /// # Panics
     ///
-    /// Wenn noch keine [`Application`] existiert.
+    /// Wenn noch keine [`Application`](crate::Application) existiert.
     pub fn new(kind: WidgetKind) -> Self {
         ensure_application();
-        Self {
-            handle: ffi::widget_create(kind),
-        }
+        Self::wrap(core::create(kind, None), true)
     }
 
     /// Erzeugt ein Widget als Kind von `parent`.
     ///
     /// # Panics
     ///
-    /// Wenn noch keine [`Application`] existiert.
+    /// Wenn noch keine [`Application`](crate::Application) existiert.
     pub fn new_child(kind: WidgetKind, parent: &Widget) -> Self {
         ensure_application();
-        Self {
-            handle: ffi::widget_create_child(kind, &parent.handle),
-        }
+        Self::wrap(core::create(kind, Some(parent.id)), true)
     }
 
     /// Erzeugt ein Widget – als Kind von `parent` oder, bei `None`, ohne Elternteil.
@@ -63,64 +68,75 @@ impl Widget {
         }
     }
 
-    /// Erzeugt einen nicht besitzenden Verweis auf ein fremd erzeugtes `QWidget`.
-    ///
-    /// Damit können eigene RNCL-Komponenten beliebige Qt-Widgets aus einer
-    /// eigenen cxx-Bridge in RUF einbinden.
-    ///
-    /// # Safety
-    ///
-    /// `widget` muss null sein oder auf ein gültiges `QWidget` zeigen. Danach
-    /// überwacht RUF die Lebensdauer selbst (über `QPointer`).
-    pub unsafe fn from_raw(widget: *mut ffi::QWidget) -> Self {
-        Self {
-            // SAFETY: vom Aufrufer zugesichert.
-            handle: unsafe { ffi::widget_wrap(widget) },
-        }
+    /// Ein Verweis, der auf nichts zeigt (`is_alive() == false`).
+    pub fn null() -> Self {
+        Self::wrap(0, false)
     }
 
-    /// Ein leerer Verweis (für optionale Elternteile in der Brücke).
-    pub(crate) fn null() -> Self {
-        // SAFETY: null ist ausdrücklich erlaubt.
-        unsafe { Self::from_raw(std::ptr::null_mut()) }
-    }
-
-    pub(crate) fn handle(&self) -> &ffi::WidgetHandle {
-        &self.handle
-    }
-
-    /// Der rohe Zeiger auf das `QWidget` (null, wenn es nicht mehr existiert).
-    pub fn as_ptr(&self) -> *mut ffi::QWidget {
-        ffi::widget_raw(&self.handle)
+    /// Die interne Nummer (eindeutig, wird nie wiederverwendet).
+    pub fn id(&self) -> u64 {
+        self.id
     }
 
     /// Existiert das native Widget noch?
     pub fn is_alive(&self) -> bool {
-        ffi::widget_is_alive(&self.handle)
+        core::alive(self.id)
     }
 
+    /// Die Art des Widgets (bei toten Verweisen `Container`).
     pub fn kind(&self) -> WidgetKind {
-        ffi::widget_kind(&self.handle)
+        core::get(self.id, |n| n.kind).unwrap_or(WidgetKind::Container)
     }
 
-    /// Der Qt-Klassenname, z. B. `"QPushButton"`.
+    /// Name der nativen Klasse, z. B. `"GtkButton"`, `"Button"`, `"NSButton"`.
     pub fn class_name(&self) -> String {
-        ffi::widget_class_name(&self.handle).to_string()
+        core::native(self.id)
+            .map(|(n, k)| Platform::class_name(&n, k))
+            .unwrap_or_default()
+    }
+
+    /// Der Elternteil (sofern vorhanden und lebendig).
+    pub fn parent(&self) -> Option<Widget> {
+        core::get(self.id, |n| n.parent)
+            .flatten()
+            .map(|p| Self::wrap(p, false))
     }
 
     /// Hängt das Widget in ein anderes Elternelement um.
     pub fn set_parent(&self, parent: &Widget) {
-        ffi::widget_set_parent(&self.handle, &parent.handle);
+        let (Some((native, kind)), Some((parent_native, parent_kind))) =
+            (core::native(self.id), core::native(parent.id))
+        else {
+            return;
+        };
+        if !parent_kind.is_container() {
+            return;
+        }
+        let old = core::get(self.id, |n| n.parent).flatten();
+        core::setter(|| Platform::set_parent(&native, kind, &parent_native));
+        if let Some(old) = old {
+            core::update(old, |n| n.children.retain(|c| *c != self.id));
+        }
+        core::update(self.id, |n| n.parent = Some(parent.id));
+        core::update(parent.id, |n| n.children.push(self.id));
+        let geometry = self.geometry();
+        core::set_geometry(self.id, geometry);
+    }
+
+    fn native_call(&self, f: impl FnOnce(&crate::backend::Native, WidgetKind)) {
+        if let Some((native, kind)) = core::native(self.id) {
+            core::setter(|| f(&native, kind));
+        }
     }
 
     // --- Geometrie --------------------------------------------------------
 
     pub fn set_geometry(&self, rect: Rect) {
-        ffi::widget_set_geometry(&self.handle, &rect.into());
+        core::set_geometry(self.id, rect);
     }
 
     pub fn geometry(&self) -> Rect {
-        Rect::from(&ffi::widget_geometry(&self.handle))
+        core::get(self.id, |n| n.geometry).unwrap_or_default()
     }
 
     pub fn set_position(&self, x: i32, y: i32) {
@@ -141,212 +157,281 @@ impl Widget {
         self.geometry().size()
     }
 
+    /// Mindestgröße. Beim Inhalt eines Scrollbereichs bestimmt sie, ab wann
+    /// gescrollt wird (0 = folgt dem sichtbaren Bereich).
     pub fn set_minimum_size(&self, width: i32, height: i32) {
-        ffi::widget_set_minimum_size(&self.handle, width, height);
+        let size = Size::new(width, height);
+        // Inhalt eines Scrollbereichs: Mindestgröße am Bereich setzen.
+        let scroll = core::get(self.id, |n| n.parent).flatten().and_then(|p| {
+            core::get(p, |n| {
+                (n.content == Some(self.id)).then(|| n.native.clone())
+            })
+            .flatten()
+        });
+        core::update(self.id, |n| n.content_min = size);
+        if let Some(native) = scroll {
+            core::setter(|| Platform::set_content_min_size(&native, size));
+        }
     }
 
-    /// Passt die Größe an den Inhalt an (Qt `sizeHint`).
+    pub fn minimum_size(&self) -> Size {
+        core::get(self.id, |n| n.content_min).unwrap_or_default()
+    }
+
+    /// Passt die Größe an den Inhalt an (bevorzugte Größe des Toolkits).
     pub fn adjust_size(&self) {
-        ffi::widget_adjust_size(&self.handle);
+        if let Some((native, kind)) = core::native(self.id) {
+            let size = Platform::preferred_size(&native, kind);
+            self.set_size(size.width, size.height);
+        }
     }
 
     // --- Zustand ----------------------------------------------------------
 
     pub fn set_visible(&self, visible: bool) {
-        ffi::widget_set_visible(&self.handle, visible);
+        core::set_visible(self.id, visible);
     }
 
-    /// Ist das Widget tatsächlich auf dem Bildschirm (inkl. aller Eltern)?
+    /// Ist das Widget tatsächlich sichtbar (inkl. aller Eltern)?
     pub fn is_visible(&self) -> bool {
-        ffi::widget_is_visible(&self.handle)
+        core::is_visible(self.id)
     }
 
-    /// Wurde das Widget explizit versteckt? Kinder eines noch nicht gezeigten
-    /// Fensters sind *nicht* versteckt, aber auch noch nicht sichtbar.
+    /// Wurde das Widget ausdrücklich ausgeblendet? Kinder eines noch nicht
+    /// gezeigten Fensters sind *nicht* ausgeblendet, aber auch nicht sichtbar.
     pub fn is_hidden(&self) -> bool {
-        ffi::widget_is_hidden(&self.handle)
+        core::get(self.id, |n| n.hidden).unwrap_or(true)
     }
 
     pub fn set_enabled(&self, enabled: bool) {
-        ffi::widget_set_enabled(&self.handle, enabled);
+        core::update(self.id, |n| n.enabled = enabled);
+        self.native_call(|n, k| Platform::set_enabled(n, k, enabled));
     }
 
     pub fn is_enabled(&self) -> bool {
-        ffi::widget_is_enabled(&self.handle)
+        core::get(self.id, |n| n.enabled).unwrap_or(false)
     }
 
     pub fn set_tool_tip(&self, text: &str) {
-        ffi::widget_set_tool_tip(&self.handle, &QString::from(text));
+        core::update(self.id, |n| n.tool_tip = text.to_owned());
+        self.native_call(|n, k| Platform::set_tool_tip(n, k, text));
     }
 
     pub fn tool_tip(&self) -> String {
-        ffi::widget_tool_tip(&self.handle).to_string()
+        core::get(self.id, |n| n.tool_tip.clone()).unwrap_or_default()
     }
 
-    /// Setzt ein Qt-Stylesheet (CSS-ähnlich), z. B. `"color: red;"`.
+    /// Gestaltung per CSS-Teilmenge: `color`, `background(-color)`,
+    /// `font-weight` – siehe [`Style`]. Andere Angaben werden ignoriert.
     pub fn set_style_sheet(&self, css: &str) {
-        ffi::widget_set_style_sheet(&self.handle, &QString::from(css));
+        core::update(self.id, |n| n.style_sheet = css.to_owned());
+        let style = Style::parse(css);
+        self.native_call(|n, k| Platform::set_style(n, k, &style));
     }
 
     pub fn style_sheet(&self) -> String {
-        ffi::widget_style_sheet(&self.handle).to_string()
+        core::get(self.id, |n| n.style_sheet.clone()).unwrap_or_default()
     }
 
     /// Der Objektname – der Designer nutzt ihn als eindeutigen Bezeichner.
     pub fn set_object_name(&self, name: &str) {
-        ffi::widget_set_object_name(&self.handle, &QString::from(name));
+        core::update(self.id, |n| n.name = name.to_owned());
     }
 
     pub fn object_name(&self) -> String {
-        ffi::widget_object_name(&self.handle).to_string()
+        core::get(self.id, |n| n.name.clone()).unwrap_or_default()
     }
 
-    /// Schließt das Widget (bei Fenstern: wie ein Klick auf "X").
+    /// Schließt ein Fenster wie ein Klick auf "X": fragt die
+    /// [`on_close_requested`](Self::on_close_requested)-Handler und blendet es
+    /// dann aus. Bei anderen Widgets: ausblenden.
     pub fn close(&self) {
-        ffi::widget_close(&self.handle);
-    }
-
-    /// Rendert das Widget samt Kindern in eine Bilddatei (Format aus der Endung,
-    /// z. B. `.png`). Funktioniert auch offscreen (`-platform offscreen`) –
-    /// ideal für Tests, Dokumentation und KI-Assistenten ohne Bildschirm.
-    pub fn save_screenshot(&self, path: impl AsRef<std::path::Path>) -> bool {
-        let path = path.as_ref().to_string_lossy();
-        ffi::widget_save_screenshot(&self.handle, &QString::from(&*path))
+        if self.kind() == WidgetKind::Window {
+            core::close_requested(self.id);
+        } else {
+            self.set_visible(false);
+        }
     }
 
     /// Entfernt das Widget samt Kindern aus der Oberfläche und gibt es frei,
-    /// sobald der Event-Loop wieder an der Reihe ist. Alle Verweise darauf
-    /// werden danach tot ([`Widget::is_alive`] == `false`).
-    ///
-    /// Gedacht für dynamische Oberflächen, z. B. Listen aus Checkboxen, die
-    /// neu aufgebaut werden.
+    /// sobald die Event-Schleife wieder an der Reihe ist (bzw. beim nächsten
+    /// [`Application::process_events`](crate::Application::process_events)).
+    /// Alle Verweise darauf werden danach tot.
     pub fn delete_later(&self) {
-        ffi::widget_delete_later(&self.handle);
+        core::delete_later(self.id);
     }
 
-    /// Meldet ein Tastenkürzel an (z. B. `"Ctrl+S"`, `"F5"`), das gilt, solange
-    /// das Fenster dieses Widgets aktiv ist. `false` bei ungültiger Tastenfolge.
-    pub fn add_shortcut(&self, sequence: &str, f: impl FnMut() + 'static) -> bool {
-        ffi::widget_add_shortcut(&self.handle, &QString::from(sequence), RufCallback::new(f))
-    }
-
-    /// Der Inhalt einer Scrollfläche ([`WidgetKind::ScrollArea`]); bei anderen
-    /// Widgets nicht lebendig.
-    pub fn scroll_content(&self) -> Widget {
-        Widget {
-            handle: ffi::widget_scroll_content(&self.handle),
+    /// Rendert das Widget samt Kindern in eine PNG-Datei – ideal für Tests,
+    /// Dokumentation und KI-Assistenten. Liefert `false` bei Fehlern.
+    pub fn save_screenshot(&self, path: impl AsRef<std::path::Path>) -> bool {
+        match core::native(self.id) {
+            Some((native, kind)) => {
+                core::setter(|| Platform::screenshot(&native, kind, path.as_ref()))
+            }
+            None => false,
         }
+    }
+
+    /// Meldet ein Tastenkürzel an (z. B. `"Ctrl+S"`, `"F5"`, `"Strg+Shift+Z"`),
+    /// das gilt, solange das Fenster dieses Widgets aktiv ist. `false` bei
+    /// ungültiger Tastenfolge. Unter macOS gilt `Ctrl` auch als `Cmd`.
+    pub fn add_shortcut(&self, sequence: &str, f: impl FnMut() + 'static) -> bool {
+        core::add_shortcut(self.id, sequence, f)
+    }
+
+    /// Der Inhalt eines Scrollbereichs ([`WidgetKind::ScrollArea`]); bei
+    /// anderen Widgets nicht lebendig.
+    pub fn scroll_content(&self) -> Widget {
+        let content = core::get(self.id, |n| n.content).flatten().unwrap_or(0);
+        Self::wrap(content, false)
     }
 
     // --- Code-Editor (Textbereich) -------------------------------------------
 
     /// Schrift mit fester Zeichenbreite (Systemschrift für Code).
     pub fn set_monospace(&self, monospace: bool) {
-        ffi::widget_set_monospace(&self.handle, monospace);
+        core::update(self.id, |n| n.monospace = monospace);
+        self.native_call(|n, k| Platform::set_monospace(n, k, monospace));
     }
 
-    /// Hat die aktuelle Schrift eine feste Zeichenbreite?
     pub fn is_monospace(&self) -> bool {
-        ffi::widget_is_monospace(&self.handle)
+        core::get(self.id, |n| n.monospace).unwrap_or(false)
     }
 
-    /// Hebt alle Treffer des regulären Ausdrucks `pattern` (Qt/PCRE-Syntax) in
-    /// der Farbe `color` (z. B. `"#c0392b"` oder `"darkblue"`) hervor. Regeln
-    /// gelten zeilenweise; spätere überschreiben frühere. `false`, wenn das
-    /// Widget kein Textbereich oder Muster bzw. Farbe ungültig ist.
+    /// Hebt alle Treffer des regulären Ausdrucks `pattern` (Syntax der
+    /// `regex`-Crate) in der Farbe `color` hervor. Regeln gelten zeilenweise;
+    /// spätere überschreiben frühere. Hat das Muster eine Gruppe 1, wird nur
+    /// diese eingefärbt (Ersatz für Lookarounds). `false`, wenn das Widget
+    /// kein Textbereich oder Muster bzw. Farbe ungültig ist.
     pub fn add_highlight_rule(&self, pattern: &str, color: &str, bold: bool) -> bool {
-        ffi::widget_add_highlight_rule(
-            &self.handle,
-            &QString::from(pattern),
-            &QString::from(color),
-            bold,
-        )
+        let (Ok(pattern), Some(color)) = (regex::Regex::new(pattern), Color::parse(color)) else {
+            return false;
+        };
+        if pattern.as_str().is_empty() || self.kind() != WidgetKind::TextArea {
+            return false;
+        }
+        core::update(self.id, |n| {
+            n.rules.push(HighlightRule {
+                pattern,
+                color,
+                bold,
+            })
+        });
+        core::rehighlight(self.id, &self.text());
+        true
     }
 
     pub fn clear_highlight_rules(&self) {
-        ffi::widget_clear_highlight_rules(&self.handle);
+        core::update(self.id, |n| n.rules.clear());
+        core::rehighlight(self.id, &self.text());
     }
 
-    /// Hinterlegt die Zeile `line` (ab 0) farbig, z. B. für eine Fehlerzeile.
+    /// Hinterlegt die Zeile `line` (ab 0) farbig, z. B. eine Fehlerzeile.
     /// `None` entfernt die Markierung.
     pub fn set_marked_line(&self, line: Option<i32>, color: &str) {
-        ffi::widget_set_marked_line(&self.handle, line.unwrap_or(-1), &QString::from(color));
+        let marked = match (line, Color::parse(color)) {
+            (Some(line), Some(color)) if line >= 0 => Some((line as usize, color)),
+            _ => None,
+        };
+        core::update(self.id, |n| n.marked = marked);
+        self.native_call(|n, k| {
+            if k == WidgetKind::TextArea {
+                Platform::set_marked_line(n, marked);
+            }
+        });
     }
 
     /// Setzt den Cursor an den Anfang der Zeile `line` (ab 0) und scrollt dorthin.
     pub fn goto_line(&self, line: i32) {
-        ffi::widget_goto_line(&self.handle, line);
+        if line >= 0 {
+            self.native_call(|n, k| {
+                if k == WidgetKind::TextArea {
+                    Platform::goto_line(n, line as usize);
+                }
+            });
+        }
     }
 
     // --- Inhalt -----------------------------------------------------------
 
-    /// Fenstertitel bzw. Button-, Label- oder Eingabefeldtext.
+    /// Fenstertitel bzw. Button-, Label- oder Eingabefeldtext. Labels
+    /// verstehen einfaches HTML (`<b>`, `<i>`, `<br>`, `<small>` …).
     pub fn set_text(&self, text: &str) {
-        ffi::widget_set_text(&self.handle, &QString::from(text));
+        core::set_text(self.id, text);
     }
 
     pub fn text(&self) -> String {
-        ffi::widget_text(&self.handle).to_string()
-    }
-
-    /// Automatischer Zeilenumbruch eines Labels (Text oben links ausgerichtet).
-    pub fn set_word_wrap(&self, wrap: bool) {
-        ffi::widget_set_word_wrap(&self.handle, wrap);
-    }
-
-    pub fn is_word_wrap(&self) -> bool {
-        ffi::widget_is_word_wrap(&self.handle)
+        core::current_text(self.id)
     }
 
     /// Platzhaltertext eines Eingabefelds; bei anderen Widgets ohne Wirkung.
     pub fn set_placeholder(&self, text: &str) {
-        ffi::widget_set_placeholder(&self.handle, &QString::from(text));
+        core::update(self.id, |n| n.placeholder = text.to_owned());
+        self.native_call(|n, k| Platform::set_placeholder(n, k, text));
     }
 
     pub fn placeholder(&self) -> String {
-        ffi::widget_placeholder(&self.handle).to_string()
+        core::get(self.id, |n| n.placeholder.clone()).unwrap_or_default()
     }
 
     /// Verdeckte Eingabe (Passwortfeld); bei anderen Widgets ohne Wirkung.
     pub fn set_password_mode(&self, enabled: bool) {
-        ffi::widget_set_password_mode(&self.handle, enabled);
+        if self.kind() == WidgetKind::LineEdit {
+            core::update(self.id, |n| n.password = enabled);
+            self.native_call(|n, _| Platform::set_password(n, enabled));
+        }
     }
 
     pub fn is_password_mode(&self) -> bool {
-        ffi::widget_is_password_mode(&self.handle)
+        core::get(self.id, |n| n.password).unwrap_or(false)
     }
 
-    /// Häkchen bzw. gedrückter Zustand (macht Buttons dabei "checkable").
+    /// Automatischer Zeilenumbruch eines Labels.
+    pub fn set_word_wrap(&self, wrap: bool) {
+        if self.kind() == WidgetKind::Label {
+            core::update(self.id, |n| n.word_wrap = wrap);
+            self.native_call(|n, _| Platform::set_word_wrap(n, wrap));
+        }
+    }
+
+    pub fn is_word_wrap(&self) -> bool {
+        core::get(self.id, |n| n.word_wrap).unwrap_or(false)
+    }
+
+    /// Häkchen bzw. gedrückter Zustand.
     pub fn set_checked(&self, checked: bool) {
-        ffi::widget_set_checked(&self.handle, checked);
+        core::set_checked(self.id, checked);
     }
 
     pub fn is_checked(&self) -> bool {
-        ffi::widget_is_checked(&self.handle)
+        core::native(self.id)
+            .map(|(n, k)| Platform::is_checked(&n, k))
+            .unwrap_or(false)
     }
 
     /// Löst einen Klick aus wie per Maus (inkl. Umschalten und aller Signale).
     /// Liefert `false`, wenn das Widget kein Button ist.
     pub fn click(&self) -> bool {
-        ffi::widget_click(&self.handle)
+        core::click(self.id)
     }
 
     /// Nur lesbar (Eingabefeld, Textbereich, Spinbox).
     pub fn set_read_only(&self, read_only: bool) {
-        ffi::widget_set_read_only(&self.handle, read_only);
+        core::update(self.id, |n| n.read_only = read_only);
+        self.native_call(|n, k| Platform::set_read_only(n, k, read_only));
     }
 
     pub fn is_read_only(&self) -> bool {
-        ffi::widget_is_read_only(&self.handle)
+        core::get(self.id, |n| n.read_only).unwrap_or(false)
     }
 
     /// Freie Texteingabe in einer Combobox erlauben.
     pub fn set_editable(&self, editable: bool) {
-        ffi::widget_set_editable(&self.handle, editable);
+        core::set_editable(self.id, editable);
     }
 
     pub fn is_editable(&self) -> bool {
-        ffi::widget_is_editable(&self.handle)
+        core::get(self.id, |n| n.editable).unwrap_or(false)
     }
 
     // --- Einträge (Combobox, Liste, Registerkarten) -------------------------
@@ -355,33 +440,86 @@ impl Widget {
     // entstehen über [`Widget::add_tab`].
 
     pub fn add_item(&self, text: &str) {
-        ffi::widget_add_item(&self.handle, &QString::from(text));
+        core::edit_items(self.id, |items| {
+            items.push(text.to_owned());
+            ItemChange::Inserted(items.len() as i32 - 1)
+        });
     }
 
     pub fn insert_item(&self, index: i32, text: &str) {
-        ffi::widget_insert_item(&self.handle, index, &QString::from(text));
+        core::edit_items(self.id, |items| {
+            let at = (index.max(0) as usize).min(items.len());
+            items.insert(at, text.to_owned());
+            ItemChange::Inserted(at as i32)
+        });
     }
 
     /// Entfernt einen Eintrag; bei Registerkarten samt Seite und Inhalt.
     pub fn remove_item(&self, index: i32) {
-        ffi::widget_remove_item(&self.handle, index);
+        if self.kind() == WidgetKind::TabView {
+            core::tab_remove(self.id, index);
+            return;
+        }
+        core::edit_items(self.id, |items| match usize::try_from(index) {
+            Ok(i) if i < items.len() => {
+                items.remove(i);
+                ItemChange::Removed(index)
+            }
+            _ => ItemChange::None,
+        });
     }
 
     pub fn clear_items(&self) {
-        ffi::widget_clear_items(&self.handle);
+        if self.kind() == WidgetKind::TabView {
+            while self.item_count() > 0 {
+                core::tab_remove(self.id, 0);
+            }
+            return;
+        }
+        core::edit_items(self.id, |items| {
+            items.clear();
+            ItemChange::Replaced
+        });
     }
 
     pub fn item_count(&self) -> i32 {
-        ffi::widget_item_count(&self.handle)
+        core::get(self.id, |n| match n.kind {
+            WidgetKind::TabView => n.tabs.len() as i32,
+            _ => n.items.len() as i32,
+        })
+        .unwrap_or(0)
     }
 
     /// Text eines Eintrags (leer bei ungültigem Index).
     pub fn item_text(&self, index: i32) -> String {
-        ffi::widget_item_text(&self.handle, index).to_string()
+        core::get(self.id, |n| {
+            let list = if n.kind == WidgetKind::TabView {
+                &n.tab_titles
+            } else {
+                &n.items
+            };
+            usize::try_from(index)
+                .ok()
+                .and_then(|i| list.get(i).cloned())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default()
     }
 
     pub fn set_item_text(&self, index: i32, text: &str) {
-        ffi::widget_set_item_text(&self.handle, index, &QString::from(text));
+        if self.kind() == WidgetKind::TabView {
+            core::tab_set_title(self.id, index, text);
+            return;
+        }
+        core::edit_items(self.id, |items| {
+            match usize::try_from(index).ok().and_then(|i| items.get_mut(i)) {
+                Some(item) => {
+                    *item = text.to_owned();
+                    ItemChange::Renamed
+                }
+                None => ItemChange::None,
+            }
+        });
     }
 
     /// Alle Einträge als Liste.
@@ -391,124 +529,157 @@ impl Widget {
 
     /// Ersetzt alle Einträge (nicht für Registerkarten – dort `add_tab`).
     pub fn set_items<S: AsRef<str>>(&self, items: &[S]) {
-        self.clear_items();
-        for item in items {
-            self.add_item(item.as_ref());
-        }
+        let items: Vec<String> = items.iter().map(|s| s.as_ref().to_owned()).collect();
+        core::edit_items(self.id, move |list| {
+            *list = items;
+            ItemChange::Replaced
+        });
     }
 
     /// Ausgewählter Eintrag bzw. aktive Seite; `-1` = keine Auswahl.
     pub fn set_current_index(&self, index: i32) {
-        ffi::widget_set_current_index(&self.handle, index);
+        core::set_current_index(self.id, index);
     }
 
     pub fn current_index(&self) -> i32 {
-        ffi::widget_current_index(&self.handle)
+        core::native(self.id)
+            .map(|(n, k)| match k {
+                WidgetKind::ComboBox | WidgetKind::ListBox | WidgetKind::TabView => {
+                    Platform::current_index(&n, k)
+                }
+                _ => -1,
+            })
+            .unwrap_or(-1)
     }
 
     /// Fügt einer Registerkarte eine Seite hinzu und liefert sie als Container.
     /// Bei anderen Widgets ist das Ergebnis nicht lebendig (`is_alive() == false`).
     pub fn add_tab(&self, title: &str) -> Widget {
-        Widget {
-            handle: ffi::widget_tab_add(&self.handle, &QString::from(title)),
-        }
+        Self::wrap(core::tab_add(self.id, title).unwrap_or(0), false)
     }
 
     // --- Wertebereich (Spinbox, Schieberegler, Fortschrittsbalken) ----------
 
     pub fn set_range(&self, minimum: i32, maximum: i32) {
-        ffi::widget_set_range(&self.handle, minimum, maximum);
+        core::set_range(self.id, minimum, maximum);
     }
 
     pub fn minimum(&self) -> i32 {
-        ffi::widget_minimum(&self.handle)
+        core::get(self.id, |n| n.minimum).unwrap_or(0)
     }
 
     pub fn maximum(&self) -> i32 {
-        ffi::widget_maximum(&self.handle)
+        core::get(self.id, |n| n.maximum).unwrap_or(0)
     }
 
-    /// Setzt den Wert; Qt begrenzt ihn auf den Wertebereich.
+    /// Setzt den Wert; er wird auf den Wertebereich begrenzt.
     pub fn set_value(&self, value: i32) {
-        ffi::widget_set_value(&self.handle, value);
+        core::set_value(self.id, value);
     }
 
     pub fn value(&self) -> i32 {
-        ffi::widget_value(&self.handle)
+        core::native(self.id)
+            .map(|(n, k)| match k {
+                WidgetKind::SpinBox | WidgetKind::Slider | WidgetKind::ProgressBar => {
+                    Platform::value(&n, k)
+                }
+                _ => 0,
+            })
+            .unwrap_or(0)
     }
 
     /// Senkrechte statt waagerechte Ausrichtung (Schieberegler, Fortschrittsbalken).
     pub fn set_vertical(&self, vertical: bool) {
-        ffi::widget_set_vertical(&self.handle, vertical);
+        core::update(self.id, |n| n.vertical = vertical);
+        self.native_call(|n, k| Platform::set_vertical(n, k, vertical));
     }
 
     pub fn is_vertical(&self) -> bool {
-        ffi::widget_is_vertical(&self.handle)
+        core::get(self.id, |n| n.vertical).unwrap_or(false)
     }
 
     // --- Signale ----------------------------------------------------------
     //
     // Jede Methode liefert `false`, wenn das Widget das Signal nicht besitzt.
-    // Closures dürfen andere Widgets verändern – dazu einen `clone()` einfangen.
+    // Signale feuern auch bei Änderungen per Code. Closures dürfen andere
+    // Widgets verändern – dazu einen `clone()` einfangen.
 
-    /// Klick auf einen Button oder eine Checkbox.
+    /// Klick auf einen Button, eine Checkbox oder ein Optionsfeld.
     pub fn on_clicked(&self, f: impl FnMut() + 'static) -> bool {
-        ffi::widget_connect_clicked(&self.handle, RufCallback::new(f))
+        core::connect_clicked(self.id, f)
     }
 
-    /// Umschalten eines Buttons oder einer Checkbox.
+    /// Umschalten einer Checkbox oder eines Optionsfelds.
     pub fn on_toggled(&self, f: impl FnMut(bool) + 'static) -> bool {
-        ffi::widget_connect_toggled(&self.handle, RufBoolCallback::new(f))
+        core::connect_toggled(self.id, f)
     }
 
-    /// Textänderung in Eingabefeld, Textbereich oder (editierbarer) Combobox.
+    /// Textänderung in Eingabefeld, Textbereich oder Combobox.
     pub fn on_text_changed(&self, f: impl FnMut(String) + 'static) -> bool {
-        ffi::widget_connect_text_changed(&self.handle, RufStringCallback::new(f))
+        core::connect_text_changed(self.id, f)
     }
 
     /// Enter-Taste in einem Eingabefeld.
     pub fn on_return_pressed(&self, f: impl FnMut() + 'static) -> bool {
-        ffi::widget_connect_return_pressed(&self.handle, RufCallback::new(f))
+        core::connect_return_pressed(self.id, f)
     }
 
     /// Wertänderung einer Spinbox, eines Schiebereglers oder Fortschrittsbalkens.
     pub fn on_value_changed(&self, f: impl FnMut(i32) + 'static) -> bool {
-        ffi::widget_connect_value_changed(&self.handle, RufIntCallback::new(f))
+        core::connect_value_changed(self.id, f)
     }
 
     /// Auswahlwechsel in Combobox oder Liste bzw. Seitenwechsel einer Registerkarte.
     pub fn on_current_index_changed(&self, f: impl FnMut(i32) + 'static) -> bool {
-        ffi::widget_connect_current_index_changed(&self.handle, RufIntCallback::new(f))
+        core::connect_index_changed(self.id, f)
     }
 
     /// Größenänderung (neue Breite, Höhe) – bei jedem Widget, z. B. um Kinder
-    /// eines Fensters an dessen Größe anzupassen.
+    /// eines Fensters oder einer Registerkarten-Seite neu anzuordnen.
     pub fn on_resized(&self, f: impl FnMut(i32, i32) + 'static) -> bool {
-        ffi::widget_connect_resized(&self.handle, RufSizeCallback::new(f))
+        core::connect_resized(self.id, f)
     }
 
     /// Wird aufgerufen, bevor ein Fenster geschlossen wird (Klick auf "X",
-    /// [`Widget::close`]). Liefert `f` `false`, bleibt das Fenster offen –
-    /// z. B. nach der Rückfrage "Ungespeicherte Änderungen verwerfen?".
+    /// [`Widget::close`]). Liefert `f` `false`, bleibt das Fenster offen.
     pub fn on_close_requested(&self, f: impl FnMut() -> bool + 'static) -> bool {
-        ffi::widget_connect_close_requested(&self.handle, RufCloseCallback::new(f))
+        core::connect_close_requested(self.id, f)
     }
 }
 
 impl Clone for Widget {
     fn clone(&self) -> Self {
-        // SAFETY: der Zeiger stammt aus einem gültigen Handle oder ist null.
-        unsafe { Self::from_raw(self.as_ptr()) }
+        Self::wrap(self.id, false)
+    }
+}
+
+impl Drop for Widget {
+    fn drop(&mut self) {
+        // Nur Top-Level-Widgets gehören ihrem Rust-Wert; ohne Anwendung wird
+        // nichts mehr angefasst (Programmende).
+        if self.owned
+            && core::app_exists()
+            && core::get(self.id, |n| n.parent.is_none()) == Some(true)
+        {
+            core::destroy(self.id);
+        }
     }
 }
 
 impl std::fmt::Debug for Widget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Widget")
-            .field("class", &self.class_name())
+            .field("id", &self.id)
+            .field("kind", &self.kind())
             .field("name", &self.object_name())
             .field("alive", &self.is_alive())
             .finish()
+    }
+}
+
+impl PartialEq for Widget {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
@@ -532,7 +703,7 @@ impl<T: crate::Component + ?Sized> AsWidget for T {
 
 fn ensure_application() {
     assert!(
-        Application::exists(),
+        core::app_exists(),
         "ruf: Vor dem ersten Widget muss eine ruf::Application erzeugt werden"
     );
 }

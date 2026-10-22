@@ -1,10 +1,10 @@
 //! Ein Anmeldeformular mit allen Standardkomponenten, Validierung und
-//! Farbschema-Umschaltung (nutzt Qt >= 6.8, falls vorhanden).
+//! Farbschema-Umschaltung (soweit das Toolkit sie unterstützt).
 //!
 //! cargo run -p rncl --example form
 
 use rncl::prelude::*;
-use ruf::{ColorScheme, QtVersion};
+use ruf::ColorScheme;
 
 fn main() {
     let app = Application::new();
@@ -32,19 +32,20 @@ fn main() {
 
     let dark = RnclCheckBox::new(&window, "Dunkles Design");
     dark.set_position(110, 128);
-    let qt = QtVersion::runtime();
-    if qt.at_least(6, 8) {
-        dark.set_checked(Application::color_scheme() == ColorScheme::Dark);
-        dark.on_toggled(|on| {
-            Application::set_color_scheme(if on {
-                ColorScheme::Dark
-            } else {
-                ColorScheme::Light
-            });
+    dark.set_checked(Application::color_scheme() == ColorScheme::Dark);
+    dark.on_toggled(|on| {
+        Application::set_color_scheme(if on {
+            ColorScheme::Dark
+        } else {
+            ColorScheme::Light
         });
-    } else {
+    });
+    if !Application::set_color_scheme(Application::color_scheme()) {
         dark.set_enabled(false);
-        dark.set_tool_tip(&format!("Benötigt Qt >= 6.8 (gefunden: {qt})"));
+        dark.set_tool_tip(&format!(
+            "{} kann das Farbschema nicht umschalten",
+            ruf::toolkit().name
+        ));
     }
 
     let login = RnclButton::new(&window, "Anmelden");

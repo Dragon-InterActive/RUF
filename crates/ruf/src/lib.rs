@@ -1,15 +1,26 @@
 //! # RUF – Rust native UI Framework
 //!
 //! Das native Fundament für [RNCL](https://docs.rs/rncl)-Komponenten und das
-//! RAD-Tool *Freya TD*. RUF bindet das auf dem System installierte Qt (>= 6)
-//! über [`cxx`] / [`cxx_qt`] und stellt eine sichere, pure Rust-API bereit.
+//! RAD-Tool *Freya TD*. RUF steuert die **nativen Steuerelemente des
+//! Betriebssystems** über eine sichere, pure Rust-API:
+//!
+//! | System | Toolkit | Bindung |
+//! |---|---|---|
+//! | Linux / BSD | GTK 4 | `gtk4-rs` |
+//! | Windows | Win32 (Common Controls) | `windows-rs` |
+//! | macOS | Cocoa (AppKit) | `objc2` |
+//!
+//! Das Backend wird beim Kompilieren automatisch gewählt – Anwendungen und
+//! Komponenten schreiben denselben Code für alle drei Systeme.
 //!
 //! ## Ebenen
 //!
-//! 1. **System-Ebene (Brücke)** – [`sys`]: C++/Qt-Anbindung via cxx-qt.
-//! 2. **Logik-Ebene** – [`Widget`], [`Component`], [`ComponentRegistry`] und
+//! 1. **System-Ebene** – je ein Backend pro Betriebssystem (intern, `backend/`).
+//! 2. **Kern** – plattformunabhängige Logik: Lebensdauer, Signale,
+//!    Geometrie, Timer (intern, siehe `core.rs`).
+//! 3. **Logik-Ebene** – [`Widget`], [`Component`], [`ComponentRegistry`] und
 //!    das Eigenschaftsmodell; darauf bauen die RNCL-Komponenten auf.
-//! 3. **Designer** – spricht nur [`Component`] und [`ComponentRegistry`] an.
+//! 4. **Designer** – spricht nur [`Component`] und [`ComponentRegistry`] an.
 //!
 //! ## Minimalbeispiel
 //!
@@ -24,19 +35,19 @@
 //! std::process::exit(app.exec());
 //! ```
 
-#[cfg(not(feature = "qt6"))]
-compile_error!("ruf benötigt ein Backend-Feature, z. B. `features = [\"qt6\"]`");
-
 mod app;
+mod backend;
 mod component;
+mod core;
 pub mod dialog;
-mod ffi;
 mod geometry;
 mod gui_sender;
 mod property;
 mod registry;
+mod style;
+mod text;
 mod timer;
-mod version;
+mod toolkit;
 mod widget;
 
 pub use app::{Application, ColorScheme};
@@ -45,25 +56,11 @@ pub use geometry::{Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};
 pub use property::{PropertyDescriptor, PropertyError, PropertyType, PropertyValue};
 pub use registry::{ComponentFactory, ComponentInfo, ComponentRegistry, RegistryError};
+pub use style::{Color, Style};
+pub use text::{Key, KeySpec};
 pub use timer::Timer;
-pub use version::QtVersion;
+pub use toolkit::{Toolkit, toolkit};
 pub use widget::{AsWidget, Widget, WidgetKind};
-
-/// Die rohe System-Ebene – nur für eigene cxx-Bridges (z. B. Komponenten mit
-/// eigenen Qt-Widgets). In einer eigenen Bridge:
-///
-/// ```ignore
-/// unsafe extern "C++" {
-///     include!("ruf/cpp/ruf_widgets.h");
-///     type QWidget = ruf::sys::QWidget;
-/// }
-/// ```
-pub mod sys {
-    pub use crate::ffi::ffi::QWidget;
-}
-
-/// Re-Export von `cxx-qt-lib` (QString, QColor, QPoint, …) für eigene Bridges.
-pub use cxx_qt_lib as qt;
 
 /// `use ruf::prelude::*;` holt die wichtigsten Typen und den
 /// [`Component`]-Trait (für `.set_position()` & Co.) in den Scope.

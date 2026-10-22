@@ -14,9 +14,9 @@ besitzt und `ruf::Component` implementiert. Referenzimplementierung:
 1. **Zusammengesetzt** (aus vorhandenen Komponenten, z. B. Label + Textfeld):
    kein C++ nötig. Vorlage: `crates/rncl/examples/custom_component.rs` (`LabeledField`).
    Das äußere `RnclPanel` ist das `widget()` der Komponente.
-2. **Neues Qt-Widget, das RUF schon erzeugen kann** (`WidgetKind`): nur Rust.
-3. **Neues Qt-Widget** (z. B. `QSlider`, `QComboBox`): zuerst die Brücke erweitern
-   → Skill `ruf-bridge`, danach hier weiter.
+2. **Steuerelement, das RUF schon erzeugen kann** (`WidgetKind`): nur Rust.
+3. **Neues natives Steuerelement** (z. B. Datumswähler): zuerst alle drei Backends erweitern
+   → Skill `ruf-backend`, danach hier weiter.
 
 ## Pflichtbestandteile (Checkliste)
 
@@ -28,7 +28,7 @@ besitzt und `ruf::Component` implementiert. Referenzimplementierung:
 - [ ] `pub fn with_parent(parent: Option<&Widget>, …) -> Self` → `Widget::create(kind, parent)`;
       bei Text-Widgets danach `widget.adjust_size()`.
 - [ ] Typisierte Methoden (`set_value`/`value`, `on_value_changed(impl FnMut(..) + 'static)`).
-      Setter nehmen `&self` (Qt hält den Zustand).
+      Setter nehmen `&self` (Kern und System halten den Zustand).
 - [ ] `pub fn info() -> ComponentInfo` mit `.category(..)`, `.description(..)`, ggf. `.container(true)`.
 - [ ] `impl Component`: `widget`, `type_name`, und bei eigenen Eigenschaften
       `properties` (`base::descriptors()` + eigene), `property`, `set_property`
@@ -111,7 +111,7 @@ impl Component for RnclXxx {
 cargo clippy --workspace --all-targets
 cargo test --workspace
 # Sichtprüfung ohne Bildschirm (Bild danach ansehen):
-QT_QPA_PLATFORM=offscreen cargo run -p rncl --example designer -- --screenshot /tmp/form.png
+xvfb-run -a cargo run -p rncl --example designer -- --screenshot /tmp/form.png
 ```
 
 Für eine Sichtprüfung der neuen Komponente: sie in einem Beispiel anlegen,

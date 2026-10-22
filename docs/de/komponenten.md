@@ -10,7 +10,7 @@ Alle Komponenten implementieren `ruf::Component` und besitzen damit:
 | `show()` / `hide()` / `is_visible()` | Sichtbarkeit |
 | `set_enabled(b)` / `is_enabled()` | Bedienbarkeit |
 | `set_tool_tip(text)` | Hinweistext |
-| `set_style_sheet(css)` | Qt-Stylesheet, z. B. `"color: red; font-weight: bold;"` |
+| `set_style_sheet(css)` | Gestaltung per CSS-Teilmenge, z. B. `"color: red; font-weight: bold;"` – siehe [Gestaltung](#gestaltung) |
 | `set_name(n)` / `name()` | eindeutiger Bezeichner (`objectName`) |
 | `widget()` | das zugrunde liegende `ruf::Widget` |
 | `properties()` / `property(n)` / `set_property(n, v)` | Eigenschaftsmodell |
@@ -35,7 +35,7 @@ Jede Komponente hat zwei Konstruktoren: `new(&eltern, …)` und
 
 ## `RnclWindow` – Fenster
 
-Qt: `QWidget` (Top-Level) · Container · Kategorie *Container*
+Nativ: GTK `GtkWindow` · Win32 `RufWindow` · Cocoa `NSWindow` · Container · Kategorie *Container*
 
 ```rust
 let window = RnclWindow::new("Titel");   // Standardgröße 640×480, noch unsichtbar
@@ -56,7 +56,7 @@ window.on_close_requested(|| {                           // false = offen lassen
 
 ## `RnclPanel` – Container
 
-Qt: `QWidget` · Container · Kategorie *Container*
+Nativ: GTK `RufFixed` · Win32 `RufContainer` · Cocoa `RufView` · Container · Kategorie *Container*
 
 ```rust
 let panel = RnclPanel::new(&window);
@@ -66,7 +66,7 @@ let ok = RnclButton::new(&panel, "OK");  // Position relativ zum Panel
 
 ## `RnclButton` – Schaltfläche
 
-Qt: `QPushButton` · Kategorie *Standard*
+Nativ: GTK `GtkButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Standard*
 
 ```rust
 let button = RnclButton::new(&window, "Speichern");
@@ -80,10 +80,10 @@ button.click();                          // programmatisch klicken
 
 ## `RnclLabel` – Text
 
-Qt: `QLabel` · Kategorie *Standard*
+Nativ: GTK `GtkLabel` · Win32 `STATIC` · Cocoa `NSTextField` · Kategorie *Standard*
 
 ```rust
-let label = RnclLabel::new(&window, "Status: <b>bereit</b>"); // einfaches HTML
+let label = RnclLabel::new(&window, "Status: <b>bereit</b>"); // einfaches HTML¹
 label.set_text("Fertig");
 label.set_word_wrap(true);                  // lange Texte umbrechen
 ```
@@ -93,9 +93,12 @@ label.set_word_wrap(true);                  // lange Texte umbrechen
 | `text` | Text | angezeigter Text |
 | `word_wrap` | Bool | Zeilenumbruch |
 
+¹ `<b> <i> <u> <small> <br>` – unter GTK formatiert, unter Windows und macOS als
+reiner Text (Tags entfernt, `<br>` wird zum Zeilenumbruch).
+
 ## `RnclTextField` – Eingabefeld
 
-Qt: `QLineEdit` · Kategorie *Eingabe*
+Nativ: GTK `GtkEntry` · Win32 `EDIT` · Cocoa `NSTextField` · Kategorie *Eingabe*
 
 ```rust
 let field = RnclTextField::new(&window);
@@ -116,7 +119,7 @@ pass.set_password_mode(true);
 
 ## `RnclCheckBox` – Kontrollkästchen
 
-Qt: `QCheckBox` · Kategorie *Eingabe*
+Nativ: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Eingabe*
 
 ```rust
 let check = RnclCheckBox::new(&window, "AGB akzeptiert");
@@ -131,7 +134,7 @@ check.set_checked(true);
 
 ## `RnclRadioButton` – Optionsfeld
 
-Qt: `QRadioButton` · Kategorie *Eingabe*
+Nativ: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Eingabe*
 
 Optionsfelder mit demselben Elternteil schließen sich gegenseitig aus – für mehrere
 Gruppen je Gruppe eine `RnclGroupBox` (oder ein `RnclPanel`) verwenden.
@@ -153,7 +156,7 @@ cash.on_toggled(|an| println!("Bar: {an}"));
 
 ## `RnclGroupBox` – Gruppe mit Rahmen
 
-Qt: `QGroupBox` · Container · Kategorie *Container*
+Nativ: GTK `GtkFrame` · Win32 `BUTTON (Gruppe)` · Cocoa `NSBox` · Container · Kategorie *Container*
 
 ```rust
 let group = RnclGroupBox::new(&window, "Adresse");
@@ -167,7 +170,7 @@ RnclTextField::new(&group).set_position(12, 28);   // Titel belegt oben ca. 20 p
 
 ## `RnclTextArea` – mehrzeiliger Text (Memo)
 
-Qt: `QPlainTextEdit` · Kategorie *Eingabe*
+Nativ: GTK `GtkTextView` · Win32 `RichEdit 5` · Cocoa `NSTextView` · Kategorie *Eingabe*
 
 ```rust
 let notes = RnclTextArea::new(&window);          // Standardgröße 240×120
@@ -189,19 +192,22 @@ code.goto_line(4);
 code.set_marked_line(None, "");                             // Markierung entfernen
 ```
 
-Regeln gelten zeilenweise, spätere überschreiben frühere. `add_highlight_rule`
-liefert `false` bei ungültigem Muster oder ungültiger Farbe.
+Regeln gelten zeilenweise, spätere überschreiben frühere. Die Muster folgen der
+Syntax der [`regex`-Crate](https://docs.rs/regex) – ohne Lookarounds. Ersatz: Hat
+ein Muster eine **Gruppe 1**, wird nur diese eingefärbt, z. B. `^\s*(\w+)\s*=` färbt
+nur den Schlüssel vor dem Gleichheitszeichen. `add_highlight_rule` liefert `false`
+bei ungültigem Muster oder ungültiger Farbe.
 
 | Eigenschaft | Typ | |
 |---|---|---|
 | `text` | Text | Inhalt |
-| `placeholder` | Text | Hinweis bei leerem Feld |
+| `placeholder` | Text | Hinweis bei leerem Feld (Windows/macOS: nur gespeichert, nicht angezeigt) |
 | `read_only` | Bool | nur lesbar |
 | `monospace` | Bool | Schrift mit fester Zeichenbreite |
 
 ## `RnclComboBox` – Auswahlliste
 
-Qt: `QComboBox` · Kategorie *Eingabe*
+Nativ: GTK `GtkComboBoxText` · Win32 `COMBOBOX` · Cocoa `NSPopUpButton / NSComboBox` · Kategorie *Eingabe*
 
 ```rust
 let city = RnclComboBox::new(&window);
@@ -220,7 +226,7 @@ city.set_editable(true);                           // zusätzlich freie Eingabe
 
 ## `RnclListBox` – Liste
 
-Qt: `QListWidget` · Kategorie *Eingabe*
+Nativ: GTK `GtkListBox` · Win32 `LISTBOX` · Cocoa `NSTableView` · Kategorie *Eingabe*
 
 ```rust
 let list = RnclListBox::new(&window);              // Standardgröße 160×120
@@ -236,7 +242,7 @@ if let Some(t) = list.current_text() { println!("{t}"); }
 
 ## `RnclSpinBox` – Zahlenfeld
 
-Qt: `QSpinBox` · Kategorie *Eingabe* · Standardbereich 0…99
+Nativ: GTK `GtkSpinButton` · Win32 `EDIT + UpDown` · Cocoa `NSTextField + NSStepper` · Kategorie *Eingabe* · Standardbereich 0…99
 
 ```rust
 let age = RnclSpinBox::new(&window);
@@ -252,7 +258,7 @@ age.on_value_changed(|v| println!("{v}"));
 
 ## `RnclSlider` – Schieberegler
 
-Qt: `QSlider` · Kategorie *Eingabe* · Standardbereich 0…99, waagerecht
+Nativ: GTK `GtkScale` · Win32 `Trackbar` · Cocoa `NSSlider` · Kategorie *Eingabe* · Standardbereich 0…99, waagerecht
 
 ```rust
 let volume = RnclSlider::new(&window);
@@ -268,7 +274,7 @@ volume.set_vertical(true);                         // Breite/Höhe ggf. tauschen
 
 ## `RnclProgressBar` – Fortschrittsbalken
 
-Qt: `QProgressBar` · Kategorie *Anzeige* · Standardbereich 0…100
+Nativ: GTK `GtkProgressBar` · Win32 `Progress` · Cocoa `NSProgressIndicator` · Kategorie *Anzeige* · Standardbereich 0…100
 
 ```rust
 let bar = RnclProgressBar::new(&window);
@@ -283,7 +289,7 @@ bar.set_busy(true);                                // "beschäftigt" ohne Prozen
 
 ## `RnclTabView` – Registerkarten
 
-Qt: `QTabWidget` · Container (Seiten) · Kategorie *Container*
+Nativ: GTK `GtkNotebook` · Win32 `SysTabControl32` · Cocoa `NSTabView` · Container (Seiten) · Kategorie *Container*
 
 ```rust
 let tabs = RnclTabView::new(&window);
@@ -302,7 +308,7 @@ tabs.remove_tab(1);                                // entfernt Seite samt Inhalt
 
 ## `RnclScrollView` – Scrollbereich
 
-Qt: `QScrollArea` · Container (Inhalt) · Kategorie *Container*
+Nativ: GTK `GtkScrolledWindow` · Win32 `RufContainer` · Cocoa `NSScrollView` · Container (Inhalt) · Kategorie *Container*
 
 Für Inhalte, die größer als der sichtbare Bereich sind – z. B. eine zur Laufzeit
 erzeugte Liste von Checkboxen. Kinder kommen in `content()`.
@@ -321,6 +327,25 @@ scroll.set_content_size(0, 8 + 30 * 24);   // Breite 0 = folgt dem sichtbaren Be
 | `content_width` / `content_height` | Int | Mindestgröße des Inhalts |
 
 ---
+
+## Gestaltung
+
+`set_style_sheet` (bzw. die Eigenschaft `style_sheet`) versteht auf allen Systemen
+dieselbe CSS-Teilmenge:
+
+| Angabe | Wirkung |
+|---|---|
+| `color: #c0392b` | Textfarbe |
+| `background: #fff8e1` / `background-color: …` | Hintergrund |
+| `font-weight: bold` | fett (`normal` = normal) |
+
+Farben: `#rgb`, `#rrggbb` oder Namen wie `red`, `gray`, `darkblue`
+(siehe `ruf::Color::NAMES`). Andere Angaben werden ignoriert – das System bestimmt
+das übrige Aussehen.
+
+```rust
+status.set_style_sheet("color: #1e8449; font-weight: bold;");
+```
 
 ## Dienste für dynamische Oberflächen
 

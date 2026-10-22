@@ -1,19 +1,20 @@
-//! Integrationstests gegen echtes Qt (offscreen, ohne Bildschirm).
+//! Integrationstests gegen das echte native Toolkit (GTK, Win32 oder Cocoa).
 //!
-//! Qt erlaubt nur eine QApplication pro Prozess, im Hauptthread. Darum läuft
-//! dieser Test mit `harness = false` und eigenem `main()`.
+//! Native Toolkits erlauben nur eine Anwendung pro Prozess, im Hauptthread.
+//! Darum läuft dieser Test mit `harness = false` und eigenem `main()`.
+//! Linux ohne Bildschirm: `xvfb-run cargo test`.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use rncl::prelude::*;
-use ruf::{PropertyError, QtVersion};
+use ruf::PropertyError;
 
 fn main() {
-    let app = Application::with_args(["rncl-test", "-platform", "offscreen"]);
+    let app = Application::new();
 
     let tests: &[(&str, fn())] = &[
-        ("qt_version", qt_version),
+        ("toolkit", toolkit),
         ("window_basics", window_basics),
         ("button_click", button_click),
         ("text_field_signals", text_field_signals),
@@ -48,10 +49,13 @@ fn main() {
     drop(app);
 }
 
-fn qt_version() {
-    let rt = QtVersion::runtime();
-    assert!(rt.at_least(6, 0), "Qt-Version {rt}");
-    assert!(QtVersion::compile_time().major >= 6);
+fn toolkit() {
+    let toolkit = ruf::toolkit();
+    assert!(
+        ["GTK", "Win32", "Cocoa"].contains(&toolkit.name),
+        "{toolkit}"
+    );
+    assert!(!toolkit.version.is_empty());
 }
 
 fn window_basics() {
@@ -63,7 +67,7 @@ fn window_basics() {
     assert_eq!(window.geometry(), Rect::new(10, 20, 300, 200));
     window.set_name("mainWindow");
     assert_eq!(window.name(), "mainWindow");
-    assert_eq!(window.widget().class_name(), "QWidget");
+    assert!(!window.widget().class_name().is_empty());
     assert_eq!(window.widget().kind(), WidgetKind::Window);
 }
 
@@ -71,7 +75,7 @@ fn button_click() {
     let window = RnclWindow::new("t");
     let button = RnclButton::new(&window, "OK");
     assert_eq!(button.text(), "OK");
-    assert_eq!(button.widget().class_name(), "QPushButton");
+    assert!(!button.widget().class_name().is_empty());
     assert!(
         button.size().width > 0,
         "adjust_size sollte eine Breite liefern"
@@ -194,7 +198,7 @@ fn dropped_window_is_safe() {
     let window = RnclWindow::new("t");
     let button = RnclButton::new(&window, "x");
     drop(window);
-    // Qt hat Fenster samt Kindern gelöscht – der Verweis bleibt sicher benutzbar.
+    // Fenster samt Kindern sind gelöscht – der Verweis bleibt sicher benutzbar.
     assert!(!button.widget().is_alive());
     button.set_text("egal");
     assert_eq!(button.text(), "");
@@ -415,21 +419,21 @@ fn kinds_and_classes() {
     let registry = rncl::registry();
     let window = RnclWindow::new("t");
     let expected = [
-        ("RnclRadioButton", WidgetKind::RadioButton, "QRadioButton"),
-        ("RnclGroupBox", WidgetKind::GroupBox, "QGroupBox"),
-        ("RnclTextArea", WidgetKind::TextArea, "QPlainTextEdit"),
-        ("RnclComboBox", WidgetKind::ComboBox, "QComboBox"),
-        ("RnclListBox", WidgetKind::ListBox, "QListWidget"),
-        ("RnclSpinBox", WidgetKind::SpinBox, "QSpinBox"),
-        ("RnclSlider", WidgetKind::Slider, "QSlider"),
-        ("RnclProgressBar", WidgetKind::ProgressBar, "QProgressBar"),
-        ("RnclTabView", WidgetKind::TabView, "QTabWidget"),
-        ("RnclScrollView", WidgetKind::ScrollArea, "QScrollArea"),
+        ("RnclRadioButton", WidgetKind::RadioButton),
+        ("RnclGroupBox", WidgetKind::GroupBox),
+        ("RnclTextArea", WidgetKind::TextArea),
+        ("RnclComboBox", WidgetKind::ComboBox),
+        ("RnclListBox", WidgetKind::ListBox),
+        ("RnclSpinBox", WidgetKind::SpinBox),
+        ("RnclSlider", WidgetKind::Slider),
+        ("RnclProgressBar", WidgetKind::ProgressBar),
+        ("RnclTabView", WidgetKind::TabView),
+        ("RnclScrollView", WidgetKind::ScrollArea),
     ];
-    for (type_name, kind, class) in expected {
+    for (type_name, kind) in expected {
         let c = registry.create(type_name, Some(window.widget())).unwrap();
         assert_eq!(c.widget().kind(), kind, "{type_name}");
-        assert_eq!(c.widget().class_name(), class, "{type_name}");
+        assert!(!c.widget().class_name().is_empty(), "{type_name}");
         // Jede Eigenschaft muss lesbar sein.
         for d in c.properties() {
             assert!(c.property(d.name).is_some(), "{type_name}.{}", d.name);

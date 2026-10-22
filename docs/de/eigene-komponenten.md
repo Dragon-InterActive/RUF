@@ -95,32 +95,18 @@ Eine Bibliothek mit mehreren Komponenten bietet am besten – wie `rncl` – ein
   einheitliche Fehlermeldungen (`PropertyError::TypeMismatch`).
 - Eigenschaftsnamen sind öffentliche API (Designer-Dateien speichern sie) – stabil halten.
 
-## Variante B: neues natives Qt-Widget
+## Variante B: neues natives Steuerelement
 
-Benötigt man ein Qt-Widget, das RUF noch nicht kennt (z. B. `QSlider`):
+Braucht man ein Steuerelement, das RUF noch nicht kennt (z. B. einen Datumswähler),
+wird RUF selbst erweitert – für **alle drei Backends**, damit Anwendungen
+plattformunabhängig bleiben:
 
-1. **In RUF beitragen** (empfohlen): `WidgetKind` erweitern und die Brücke ergänzen –
-   Schritt für Schritt im Skill `.claude/skills/ruf-bridge/SKILL.md`.
-2. **Eigene Bridge in der eigenen Crate**: RUF exportiert seine Header und den Typ
-   `QWidget`. Die eigene `#[cxx_qt::bridge]` erzeugt das Widget in C++ und gibt einen
-   `*mut QWidget` zurück; daraus wird mit `unsafe { Widget::from_raw(ptr) }` ein
-   `ruf::Widget`:
+1. `WidgetKind` in `crates/ruf/src/core.rs` um eine Variante mit der **nächsten freien
+   Zahl** ergänzen (Werte nie umnummerieren).
+2. In jedem Backend (`backend/gtk.rs`, `backend/win32.rs`, `backend/cocoa.rs`) den Fall
+   in `create` und die betroffenen Funktionen des `Backend`-Traits umsetzen.
+3. Braucht das Steuerelement neue Fähigkeiten, den Trait `Backend` erweitern – der
+   Compiler meldet dann jedes Backend, das noch fehlt.
+4. Danach die RNCL-Komponente wie in Variante A, aber mit `Widget::create(WidgetKind::…)`.
 
-   ```rust
-   #[cxx_qt::bridge]
-   mod ffi {
-       unsafe extern "C++" {
-           include!("ruf/cpp/ruf_widgets.h");
-           type QWidget = ruf::sys::QWidget;
-           include!("acme/gauge.h");
-           unsafe fn acme_gauge_new(parent: *mut QWidget) -> *mut QWidget;
-       }
-   }
-
-   // SAFETY: Zeiger stammt aus einem lebenden ruf::Widget bzw. frisch aus C++.
-   let raw = unsafe { ffi::acme_gauge_new(parent.as_widget().as_ptr()) };
-   let widget = unsafe { ruf::Widget::from_raw(raw) };   // Elternteil besitzt das Widget
-   ```
-
-   Die eigene `build.rs` nutzt `cxx_qt_build::CxxQtBuilder` und erbt Qt-Module und
-   Include-Pfade automatisch von `ruf`.
+Schritt für Schritt im Skill `.claude/skills/ruf-backend/SKILL.md`.

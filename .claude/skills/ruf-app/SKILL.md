@@ -13,7 +13,8 @@ ruf  = { version = "0.1.0", features = ["qt6"] }
 rncl = { version = "0.1.0" }
 ```
 
-Voraussetzung: Qt >= 6 mit Entwicklungsdateien (`qmake6` im `PATH` oder `QMAKE=/pfad/zu/qmake6`), C++17-Compiler.
+Das Backend wählt der Compiler: GTK 4 (Linux, braucht `gtk4`-Entwicklungsdateien),
+Win32 (Windows), Cocoa (macOS). Kein C++, kein Qt, keine Features.
 
 ## Grundmuster
 
@@ -88,10 +89,14 @@ Checkbox-Listen, Code-Editor, Tabs mit eigener Layout-Funktion).
 - Nur **eine** `Application` pro Prozess; alles im Hauptthread.
 - Das besitzende `RnclWindow` am Leben halten (Variable in `main`). Wird es
   gedroppt, verschwindet das Fenster samt Kindern. Kinder-Variablen dürfen
-  gedroppt werden – die Widgets bleiben (Qt-Elternteil besitzt sie).
+  gedroppt werden – die Widgets bleiben (das Elternteil besitzt sie).
 - Closures brauchen `'static`: Komponenten per `.clone()` einfangen, eigenen
   Zustand per `Rc<Cell<_>>`/`Rc<RefCell<_>>` teilen.
 - Signale feuern auch bei programmatischen Änderungen (`set_text`, `set_checked`).
+- **Plattformunterschiede:** GTK macht Steuerelemente nie kleiner als ihre natürliche
+  Größe (für Knöpfe/Labels `adjust_size()` nutzen); GTK-Layout ist asynchron
+  (`process_events()` wartet darauf); `set_style_sheet` kennt nur `color`,
+  `background`, `font-weight`; Highlight-Muster ohne Lookarounds (Gruppe 1 färbt).
 - `Application::quit()`, `Application::set_color_scheme(..)` sind assoziierte Funktionen
   und daher aus jeder Closure aufrufbar.
 
@@ -104,7 +109,7 @@ window.widget().save_screenshot("/tmp/ui.png");
 ```
 
 ```bash
-QT_QPA_PLATFORM=offscreen cargo run --example mein_beispiel
+xvfb-run -a cargo run --example mein_beispiel   # Linux ohne Bildschirm
 ```
 
 Danach das PNG ansehen und Layout (Überlappungen, abgeschnittene Texte) prüfen.
@@ -113,6 +118,6 @@ und `cargo run -p rncl --example gallery -- --screenshot /tmp/gallery.png` (alle
 
 ## Tests
 
-Qt-Tests brauchen den Hauptthread: Testdatei mit `harness = false` und eigenem
-`main()`, `Application::with_args(["test", "-platform", "offscreen"])`.
+Tests mit Oberfläche brauchen den Hauptthread: Testdatei mit `harness = false` und eigenem
+`main()`, `Application::new()`; Linux ohne Bildschirm: `xvfb-run -a cargo test`.
 Vorlage: `crates/rncl/tests/components.rs`.

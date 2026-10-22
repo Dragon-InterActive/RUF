@@ -92,7 +92,7 @@ pub trait Component {
         self.widget().set_style_sheet(css);
     }
 
-    /// Eindeutiger Bezeichner (Qt `objectName`), z. B. `"btnOk"`.
+    /// Eindeutiger Bezeichner (Objektname), z. B. `"btnOk"`.
     fn set_name(&self, name: &str) {
         self.widget().set_object_name(name);
     }
@@ -127,7 +127,11 @@ pub mod base {
             PropertyDescriptor::new(VISIBLE, Bool, "Nicht ausgeblendet"),
             PropertyDescriptor::new(ENABLED, Bool, "Bedienbarkeit"),
             PropertyDescriptor::new(TOOL_TIP, Text, "Hinweistext bei Mauszeiger"),
-            PropertyDescriptor::new(STYLE_SHEET, Text, "Qt-Stylesheet"),
+            PropertyDescriptor::new(
+                STYLE_SHEET,
+                Text,
+                "Gestaltung (CSS-Teilmenge: color, background, font-weight)",
+            ),
         ]
     }
 

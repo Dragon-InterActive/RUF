@@ -1,19 +1,19 @@
 # RUF – Rust native UI Framework
 
-Natives Desktop-UI-Framework für Rust auf Basis von **Qt ≥ 6** – Fundament des
-RAD-Tools **Freya TD**.
-*Native desktop UI framework for Rust built on **Qt ≥ 6** – the foundation of the
-RAD tool **Freya TD**.*
+Natives Desktop-UI-Framework für Rust mit den **Steuerelementen des Systems** –
+GTK 4 (Linux), Win32 (Windows), Cocoa (macOS) – Fundament des RAD-Tools **Freya TD**.
+*Native desktop UI framework for Rust using the **system's own controls** – GTK 4
+(Linux), Win32 (Windows), Cocoa (macOS) – the foundation of the RAD tool **Freya TD**.*
 
 | Crate | Rolle / Role |
 | --- | --- |
-| [`ruf`](crates/ruf) | System-Ebene (cxx-qt-Brücke) und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
+| [`ruf`](crates/ruf) | System-Ebene (Backends für GTK 4, Win32, Cocoa), plattformunabhängiger Kern und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
 | [`rncl`](crates/rncl) | Rust native Component Library: 16 Standardkomponenten – Fenster, Container, Registerkarten, Scrollbereich, Buttons, Text-, Listen- und Zahleneingaben, Code-Editor, Fortschrittsanzeige |
 
 ```toml
 [dependencies]
-ruf  = { version = "0.1.0", features = ["qt6"] } # Das native Fundament
-rncl = { version = "0.1.0" }                    # Die nativen System-Widgets
+ruf  = { version = "0.2.0" } # Das native Fundament – Backend wird automatisch gewählt
+rncl = { version = "0.2.0" } # Die nativen System-Widgets
 ```
 
 ```rust
@@ -35,7 +35,7 @@ fn main() {
 ```
 
 ```bash
-cargo test --workspace                 # Tests gegen echtes Qt (offscreen)
+cargo test --workspace                 # Tests gegen das echte Toolkit (Linux ohne Bildschirm: xvfb-run -a …)
 cargo run -p rncl --example hello      # weitere: counter, form, gallery, custom_component, designer
 ```
 

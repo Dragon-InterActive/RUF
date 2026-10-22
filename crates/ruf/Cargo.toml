@@ -1,25 +1,44 @@
 [package]
 name = "ruf"
-description = "RUF – Rust native UI Framework: das native Qt-Fundament für RNCL-Komponenten und Freya TD"
+description = "RUF – Rust native UI Framework: native Oberflächen mit Win32, GTK4 und Cocoa – Fundament für RNCL-Komponenten und Freya TD"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-links = "ruf"
-keywords = ["gui", "qt", "widgets", "ui", "rad"]
+keywords = ["gui", "native", "widgets", "ui", "rad"]
 categories = ["gui"]
 
-[features]
-default = ["qt6"]
-# Backend: Qt >= 6 (QtWidgets). Weitere Backends (z. B. Qt 7) werden als eigene Features ergänzt.
-qt6 = []
-
 [dependencies]
-cxx.workspace = true
-cxx-qt.workspace = true
-cxx-qt-lib.workspace = true
+regex = "1.13.1"
 
-[build-dependencies]
-cxx-qt-build.workspace = true
+# Linux (und andere Unix-Systeme außer macOS): GTK 4
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+gtk4 = { version = "0.11.5", features = ["v4_12"] }
+
+# Windows: Win32 über windows-rs
+[target.'cfg(windows)'.dependencies]
+png = "0.18.1"
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_ApplicationInstallationAndServicing",
+    "Win32_System_LibraryLoader",
+    "Win32_Storage_Xps",
+    "Win32_System_Registry",
+    "Win32_UI_Controls",
+    "Win32_UI_Controls_RichEdit",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+# macOS: Cocoa (AppKit) über objc2
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.5"
+objc2-foundation = "0.3.2"
+objc2-app-kit = "0.3.2"
+block2 = "0.6.2"
+dispatch2 = "0.3.1"

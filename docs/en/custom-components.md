@@ -95,31 +95,17 @@ A library with several components should – like `rncl` – offer a
   uniform errors (`PropertyError::TypeMismatch`).
 - Property names are public API (designer files store them) – keep them stable.
 
-## Option B: a new native Qt widget
+## Option B: a new native control
 
-If you need a Qt widget RUF does not know yet (e.g. `QSlider`):
+If you need a control RUF does not know yet (e.g. a date picker), extend RUF itself –
+for **all three backends**, so applications stay platform-independent:
 
-1. **Contribute to RUF** (recommended): extend `WidgetKind` and the bridge – step by
-   step in the skill `.claude/skills/ruf-bridge/SKILL.md`.
-2. **Your own bridge in your own crate**: RUF exports its headers and the `QWidget`
-   type. Your `#[cxx_qt::bridge]` creates the widget in C++ and returns a
-   `*mut QWidget`; `unsafe { Widget::from_raw(ptr) }` turns it into a `ruf::Widget`:
+1. Add a variant with the **next free number** to `WidgetKind` in
+   `crates/ruf/src/core.rs` (never renumber values).
+2. In every backend (`backend/gtk.rs`, `backend/win32.rs`, `backend/cocoa.rs`) implement
+   the case in `create` and the affected functions of the `Backend` trait.
+3. If the control needs new capabilities, extend the `Backend` trait – the compiler
+   then reports every backend that is still missing them.
+4. Then build the RNCL component as in option A, but with `Widget::create(WidgetKind::…)`.
 
-   ```rust
-   #[cxx_qt::bridge]
-   mod ffi {
-       unsafe extern "C++" {
-           include!("ruf/cpp/ruf_widgets.h");
-           type QWidget = ruf::sys::QWidget;
-           include!("acme/gauge.h");
-           unsafe fn acme_gauge_new(parent: *mut QWidget) -> *mut QWidget;
-       }
-   }
-
-   // SAFETY: pointer comes from a live ruf::Widget or fresh from C++.
-   let raw = unsafe { ffi::acme_gauge_new(parent.as_widget().as_ptr()) };
-   let widget = unsafe { ruf::Widget::from_raw(raw) };   // the parent owns the widget
-   ```
-
-   Your `build.rs` uses `cxx_qt_build::CxxQtBuilder` and automatically inherits Qt
-   modules and include paths from `ruf`.
+Step by step in the skill `.claude/skills/ruf-backend/SKILL.md`.
