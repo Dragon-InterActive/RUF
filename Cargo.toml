@@ -5,7 +5,7 @@ members = ["crates/ruf", "crates/rncl"]
 [workspace.package]
 version = "0.2.0"
 edition = "2024"
-license = "Apache-2.0"
+license = "MIT OR Apache-2.0"
 authors = ["Dragon Software <info@dragon-software.net>"]
 repository = "https://github.com/Dragon-InterActive/Freya-TD"
 rust-version = "1.99"

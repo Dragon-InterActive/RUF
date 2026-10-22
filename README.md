@@ -51,4 +51,13 @@ andere Assistenten in [`AGENTS.md`](AGENTS.md).
 
 ## Lizenz / License
 
-Apache-2.0
+Nach Wahl lizenziert unter / Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+
+Programme, die damit gebaut werden, dürfen unter beliebiger Lizenz stehen – auch
+proprietär. Beiträge werden, sofern nicht ausdrücklich anders angegeben, unter
+denselben beiden Lizenzen eingebracht.
+*Software built with it may use any license, including proprietary ones. Unless
+explicitly stated otherwise, contributions are dual-licensed as above.*
