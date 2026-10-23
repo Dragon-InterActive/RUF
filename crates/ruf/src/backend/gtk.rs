@@ -375,7 +375,13 @@ fn new_combo(id: Id, editable: bool) -> gtk::ComboBoxText {
     } else {
         gtk::ComboBoxText::new()
     };
-    combo.connect_changed(move |_| notify(id, Notify::Changed));
+    // Erst melden, wenn GTK die Auswahlliste geschlossen hat: Arbeitet das
+    // Programm sofort im Signal (z. B. Listen neu aufbauen), trifft unter macOS
+    // das Loslassen der Maus sonst den Knopf darunter und die Liste geht
+    // wieder auf. Änderungen per Code gleicht der Kern ohnehin selbst ab.
+    combo.connect_changed(move |_| {
+        glib::idle_add_local_once(move || notify(id, Notify::Changed));
+    });
     combo
 }
 
