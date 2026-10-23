@@ -9,12 +9,13 @@ description: Eine Desktop-Anwendung oder ein Formular mit RUF und RNCL-Komponent
 
 ```toml
 [dependencies]
-ruf  = { version = "0.1.0", features = ["qt6"] }
-rncl = { version = "0.1.0" }
+ruf  = { version = "0.2.0" }
+rncl = { version = "0.2.0" }
 ```
 
-Das Backend wählt der Compiler: GTK 4 (Linux, braucht `gtk4`-Entwicklungsdateien),
-Win32 (Windows), Cocoa (macOS). Kein C++, kein Qt, keine Features.
+RUF nutzt GTK 4 auf Linux, Windows und macOS (braucht `gtk4`-Entwicklungsdateien;
+Windows: MSYS2 UCRT64, macOS: Homebrew). Kein C++, kein Qt, keine Features.
+Ausliefern samt GTK-Laufzeit: `tools/bundle-*.sh`, siehe `docs/de/release.md`.
 
 ## Grundmuster
 

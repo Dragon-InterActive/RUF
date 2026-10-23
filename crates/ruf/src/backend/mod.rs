@@ -1,23 +1,21 @@
-//! Die System-Ebene: ein natives Backend je Betriebssystem.
+//! Die System-Ebene: GTK 4 (`gtk4-rs`) auf allen Betriebssystemen.
 //!
 //! | System | Backend | Modul |
 //! |---|---|---|
-//! | Linux, BSD | GTK 4 (`gtk4-rs`) | [`gtk`] |
-//! | Windows | Win32 (`windows-rs`) | `win32` |
-//! | macOS | Cocoa/AppKit (`objc2`) | `cocoa` |
+//! | Linux, BSD, Windows, macOS | GTK 4 (`gtk4-rs`) | [`gtk`] |
 //!
-//! Die Auswahl geschieht beim Kompilieren über `cfg`. Jedes Backend
-//! implementiert [`Backend`] – der Compiler stellt so sicher, dass alle
-//! Backends denselben Funktionsumfang liefern.
+//! Das Backend implementiert [`Backend`]. Die Schicht bleibt, obwohl es nur
+//! noch ein Backend gibt: ein anderes Toolkit ließe sich später wieder
+//! einsetzen, ohne Kern und Komponenten anzufassen.
 //!
 //! # Aufgabenteilung
 //!
-//! Backends sind bewusst "dumm": sie erzeugen native Steuerelemente, setzen
-//! und lesen deren Zustand und melden Benutzeraktionen über
+//! Das Backend ist bewusst "dumm": es erzeugt native Steuerelemente, setzt
+//! und liest deren Zustand und meldet Benutzeraktionen über
 //! [`crate::core::notify`] bzw. [`crate::core::close_requested`]. Alles
 //! andere – Signale bei Änderungen per Code, Ausschließlichkeit von
 //! Optionsfeldern, Combobox-Semantik, Geometrie, Callbacks, Panik-Schutz –
-//! liegt einmalig in [`crate::core`]. So verhalten sich alle Plattformen gleich.
+//! liegt in [`crate::core`].
 
 use std::path::Path;
 
@@ -27,20 +25,8 @@ use crate::geometry::{Rect, Size};
 use crate::style::{Color, Style};
 use crate::text::{KeySpec, Span};
 
-#[cfg(all(unix, not(target_os = "macos")))]
 mod gtk;
-#[cfg(all(unix, not(target_os = "macos")))]
 pub(crate) use self::gtk::Gtk as Platform;
-
-#[cfg(windows)]
-mod win32;
-#[cfg(windows)]
-pub(crate) use self::win32::Win32 as Platform;
-
-#[cfg(target_os = "macos")]
-mod cocoa;
-#[cfg(target_os = "macos")]
-pub(crate) use self::cocoa::Cocoa as Platform;
 
 /// Der native Verweis des aktiven Backends.
 pub(crate) type Native = <Platform as Backend>::Native;
@@ -63,7 +49,7 @@ pub(crate) trait Backend {
     /// verweisen auf dasselbe Steuerelement.
     type Native: Clone;
 
-    /// Name des Toolkits, z. B. `"GTK"`, `"Win32"`, `"Cocoa"`.
+    /// Name des Toolkits, z. B. `"GTK"`.
     const NAME: &'static str;
 
     /// Version des Toolkits bzw. Betriebssystems zur Laufzeit.
@@ -96,7 +82,7 @@ pub(crate) trait Backend {
     /// Gibt das Steuerelement samt nativer Kinder frei.
     fn destroy(native: &Self::Native, kind: WidgetKind);
     fn set_parent(native: &Self::Native, kind: WidgetKind, parent: &Self::Native);
-    /// Name der nativen Klasse, z. B. `"GtkButton"`, `"BUTTON"`, `"NSButton"`.
+    /// Name der nativen Klasse, z. B. `"GtkButton"`.
     fn class_name(native: &Self::Native, kind: WidgetKind) -> String;
 
     // --- Gemeinsame Eigenschaften ---------------------------------------------

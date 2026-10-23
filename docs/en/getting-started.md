@@ -1,15 +1,8 @@
 # Getting started
 
-RUF uses the **native controls of the operating system**. The toolkit is chosen
-automatically at compile time:
-
-| System | Toolkit | Rust binding |
-|---|---|---|
-| Linux / BSD | GTK 4 (≥ 4.12) | `gtk4-rs` |
-| Windows (≥ 10) | Win32 + Common Controls 6 | `windows-rs` |
-| macOS (≥ 11) | Cocoa (AppKit) | `objc2` |
-
-There is no C++, no Qt and no feature switch – the same code runs on all three systems.
+RUF uses **GTK 4** (≥ 4.12, binding `gtk4-rs`) on Linux, Windows (≥ 10) and macOS
+(≥ 11). There is no C++, no Qt and no feature switch – the same code runs on all three
+systems. Releases for Windows and macOS ship the GTK runtime (see [Release](release.md)).
 
 ## Requirements
 
@@ -17,8 +10,8 @@ There is no C++, no Qt and no feature switch – the same code runs on all three
 |---|---|---|
 | all | Rust ≥ 1.99 (edition 2024) | `rustup update` |
 | Linux | GTK 4 with development files, `pkg-config` | see below |
-| Windows | MSVC Build Tools *or* MinGW | `rustup` picks MSVC automatically |
-| macOS | Xcode Command Line Tools | `xcode-select --install` |
+| Windows | MSYS2 (UCRT64) with GTK 4, Rust target `x86_64-pc-windows-gnu` | see below |
+| macOS | Xcode Command Line Tools, Homebrew with GTK 4 | `xcode-select --install`, `brew install gtk4` |
 
 GTK on Linux:
 
@@ -42,18 +35,26 @@ xvfb-run -a cargo test --workspace         # Linux without a display (CI, server
 > On Linux in a Wayland session with `xvfb-run`, set `GDK_BACKEND=x11`, otherwise GTK
 > tries to use the real Wayland session.
 
-### Building for Windows on Linux
+### Windows
+
+Build on Windows in the MSYS2 shell "UCRT64" (<https://www.msys2.org>):
 
 ```bash
-rustup target add x86_64-pc-windows-gnu
-sudo pacman -S mingw-w64-gcc               # or gcc-mingw-w64 (Debian)
-cargo build --target x86_64-pc-windows-gnu --release
-# test with Wine (own prefix so your Wine installation stays untouched):
-WINEPREFIX=/tmp/ruf-wine xvfb-run -a wine target/x86_64-pc-windows-gnu/release/<program>.exe
+pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-pkgconf \
+                   mingw-w64-ucrt-x86_64-gcc
+rustup target add x86_64-pc-windows-gnu      # rustup installed on Windows
+cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-For macOS, Linux can only check that the code compiles
-(`cargo check --target aarch64-apple-darwin`); build and test on a Mac.
+### macOS
+
+```bash
+brew install gtk4
+cargo build --release
+```
+
+Cross-building from Linux is not intended: GTK needs the libraries of the target
+system. For shipping see [Release](release.md).
 
 ## Examples
 

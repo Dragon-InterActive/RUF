@@ -1,7 +1,6 @@
 //! Farben und einfache Gestaltung – auf allen Backends gleich.
 //!
-//! Stylesheets wie in Qt kennen Win32 und Cocoa nicht. RUF unterstützt deshalb eine
-//! kleine, überall umsetzbare CSS-Teilmenge:
+//! RUF unterstützt eine kleine CSS-Teilmenge, die in GTK-CSS übersetzt wird:
 //!
 //! | Eigenschaft | Werte |
 //! |---|---|
@@ -82,7 +81,7 @@ impl Color {
             .map(|(_, c)| *c)
     }
 
-    /// Anteile 0.0…1.0 (für GTK und Cocoa).
+    /// Anteile 0.0…1.0.
     pub fn to_f32(self) -> (f32, f32, f32) {
         (
             f32::from(self.r) / 255.0,

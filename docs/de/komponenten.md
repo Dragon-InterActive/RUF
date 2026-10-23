@@ -35,7 +35,7 @@ Jede Komponente hat zwei Konstruktoren: `new(&eltern, …)` und
 
 ## `RnclWindow` – Fenster
 
-Nativ: GTK `GtkWindow` · Win32 `RufWindow` · Cocoa `NSWindow` · Container · Kategorie *Container*
+Nativ: GTK `GtkWindow` · Container · Kategorie *Container*
 
 ```rust
 let window = RnclWindow::new("Titel");   // Standardgröße 640×480, noch unsichtbar
@@ -56,7 +56,7 @@ window.on_close_requested(|| {                           // false = offen lassen
 
 ## `RnclPanel` – Container
 
-Nativ: GTK `RufFixed` · Win32 `RufContainer` · Cocoa `RufView` · Container · Kategorie *Container*
+Nativ: GTK `RufFixed` · Container · Kategorie *Container*
 
 ```rust
 let panel = RnclPanel::new(&window);
@@ -66,7 +66,7 @@ let ok = RnclButton::new(&panel, "OK");  // Position relativ zum Panel
 
 ## `RnclButton` – Schaltfläche
 
-Nativ: GTK `GtkButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Standard*
+Nativ: GTK `GtkButton` · Kategorie *Standard*
 
 ```rust
 let button = RnclButton::new(&window, "Speichern");
@@ -80,7 +80,7 @@ button.click();                          // programmatisch klicken
 
 ## `RnclLabel` – Text
 
-Nativ: GTK `GtkLabel` · Win32 `STATIC` · Cocoa `NSTextField` · Kategorie *Standard*
+Nativ: GTK `GtkLabel` · Kategorie *Standard*
 
 ```rust
 let label = RnclLabel::new(&window, "Status: <b>bereit</b>"); // einfaches HTML¹
@@ -98,7 +98,7 @@ reiner Text (Tags entfernt, `<br>` wird zum Zeilenumbruch).
 
 ## `RnclTextField` – Eingabefeld
 
-Nativ: GTK `GtkEntry` · Win32 `EDIT` · Cocoa `NSTextField` · Kategorie *Eingabe*
+Nativ: GTK `GtkEntry` · Kategorie *Eingabe*
 
 ```rust
 let field = RnclTextField::new(&window);
@@ -119,7 +119,7 @@ pass.set_password_mode(true);
 
 ## `RnclCheckBox` – Kontrollkästchen
 
-Nativ: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Eingabe*
+Nativ: GTK `GtkCheckButton` · Kategorie *Eingabe*
 
 ```rust
 let check = RnclCheckBox::new(&window, "AGB akzeptiert");
@@ -134,7 +134,7 @@ check.set_checked(true);
 
 ## `RnclRadioButton` – Optionsfeld
 
-Nativ: GTK `GtkCheckButton` · Win32 `BUTTON` · Cocoa `NSButton` · Kategorie *Eingabe*
+Nativ: GTK `GtkCheckButton` · Kategorie *Eingabe*
 
 Optionsfelder mit demselben Elternteil schließen sich gegenseitig aus – für mehrere
 Gruppen je Gruppe eine `RnclGroupBox` (oder ein `RnclPanel`) verwenden.
@@ -156,7 +156,7 @@ cash.on_toggled(|an| println!("Bar: {an}"));
 
 ## `RnclGroupBox` – Gruppe mit Rahmen
 
-Nativ: GTK `GtkFrame` · Win32 `BUTTON (Gruppe)` · Cocoa `NSBox` · Container · Kategorie *Container*
+Nativ: GTK `GtkFrame` · Container · Kategorie *Container*
 
 ```rust
 let group = RnclGroupBox::new(&window, "Adresse");
@@ -170,7 +170,7 @@ RnclTextField::new(&group).set_position(12, 28);   // Titel belegt oben ca. 20 p
 
 ## `RnclTextArea` – mehrzeiliger Text (Memo)
 
-Nativ: GTK `GtkTextView` · Win32 `RichEdit 5` · Cocoa `NSTextView` · Kategorie *Eingabe*
+Nativ: GTK `GtkTextView` · Kategorie *Eingabe*
 
 ```rust
 let notes = RnclTextArea::new(&window);          // Standardgröße 240×120
@@ -207,7 +207,7 @@ bei ungültigem Muster oder ungültiger Farbe.
 
 ## `RnclComboBox` – Auswahlliste
 
-Nativ: GTK `GtkComboBoxText` · Win32 `COMBOBOX` · Cocoa `NSPopUpButton / NSComboBox` · Kategorie *Eingabe*
+Nativ: GTK `GtkComboBoxText` · Kategorie *Eingabe*
 
 ```rust
 let city = RnclComboBox::new(&window);
@@ -226,7 +226,7 @@ city.set_editable(true);                           // zusätzlich freie Eingabe
 
 ## `RnclListBox` – Liste
 
-Nativ: GTK `GtkListBox` · Win32 `LISTBOX` · Cocoa `NSTableView` · Kategorie *Eingabe*
+Nativ: GTK `GtkListBox` · Kategorie *Eingabe*
 
 ```rust
 let list = RnclListBox::new(&window);              // Standardgröße 160×120
@@ -242,7 +242,7 @@ if let Some(t) = list.current_text() { println!("{t}"); }
 
 ## `RnclSpinBox` – Zahlenfeld
 
-Nativ: GTK `GtkSpinButton` · Win32 `EDIT + UpDown` · Cocoa `NSTextField + NSStepper` · Kategorie *Eingabe* · Standardbereich 0…99
+Nativ: GTK `GtkSpinButton` · Kategorie *Eingabe* · Standardbereich 0…99
 
 ```rust
 let age = RnclSpinBox::new(&window);
@@ -258,7 +258,7 @@ age.on_value_changed(|v| println!("{v}"));
 
 ## `RnclSlider` – Schieberegler
 
-Nativ: GTK `GtkScale` · Win32 `Trackbar` · Cocoa `NSSlider` · Kategorie *Eingabe* · Standardbereich 0…99, waagerecht
+Nativ: GTK `GtkScale` · Kategorie *Eingabe* · Standardbereich 0…99, waagerecht
 
 ```rust
 let volume = RnclSlider::new(&window);
@@ -274,7 +274,7 @@ volume.set_vertical(true);                         // Breite/Höhe ggf. tauschen
 
 ## `RnclProgressBar` – Fortschrittsbalken
 
-Nativ: GTK `GtkProgressBar` · Win32 `Progress` · Cocoa `NSProgressIndicator` · Kategorie *Anzeige* · Standardbereich 0…100
+Nativ: GTK `GtkProgressBar` · Kategorie *Anzeige* · Standardbereich 0…100
 
 ```rust
 let bar = RnclProgressBar::new(&window);
@@ -289,7 +289,7 @@ bar.set_busy(true);                                // "beschäftigt" ohne Prozen
 
 ## `RnclTabView` – Registerkarten
 
-Nativ: GTK `GtkNotebook` · Win32 `SysTabControl32` · Cocoa `NSTabView` · Container (Seiten) · Kategorie *Container*
+Nativ: GTK `GtkNotebook` · Container (Seiten) · Kategorie *Container*
 
 ```rust
 let tabs = RnclTabView::new(&window);
@@ -308,7 +308,7 @@ tabs.remove_tab(1);                                // entfernt Seite samt Inhalt
 
 ## `RnclScrollView` – Scrollbereich
 
-Nativ: GTK `GtkScrolledWindow` · Win32 `RufContainer` · Cocoa `NSScrollView` · Container (Inhalt) · Kategorie *Container*
+Nativ: GTK `GtkScrolledWindow` · Container (Inhalt) · Kategorie *Container*
 
 Für Inhalte, die größer als der sichtbare Bereich sind – z. B. eine zur Laufzeit
 erzeugte Liste von Checkboxen. Kinder kommen in `content()`.

@@ -1,6 +1,6 @@
 # Architecture
 
-RUF has four layers. Only the lowest one knows the operating system.
+RUF has four layers. Only the lowest one knows the toolkit (GTK 4).
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
@@ -11,23 +11,23 @@ RUF has four layers. Only the lowest one knows the operating system.
  │ 2  Core (ruf/src/core.rs)  registry · signals · geometry · timers     │
  ├──────────────────────────────────────────────────────────────────────┤
  │ 1  System layer            trait Backend                              │
- │    (ruf/src/backend/)      gtk.rs │ win32.rs │ cocoa.rs               │
+ │    (ruf/src/backend/)      gtk.rs                                     │
  └──────────────────────────────────────────────────────────────────────┘
-          GTK 4 (Linux)     Win32 (Windows)     AppKit (macOS)
+               GTK 4 – Linux, Windows, macOS
 ```
 
 ## 1. System layer (`crates/ruf/src/backend/`)
 
-One backend per operating system, selected via `cfg` at compile time:
+One backend for all operating systems: GTK 4. On Windows and macOS the release ships
+the GTK runtime (see [Release](release.md)).
 
 | File | System | Binding | Container class |
 |---|---|---|---|
-| `gtk.rs` | Linux, BSD | `gtk4-rs` | `RufFixed` (subclass of `GtkWidget`) |
-| `win32.rs` | Windows | `windows-rs` | window class `RufContainer` |
-| `cocoa.rs` | macOS | `objc2` | `RufView` (subclass of `NSView`, flipped Y axis) |
+| `gtk.rs` | Linux, BSD, Windows, macOS | `gtk4-rs` | `RufFixed` (subclass of `GtkWidget`) |
 
-All implement the `Backend` trait (`backend/mod.rs`) – so the compiler ensures every
-backend provides the full feature set. Backends are deliberately **"dumb"**: they
+It implements the `Backend` trait (`backend/mod.rs`). The layer stays although there
+is only one backend: another toolkit could be plugged in later without touching the
+core and the components. Win32 and Cocoa were removed on 2026-10-23 (see git history). Backends are deliberately **"dumb"**: they
 create controls, set and read their state and report user actions to the core
 (`core::notify`, `core::close_requested`, `core::timer_fired`, `core::shortcut_fired`).
 
@@ -87,8 +87,7 @@ methods. Own properties are added via `properties()`, `property()` and
 
 `Widget` and all components are **not `Send`/`Sync`** – the compiler prevents using
 widgets from other threads. For background work there is `ruf::GuiSender`: the
-sender is `Send` and forwards values to a handler on the GUI thread (GTK: idle source,
-Win32: `PostMessage` to a message window, macOS: Grand Central Dispatch). See
+sender is `Send` and forwards values to a handler on the GUI thread (GTK idle source). See
 [Components → Services](components.md#services-for-dynamic-user-interfaces).
 
 ## 4. Designer layer
@@ -99,7 +98,7 @@ edits them via the property model. See [Designer integration](designer.md).
 ## Toolkit version at runtime
 
 ```rust
-let toolkit = ruf::toolkit();      // e.g. "GTK 4.24.1", "Win32 Windows 10 Pro (Build 19045)"
+let toolkit = ruf::toolkit();      // e.g. "GTK 4.24.1"
 println!("{} {}", toolkit.name, toolkit.version);
 ```
 
@@ -108,5 +107,5 @@ println!("{} {}", toolkit.name, toolkit.version);
 | System | Minimum | Reason |
 |---|---|---|
 | GTK | 4.12 | `CssProvider::load_from_string`, `AlertDialog` |
-| Windows | 10 | `GetDpiForSystem`, Common Controls 6 |
-| macOS | 11 | current AppKit APIs, Apple Silicon |
+| Windows | 10 | GTK 4 from MSYS2 |
+| macOS | 11 | GTK 4 from Homebrew |

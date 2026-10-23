@@ -1,21 +1,14 @@
 //! # RUF – Rust native UI Framework
 //!
 //! Das native Fundament für [RNCL](https://docs.rs/rncl)-Komponenten und das
-//! RAD-Tool *Freya TD*. RUF steuert die **nativen Steuerelemente des
-//! Betriebssystems** über eine sichere, pure Rust-API:
-//!
-//! | System | Toolkit | Bindung |
-//! |---|---|---|
-//! | Linux / BSD | GTK 4 | `gtk4-rs` |
-//! | Windows | Win32 (Common Controls) | `windows-rs` |
-//! | macOS | Cocoa (AppKit) | `objc2` |
-//!
-//! Das Backend wird beim Kompilieren automatisch gewählt – Anwendungen und
-//! Komponenten schreiben denselben Code für alle drei Systeme.
+//! RAD-Tool *Freya TD*. RUF steuert **GTK-4-Steuerelemente** über eine
+//! sichere, pure Rust-API – auf Linux, Windows und macOS (`gtk4-rs`).
+//! Anwendungen und Komponenten schreiben denselben Code für alle Systeme;
+//! Releases für Windows und macOS liefern die GTK-Laufzeit mit.
 //!
 //! ## Ebenen
 //!
-//! 1. **System-Ebene** – je ein Backend pro Betriebssystem (intern, `backend/`).
+//! 1. **System-Ebene** – das GTK-4-Backend hinter einem Trait (intern, `backend/`).
 //! 2. **Kern** – plattformunabhängige Logik: Lebensdauer, Signale,
 //!    Geometrie, Timer (intern, siehe `core.rs`).
 //! 3. **Logik-Ebene** – [`Widget`], [`Component`], [`ComponentRegistry`] und

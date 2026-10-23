@@ -6,8 +6,8 @@
 |---|---|---|
 | `The system library gtk4 required by crate gdk4-sys was not found` | GTK-Entwicklungsdateien fehlen (Linux) | `sudo pacman -S gtk4` / `sudo apt install libgtk-4-dev` / `sudo dnf install gtk4-devel` |
 | `package gtk4 … was not found in the pkg-config search path` | `pkg-config` fehlt oder sucht falsch | `pkg-config` installieren; ggf. `PKG_CONFIG_PATH` setzen |
-| `linker x86_64-w64-mingw32-gcc not found` | Windows-Build von Linux ohne MinGW | `sudo pacman -S mingw-w64-gcc` bzw. `gcc-mingw-w64` |
-| `error: failed to run custom build command for ring` (Kreuzkompilierung macOS) | C-Code braucht Apples Compiler | auf einem Mac bauen; unter Linux nur `cargo check` für RUF/RNCL |
+| `pkg-config` findet `gtk4` nicht (Windows) | Build außerhalb der MSYS2-UCRT64-Shell | in der UCRT64-Shell bauen, `mingw-w64-ucrt-x86_64-gtk4` installieren |
+| Programm startet unter Windows/macOS nicht: DLL/dylib fehlt | GTK-Laufzeit nicht mitgeliefert | mit `tools/bundle-windows.sh` bzw. `tools/bundle-macos.sh` bündeln ([Release](release.md)) |
 
 ## Laufzeit
 
@@ -22,11 +22,9 @@
 | Callback läuft nicht | Signal gibt es für diese Art nicht | Rückgabewert von `on_…` prüfen (`false` = nicht unterstützt) |
 | Callback ruft sich nicht selbst erneut auf | Re-Entranz-Schutz | gewollt: ein laufender Handler wird nicht verschachtelt aufgerufen |
 | `ruf: Panik in einem Callback abgefangen: …` | Panik in einer Closure | Fehler in der Closure beheben; die Anwendung läuft weiter |
-| Labels in Windows grau hinterlegt | Stil ohne `background` | gewollt: Container-Hintergrund des Systems |
 
 ## Tests
 
 - **Linux ohne Bildschirm:** `xvfb-run -a cargo test`. In einer Sandbox, die `/tmp/.X11-unix`
   schützt, kann Xvfb seinen Socket nicht anlegen – Tests dann außerhalb der Sandbox starten.
-- **Windows unter Wine:** eigenes Präfix verwenden: `WINEPREFIX=/tmp/ruf-wine xvfb-run -a wine test.exe`.
 - **Modale Dialoge** (`ruf::dialog`) blockieren – in automatischen Tests nicht aufrufen.

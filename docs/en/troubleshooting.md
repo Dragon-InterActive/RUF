@@ -6,8 +6,8 @@
 |---|---|---|
 | `The system library gtk4 required by crate gdk4-sys was not found` | GTK development files missing (Linux) | `sudo pacman -S gtk4` / `sudo apt install libgtk-4-dev` / `sudo dnf install gtk4-devel` |
 | `package gtk4 … was not found in the pkg-config search path` | `pkg-config` missing or searching the wrong place | install `pkg-config`; set `PKG_CONFIG_PATH` if needed |
-| `linker x86_64-w64-mingw32-gcc not found` | Windows build on Linux without MinGW | `sudo pacman -S mingw-w64-gcc` or `gcc-mingw-w64` |
-| `error: failed to run custom build command for ring` (cross-compiling to macOS) | C code needs Apple's compiler | build on a Mac; on Linux only `cargo check` RUF/RNCL |
+| `pkg-config` cannot find `gtk4` (Windows) | build outside the MSYS2 UCRT64 shell | build in the UCRT64 shell, install `mingw-w64-ucrt-x86_64-gtk4` |
+| program does not start on Windows/macOS: DLL/dylib missing | GTK runtime not shipped | bundle with `tools/bundle-windows.sh` / `tools/bundle-macos.sh` ([Release](release.md)) |
 
 ## Runtime
 
@@ -22,11 +22,9 @@
 | callback does not run | signal not available for this kind | check the return value of `on_…` (`false` = not supported) |
 | callback is not re-entered | re-entrancy protection | intended: a running handler is not called nested |
 | `ruf: Panik in einem Callback abgefangen: …` | panic inside a closure | fix the closure; the application keeps running |
-| labels on Windows have a grey background | style without `background` | intended: the system's container background |
 
 ## Tests
 
 - **Linux without a display:** `xvfb-run -a cargo test`. Inside a sandbox that protects
   `/tmp/.X11-unix`, Xvfb cannot create its socket – run the tests outside the sandbox.
-- **Windows under Wine:** use an own prefix: `WINEPREFIX=/tmp/ruf-wine xvfb-run -a wine test.exe`.
 - **Modal dialogs** (`ruf::dialog`) block – don't call them in automated tests.

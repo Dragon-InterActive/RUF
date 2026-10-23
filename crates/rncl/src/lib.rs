@@ -1,26 +1,26 @@
 //! # RNCL – Rust native Component Library
 //!
 //! Die nativen System-Widgets für [RUF](ruf): pure Rust-Strukturen, die jeweils
-//! ein echtes Steuerelement des Systems steuern (GTK 4, Win32 oder Cocoa).
+//! ein echtes GTK-4-Steuerelement steuern – auf Linux, Windows und macOS.
 //!
-//! | Komponente | GTK | Win32 | Cocoa | Container |
-//! |---|---|---|---|---|
-//! | [`RnclWindow`] | `GtkWindow` | `RufWindow` | `NSWindow` | ja |
-//! | [`RnclPanel`] | `RufFixed` | `RufContainer` | `RufView` | ja |
-//! | [`RnclButton`] | `GtkButton` | `BUTTON` | `NSButton` | nein |
-//! | [`RnclLabel`] | `GtkLabel` | `STATIC` | `NSTextField` | nein |
-//! | [`RnclTextField`] | `GtkEntry` | `EDIT` | `NSTextField` | nein |
-//! | [`RnclCheckBox`] | `GtkCheckButton` | `BUTTON` | `NSButton` | nein |
-//! | [`RnclRadioButton`] | `GtkCheckButton` | `BUTTON` | `NSButton` | nein |
-//! | [`RnclGroupBox`] | `GtkFrame` | `BUTTON` | `NSBox` | ja |
-//! | [`RnclTextArea`] | `GtkTextView` | RichEdit | `NSTextView` | nein |
-//! | [`RnclComboBox`] | `GtkComboBoxText` | `COMBOBOX` | `NSPopUpButton`/`NSComboBox` | nein |
-//! | [`RnclListBox`] | `GtkListBox` | `LISTBOX` | `NSTableView` | nein |
-//! | [`RnclSpinBox`] | `GtkSpinButton` | `EDIT`+UpDown | `NSTextField`+`NSStepper` | nein |
-//! | [`RnclSlider`] | `GtkScale` | Trackbar | `NSSlider` | nein |
-//! | [`RnclProgressBar`] | `GtkProgressBar` | Progress | `NSProgressIndicator` | nein |
-//! | [`RnclTabView`] | `GtkNotebook` | Tab Control | `NSTabView` | ja (Seiten) |
-//! | [`RnclScrollView`] | `GtkScrolledWindow` | `RufContainer` | `NSScrollView` | ja (Inhalt) |
+//! | Komponente | GTK | Container |
+//! |---|---|---|
+//! | [`RnclWindow`] | `GtkWindow` | ja |
+//! | [`RnclPanel`] | `RufFixed` | ja |
+//! | [`RnclButton`] | `GtkButton` | nein |
+//! | [`RnclLabel`] | `GtkLabel` | nein |
+//! | [`RnclTextField`] | `GtkEntry` | nein |
+//! | [`RnclCheckBox`] | `GtkCheckButton` | nein |
+//! | [`RnclRadioButton`] | `GtkCheckButton` | nein |
+//! | [`RnclGroupBox`] | `GtkFrame` | ja |
+//! | [`RnclTextArea`] | `GtkTextView` | nein |
+//! | [`RnclComboBox`] | `GtkComboBoxText` | nein |
+//! | [`RnclListBox`] | `GtkListBox` | nein |
+//! | [`RnclSpinBox`] | `GtkSpinButton` | nein |
+//! | [`RnclSlider`] | `GtkScale` | nein |
+//! | [`RnclProgressBar`] | `GtkProgressBar` | nein |
+//! | [`RnclTabView`] | `GtkNotebook` | ja (Seiten) |
+//! | [`RnclScrollView`] | `GtkScrolledWindow` | ja (Inhalt) |
 //!
 //! ```no_run
 //! use rncl::prelude::*;

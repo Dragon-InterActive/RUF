@@ -98,15 +98,13 @@ Eine Bibliothek mit mehreren Komponenten bietet am besten – wie `rncl` – ein
 ## Variante B: neues natives Steuerelement
 
 Braucht man ein Steuerelement, das RUF noch nicht kennt (z. B. einen Datumswähler),
-wird RUF selbst erweitert – für **alle drei Backends**, damit Anwendungen
-plattformunabhängig bleiben:
+wird RUF selbst erweitert – im GTK-Backend, das auf allen Systemen läuft:
 
 1. `WidgetKind` in `crates/ruf/src/core.rs` um eine Variante mit der **nächsten freien
    Zahl** ergänzen (Werte nie umnummerieren).
-2. In jedem Backend (`backend/gtk.rs`, `backend/win32.rs`, `backend/cocoa.rs`) den Fall
+2. Im Backend (`backend/gtk.rs`) den Fall
    in `create` und die betroffenen Funktionen des `Backend`-Traits umsetzen.
-3. Braucht das Steuerelement neue Fähigkeiten, den Trait `Backend` erweitern – der
-   Compiler meldet dann jedes Backend, das noch fehlt.
+3. Braucht das Steuerelement neue Fähigkeiten, den Trait `Backend` erweitern.
 4. Danach die RNCL-Komponente wie in Variante A, aber mit `Widget::create(WidgetKind::…)`.
 
 Schritt für Schritt im Skill `.claude/skills/ruf-backend/SKILL.md`.

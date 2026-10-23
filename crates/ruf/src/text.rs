@@ -109,37 +109,6 @@ pub fn looks_like_markup(text: &str) -> bool {
     text.contains('<') && text.contains('>')
 }
 
-/// Entfernt Tags und wandelt `<br>` in Zeilenumbrüche (für Backends ohne
-/// Formatierung in Labels).
-#[cfg_attr(all(unix, not(target_os = "macos")), allow(dead_code))]
-pub fn markup_to_plain(text: &str) -> String {
-    if !looks_like_markup(text) {
-        return text.to_owned();
-    }
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(start) = rest.find('<') {
-        out.push_str(&rest[..start]);
-        let Some(end) = rest[start..].find('>') else {
-            out.push_str(&rest[start..]);
-            rest = "";
-            break;
-        };
-        let tag = rest[start + 1..start + end].trim().to_ascii_lowercase();
-        if tag.starts_with("br") || tag == "/p" {
-            out.push('\n');
-        }
-        rest = &rest[start + end + 1..];
-    }
-    out.push_str(rest);
-    out.replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", "\"")
-        .replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-}
-
-#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 /// Wandelt einfaches HTML in Pango-Markup (GTK): `<br>` → Zeilenumbruch,
 /// `<b> <i> <u> <s> <small> <big> <tt> <sub> <sup>` bleiben, andere Tags
 /// fallen weg, `&` wird maskiert.
@@ -171,7 +140,6 @@ pub fn markup_to_pango(text: &str) -> String {
 }
 
 /// Maskiert `&`, lässt aber vorhandene Entitäten (`&lt;` …) stehen.
-#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 fn escape_amp(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for (i, c) in text.char_indices() {
@@ -202,15 +170,12 @@ pub struct HighlightRule {
     pub bold: bool,
 }
 
-/// Ein einzufärbender Bereich – in Zeichen (GTK) und UTF-16-Einheiten
-/// (Win32, Cocoa) angegeben, jeweils ab Textanfang; Zeilenumbrüche zählen
-/// als ein Zeichen.
+/// Ein einzufärbender Bereich in Zeichen ab Textanfang; Zeilenumbrüche
+/// zählen als ein Zeichen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     pub start: usize,
     pub len: usize,
-    pub start_utf16: usize,
-    pub len_utf16: usize,
     pub color: Color,
     pub bold: bool,
 }
@@ -223,7 +188,7 @@ pub struct Span {
 /// den Schlüssel, nicht das Gleichheitszeichen.
 pub fn highlight(text: &str, rules: &[HighlightRule]) -> Vec<Span> {
     let mut spans = Vec::new();
-    let (mut line_chars, mut line_utf16) = (0usize, 0usize);
+    let mut line_chars = 0usize;
     for line in text.split('\n') {
         // Formatierung je Byte der Zeile: Index der gewinnenden Regel.
         let mut owner: Vec<Option<usize>> = vec![None; line.len()];
@@ -237,16 +202,13 @@ pub fn highlight(text: &str, rules: &[HighlightRule]) -> Vec<Span> {
                 }
             }
         }
-        // Zu Bereichen zusammenfassen, Zeichen- und UTF-16-Positionen mitzählen.
-        let (mut chars, mut utf16) = (line_chars, line_utf16);
+        // Zu Bereichen zusammenfassen, Zeichenpositionen mitzählen.
+        let mut chars = line_chars;
         let mut current: Option<(usize, Span)> = None;
-        for (byte, c) in line.char_indices() {
+        for (byte, _) in line.char_indices() {
             let rule = owner[byte];
             match (&mut current, rule) {
-                (Some((r, span)), Some(n)) if *r == n => {
-                    span.len += 1;
-                    span.len_utf16 += c.len_utf16();
-                }
+                (Some((r, span)), Some(n)) if *r == n => span.len += 1,
                 _ => {
                     if let Some((_, span)) = current.take() {
                         spans.push(span);
@@ -257,8 +219,6 @@ pub fn highlight(text: &str, rules: &[HighlightRule]) -> Vec<Span> {
                             Span {
                                 start: chars,
                                 len: 1,
-                                start_utf16: utf16,
-                                len_utf16: c.len_utf16(),
                                 color: rules[n].color,
                                 bold: rules[n].bold,
                             },
@@ -267,13 +227,11 @@ pub fn highlight(text: &str, rules: &[HighlightRule]) -> Vec<Span> {
                 }
             }
             chars += 1;
-            utf16 += c.len_utf16();
         }
         if let Some((_, span)) = current {
             spans.push(span);
         }
         line_chars = chars + 1;
-        line_utf16 = utf16 + 1;
     }
     spans
 }
@@ -297,8 +255,6 @@ mod tests {
 
     #[test]
     fn markup() {
-        assert_eq!(markup_to_plain("<b>A</b> &amp; B<br>C"), "A & B\nC");
-        assert_eq!(markup_to_plain("a < b"), "a < b");
         assert_eq!(
             markup_to_pango("<b>serde</b> – A & B<br><small>x</small><a href='y'>z</a>"),
             "<b>serde</b> – A &amp; B\n<small>x</small>z"
@@ -326,7 +282,7 @@ mod tests {
         assert_eq!((spans[1].start, spans[1].len, spans[1].bold), (3, 2, true));
         // Zweite Zeile: Zeilenumbruch zählt als ein Zeichen.
         assert_eq!((spans[2].start, spans[2].len), (6, 1));
-        assert_eq!((spans[3].start, spans[3].start_utf16), (8, 8));
+        assert_eq!(spans[3].start, 8);
 
         // Gruppe 1 statt Lookahead.
         let key = vec![HighlightRule {

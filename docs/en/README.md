@@ -3,15 +3,14 @@
 🇩🇪 [Deutsche Fassung](../de/README.md)
 
 **RUF** (Rust native UI Framework) is the native foundation for desktop user
-interfaces in Rust using the **native controls of the system** – GTK 4 on Linux,
-Win32 on Windows, Cocoa on macOS. **RNCL** (Rust native Component Library)
+interfaces in Rust using **GTK 4** – on Linux, Windows and macOS. **RNCL** (Rust native Component Library)
 provides the UI elements on top of it – windows, buttons, text fields, check boxes … –
 as self-contained, interchangeable components. Together they form the basis of the
 RAD tool **Freya TD**.
 
 ```toml
 [dependencies]
-ruf  = { version = "0.2.0" } # the native foundation (GTK 4 / Win32 / Cocoa – automatic)
+ruf  = { version = "0.2.0" } # the foundation (GTK 4 on all systems)
 rncl = { version = "0.2.0" } # the native system widgets
 ```
 
@@ -25,6 +24,7 @@ rncl = { version = "0.2.0" } # the native system widgets
 | [Custom components](custom-components.md) | Writing and registering your own RNCL components |
 | [Designer integration](designer.md) | Registry and property model for Freya TD |
 | [AI assistance](ai-assistance.md) | Skills and working with AI assistants |
+| [Release](release.md) | Shipping for Windows and macOS with the GTK runtime |
 | [Troubleshooting](troubleshooting.md) | Common build and runtime problems |
 
 ## At a glance
@@ -60,7 +60,7 @@ RUF/
 ├── crates/
 │   ├── ruf/                   foundation
 │   │   └── src/
-│   │       ├── backend/       system layer: gtk.rs (Linux), win32.rs (Windows), cocoa.rs (macOS)
+│   │       ├── backend/       system layer: gtk.rs (GTK 4, all systems)
 │   │       ├── core.rs        core: registry, signals, geometry, timers
 │   │       └── …              Widget, Component, registry, properties, style
 │   └── rncl/                  standard components

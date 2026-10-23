@@ -1,4 +1,4 @@
-//! Integrationstests gegen das echte native Toolkit (GTK, Win32 oder Cocoa).
+//! Integrationstests gegen das echte Toolkit (GTK 4).
 //!
 //! Native Toolkits erlauben nur eine Anwendung pro Prozess, im Hauptthread.
 //! Darum läuft dieser Test mit `harness = false` und eigenem `main()`.
@@ -51,10 +51,7 @@ fn main() {
 
 fn toolkit() {
     let toolkit = ruf::toolkit();
-    assert!(
-        ["GTK", "Win32", "Cocoa"].contains(&toolkit.name),
-        "{toolkit}"
-    );
+    assert!(toolkit.name == "GTK", "{toolkit}");
     assert!(!toolkit.version.is_empty());
 }
 
@@ -330,8 +327,12 @@ fn range_components() {
     let window = RnclWindow::new("t");
 
     let spin = RnclSpinBox::new(&window);
-    // Zusammengesetzte Steuerelemente (Cocoa: Textfeld + Pfeile) brauchen eine echte Größe.
-    assert!(spin.size().height >= 16 && spin.size().width >= 40, "{:?}", spin.size());
+    // Zusammengesetzte Steuerelemente (Textfeld + Pfeile) brauchen eine echte Größe.
+    assert!(
+        spin.size().height >= 16 && spin.size().width >= 40,
+        "{:?}",
+        spin.size()
+    );
     let seen = Rc::new(Cell::new(0));
     let s = seen.clone();
     spin.on_value_changed(move |v| s.set(v));

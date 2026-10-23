@@ -24,8 +24,8 @@ pub enum ColorScheme {
 /// std::process::exit(app.exec());
 /// ```
 ///
-/// Läuft auf Linux mit GTK 4, auf Windows mit Win32 und auf macOS mit Cocoa
-/// – siehe [`toolkit`](crate::toolkit).
+/// Läuft auf Linux, Windows und macOS mit GTK 4 – siehe
+/// [`toolkit`](crate::toolkit).
 pub struct Application {
     name: std::cell::RefCell<String>,
     _not_send: std::marker::PhantomData<*const ()>,
@@ -98,7 +98,7 @@ impl Application {
     }
 
     /// Erzwingt ein Farbschema; `ColorScheme::Unknown` folgt wieder dem System.
-    /// Liefert `false`, wenn das Backend das nicht kann (Win32).
+    /// Liefert `false`, wenn das Backend das nicht kann.
     pub fn set_color_scheme(scheme: ColorScheme) -> bool {
         Platform::set_color_scheme(scheme)
     }

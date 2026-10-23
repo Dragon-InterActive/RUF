@@ -98,14 +98,13 @@ A library with several components should – like `rncl` – offer a
 ## Option B: a new native control
 
 If you need a control RUF does not know yet (e.g. a date picker), extend RUF itself –
-for **all three backends**, so applications stay platform-independent:
+in the GTK backend, which runs on all systems:
 
 1. Add a variant with the **next free number** to `WidgetKind` in
    `crates/ruf/src/core.rs` (never renumber values).
-2. In every backend (`backend/gtk.rs`, `backend/win32.rs`, `backend/cocoa.rs`) implement
+2. In the backend (`backend/gtk.rs`) implement
    the case in `create` and the affected functions of the `Backend` trait.
-3. If the control needs new capabilities, extend the `Backend` trait – the compiler
-   then reports every backend that is still missing them.
+3. If the control needs new capabilities, extend the `Backend` trait.
 4. Then build the RNCL component as in option A, but with `Widget::create(WidgetKind::…)`.
 
 Step by step in the skill `.claude/skills/ruf-backend/SKILL.md`.

@@ -1,6 +1,6 @@
 # Architektur
 
-RUF ist in vier Ebenen aufgebaut. Nur die unterste kennt das Betriebssystem.
+RUF ist in vier Ebenen aufgebaut. Nur die unterste kennt das Toolkit (GTK 4).
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
@@ -11,23 +11,23 @@ RUF ist in vier Ebenen aufgebaut. Nur die unterste kennt das Betriebssystem.
  │ 2  Kern (ruf/src/core.rs)  Registry · Signale · Geometrie · Timer     │
  ├──────────────────────────────────────────────────────────────────────┤
  │ 1  System-Ebene            trait Backend                              │
- │    (ruf/src/backend/)      gtk.rs │ win32.rs │ cocoa.rs               │
+ │    (ruf/src/backend/)      gtk.rs                                     │
  └──────────────────────────────────────────────────────────────────────┘
-          GTK 4 (Linux)     Win32 (Windows)     AppKit (macOS)
+               GTK 4 – Linux, Windows, macOS
 ```
 
 ## 1. System-Ebene (`crates/ruf/src/backend/`)
 
-Ein Backend pro Betriebssystem, ausgewählt per `cfg` beim Kompilieren:
+Ein Backend für alle Betriebssysteme: GTK 4. Unter Windows und macOS liefert das
+Release die GTK-Laufzeit mit (siehe [Release](release.md)).
 
 | Datei | System | Bindung | Container-Klasse |
 |---|---|---|---|
-| `gtk.rs` | Linux, BSD | `gtk4-rs` | `RufFixed` (Unterklasse von `GtkWidget`) |
-| `win32.rs` | Windows | `windows-rs` | Fensterklasse `RufContainer` |
-| `cocoa.rs` | macOS | `objc2` | `RufView` (Unterklasse von `NSView`, gespiegelte Y-Achse) |
+| `gtk.rs` | Linux, BSD, Windows, macOS | `gtk4-rs` | `RufFixed` (Unterklasse von `GtkWidget`) |
 
-Alle implementieren den Trait `Backend` (`backend/mod.rs`) – der Compiler stellt so
-sicher, dass jedes Backend den vollen Funktionsumfang liefert. Backends sind bewusst
+Es implementiert den Trait `Backend` (`backend/mod.rs`). Die Schicht bleibt, obwohl es
+nur ein Backend gibt: ein anderes Toolkit ließe sich später einsetzen, ohne Kern und
+Komponenten anzufassen. Win32 und Cocoa wurden am 23.10.2026 entfernt (Git-Historie). Backends sind bewusst
 **„dumm“**: Sie erzeugen Steuerelemente, setzen und lesen deren Zustand und melden
 Benutzeraktionen an den Kern (`core::notify`, `core::close_requested`,
 `core::timer_fired`, `core::shortcut_fired`).
@@ -91,8 +91,7 @@ und `set_property()` ergänzt.
 `Widget` und alle Komponenten sind **nicht `Send`/`Sync`** – der Compiler verhindert,
 dass Widgets aus anderen Threads benutzt werden. Für Hintergrundarbeit gibt es
 `ruf::GuiSender`: Der Sender ist `Send` und reicht Werte an einen Handler im
-GUI-Thread weiter (GTK: Idle-Quelle, Win32: `PostMessage` an ein Nachrichtenfenster,
-macOS: Grand Central Dispatch). Siehe [Komponenten → Dienste](komponenten.md#dienste-für-dynamische-oberflächen).
+GUI-Thread weiter (GTK-Idle-Quelle). Siehe [Komponenten → Dienste](komponenten.md#dienste-für-dynamische-oberflächen).
 
 ## 4. Designer-Ebene
 
@@ -102,7 +101,7 @@ bearbeitet sie über das Eigenschaftsmodell. Siehe [Designer-Anbindung](designer
 ## Toolkit-Version zur Laufzeit
 
 ```rust
-let toolkit = ruf::toolkit();      // z. B. "GTK 4.24.1", "Win32 Windows 10 Pro (Build 19045)"
+let toolkit = ruf::toolkit();      // z. B. "GTK 4.24.1"
 println!("{} {}", toolkit.name, toolkit.version);
 ```
 
@@ -111,5 +110,5 @@ println!("{} {}", toolkit.name, toolkit.version);
 | System | Minimum | Grund |
 |---|---|---|
 | GTK | 4.12 | `CssProvider::load_from_string`, `AlertDialog` |
-| Windows | 10 | `GetDpiForSystem`, Common Controls 6 |
-| macOS | 11 | aktuelle AppKit-APIs, Apple Silicon |
+| Windows | 10 | GTK 4 aus MSYS2 |
+| macOS | 11 | GTK 4 aus Homebrew |

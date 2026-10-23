@@ -5,7 +5,7 @@ use crate::backend::{Backend, Platform};
 /// Name und Version des nativen Toolkits.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Toolkit {
-    /// `"GTK"`, `"Win32"` oder `"Cocoa"`.
+    /// `"GTK"`.
     pub name: &'static str,
     /// Version des Toolkits bzw. Betriebssystems zur Laufzeit.
     pub version: String,

@@ -10,8 +10,8 @@
 //!   vergleicht [`sync`] den nativen Zustand mit dem zuletzt gemeldeten und
 //!   ruft genau dann die Callbacks auf, wenn sich etwas geändert hat. Damit
 //!   feuern Signale auf allen Backends gleich, auch bei Änderungen per Code.
-//! * **Semantik**, die klassische Toolkits liefern, die GTK, Win32 und Cocoa aber unterschiedlich
-//!   handhaben: Optionsfelder je Elternteil exklusiv, Combobox wählt den
+//! * **Semantik**, die klassische Toolkits liefern, GTK aber anders
+//!   handhabt: Optionsfelder je Elternteil exklusiv, Combobox wählt den
 //!   ersten Eintrag, Wertebereiche begrenzen den Wert, Fenster werden beim
 //!   Schließen nur ausgeblendet, nach dem letzten Fenster endet `exec()`.
 //! * **Timer, Tastenkürzel, verzögertes Löschen** und Panik-Schutz.

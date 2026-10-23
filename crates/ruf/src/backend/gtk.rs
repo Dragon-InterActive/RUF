@@ -271,8 +271,10 @@ fn radio_group_for(parent: &gtk::Widget, radio: &gtk::CheckButton) {
 
 fn accelerator(key: &KeySpec) -> String {
     let mut accel = String::new();
+    // <Primary> ist Strg unter Linux/Windows und die Befehlstaste unter
+    // macOS – so gilt `Ctrl+…` auf dem Mac als `Cmd+…`.
     if key.ctrl {
-        accel.push_str("<Control>");
+        accel.push_str("<Primary>");
     }
     if key.shift {
         accel.push_str("<Shift>");
@@ -281,7 +283,12 @@ fn accelerator(key: &KeySpec) -> String {
         accel.push_str("<Alt>");
     }
     if key.meta {
-        accel.push_str("<Super>");
+        // Befehlstaste (macOS) bzw. Super-/Windows-Taste.
+        accel.push_str(if cfg!(target_os = "macos") {
+            "<Meta>"
+        } else {
+            "<Super>"
+        });
     }
     accel.push_str(&match &key.key {
         Key::Char(c) => c.to_string(),

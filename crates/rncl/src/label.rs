@@ -27,8 +27,8 @@ impl RnclLabel {
         Self { widget }
     }
 
-    /// Setzt den Text. Einfaches HTML (z. B. `<b>fett</b>`, `<br>`) wird unter GTK
-    /// formatiert, unter Windows und macOS als reiner Text dargestellt.
+    /// Setzt den Text. Einfaches HTML (z. B. `<b>fett</b>`, `<br>`) wird
+    /// formatiert dargestellt.
     pub fn set_text(&self, text: &str) {
         self.widget.set_text(text);
     }

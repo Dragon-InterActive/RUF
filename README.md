@@ -1,13 +1,15 @@
 # RUF – Rust native UI Framework
 
-Natives Desktop-UI-Framework für Rust mit den **Steuerelementen des Systems** –
-GTK 4 (Linux), Win32 (Windows), Cocoa (macOS) – Fundament des RAD-Tools **Freya TD**.
-*Native desktop UI framework for Rust using the **system's own controls** – GTK 4
-(Linux), Win32 (Windows), Cocoa (macOS) – the foundation of the RAD tool **Freya TD**.*
+Desktop-UI-Framework für Rust auf Basis von **GTK 4** – auf Linux, Windows und macOS
+(Releases für Windows/macOS liefern die GTK-Laufzeit mit, siehe `tools/` und
+`docs/de/release.md`) – Fundament des RAD-Tools **Freya TD**.
+*Desktop UI framework for Rust based on **GTK 4** – on Linux, Windows and macOS
+(Windows/macOS releases ship the GTK runtime, see `tools/` and `docs/en/release.md`) –
+the foundation of the RAD tool **Freya TD**.*
 
 | Crate | Rolle / Role |
 | --- | --- |
-| [`ruf`](crates/ruf) | System-Ebene (Backends für GTK 4, Win32, Cocoa), plattformunabhängiger Kern und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
+| [`ruf`](crates/ruf) | System-Ebene (GTK-4-Backend hinter dem Trait `Backend`), plattformunabhängiger Kern und Logik-Basis: `Widget`, `Component`, `ComponentRegistry`, Eigenschaftsmodell |
 | [`rncl`](crates/rncl) | Rust native Component Library: 16 Standardkomponenten – Fenster, Container, Registerkarten, Scrollbereich, Buttons, Text-, Listen- und Zahleneingaben, Code-Editor, Fortschrittsanzeige |
 
 ```toml
