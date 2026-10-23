@@ -23,6 +23,7 @@
 | Callback ruft sich nicht selbst erneut auf | Re-Entranz-Schutz | gewollt: ein laufender Handler wird nicht verschachtelt aufgerufen |
 | `ruf: Panik in einem Callback abgefangen: …` | Panik in einer Closure | Fehler in der Closure beheben; die Anwendung läuft weiter |
 | `Gdk-CRITICAL: gdk_surface_thaw_updates: assertion …` (macOS) | Fehler in GTKs macOS-Teil beim Öffnen von Auswahllisten (auch in `gtk4-demo`) | harmlos; RUF blendet die Meldung unter macOS aus |
+| `Gtk-WARNING: GtkGizmo … (slider) reported min width -2` | Fehler im Breeze-GTK-Theme von KDE (Scrollbalken) | harmlos; RUF blendet die Meldung aus |
 
 ## Tests
 

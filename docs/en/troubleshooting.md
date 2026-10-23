@@ -23,6 +23,7 @@
 | callback is not re-entered | re-entrancy protection | intended: a running handler is not called nested |
 | `ruf: Panik in einem Callback abgefangen: …` | panic inside a closure | fix the closure; the application keeps running |
 | `Gdk-CRITICAL: gdk_surface_thaw_updates: assertion …` (macOS) | bug in GTK's macOS backend when opening drop-down lists (also in `gtk4-demo`) | harmless; RUF hides the message on macOS |
+| `Gtk-WARNING: GtkGizmo … (slider) reported min width -2` | bug in KDE's Breeze GTK theme (scroll bars) | harmless; RUF hides the message |
 
 ## Tests
 

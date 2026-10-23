@@ -2289,6 +2289,9 @@ mod system_scheme {
 /// `gdk_frame_presented()`. Unter macOS meldet GTK außerdem beim Öffnen von
 /// Auswahllisten `gdk_surface_thaw_updates: assertion … failed` – ein Fehler
 /// in GTK selbst (tritt auch in `gtk4-demo` auf), ohne sichtbare Folgen.
+/// Das Breeze-Theme von KDE gibt den Schiebern der Scrollbalken negative
+/// Abstände, GTK meldet dann `GtkGizmo … (slider) reported min width -2` –
+/// ein Fehler des Themes, ebenfalls ohne Folgen.
 /// Diese Meldungen werden ausgefiltert, alle anderen bleiben.
 ///
 /// GLib erlaubt nur einen Log-Writer pro Prozess; RUF setzt ihn einmalig.
@@ -2314,7 +2317,13 @@ fn install_log_filter() {
                             "gdk_surface_thaw_updates: assertion 'surface->update_freeze_count > 0' failed",
                         ))
             });
-        if frame_noise {
+        let theme_noise = field("GLIB_DOMAIN") == Some("Gtk")
+            && field("MESSAGE").is_some_and(|m| {
+                m.starts_with("GtkGizmo")
+                    && m.contains("(slider) reported min")
+                    && m.contains("but sizes must be >= 0")
+            });
+        if frame_noise || theme_noise {
             glib::LogWriterOutput::Handled
         } else {
             glib::log_writer_default(level, fields)
