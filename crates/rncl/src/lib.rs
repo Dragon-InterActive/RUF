@@ -21,6 +21,8 @@
 //! | [`RnclProgressBar`] | `GtkProgressBar` | nein |
 //! | [`RnclTabView`] | `GtkNotebook` | ja (Seiten) |
 //! | [`RnclScrollView`] | `GtkScrolledWindow` | ja (Inhalt) |
+//! | [`RnclCanvas`] | `GtkDrawingArea` | nein |
+//! | [`RnclTreeView`] | `GtkListBox` (eingerückt) | nein |
 //!
 //! ```no_run
 //! use rncl::prelude::*;
@@ -46,6 +48,7 @@
 //! `custom_component`.
 
 mod button;
+mod canvas;
 mod checkbox;
 mod combo_box;
 mod group_box;
@@ -61,9 +64,11 @@ mod spin_box;
 mod tab_view;
 mod text_area;
 mod text_field;
+mod tree_view;
 mod window;
 
 pub use button::RnclButton;
+pub use canvas::RnclCanvas;
 pub use checkbox::RnclCheckBox;
 pub use combo_box::RnclComboBox;
 pub use group_box::RnclGroupBox;
@@ -78,6 +83,7 @@ pub use spin_box::RnclSpinBox;
 pub use tab_view::RnclTabView;
 pub use text_area::RnclTextArea;
 pub use text_field::RnclTextField;
+pub use tree_view::RnclTreeView;
 pub use window::RnclWindow;
 
 pub use ruf;
@@ -102,6 +108,8 @@ pub fn register_all(registry: &mut ComponentRegistry) -> Result<(), RegistryErro
     registry.register(RnclProgressBar::info())?;
     registry.register(RnclTabView::info())?;
     registry.register(RnclScrollView::info())?;
+    registry.register(RnclCanvas::info())?;
+    registry.register(RnclTreeView::info())?;
     Ok(())
 }
 
@@ -115,9 +123,10 @@ pub fn registry() -> ComponentRegistry {
 /// `use rncl::prelude::*;` – alle Komponenten plus [`ruf::prelude`].
 pub mod prelude {
     pub use crate::{
-        RnclButton, RnclCheckBox, RnclComboBox, RnclGroupBox, RnclLabel, RnclListBox, RnclPanel,
-        RnclProgressBar, RnclRadioButton, RnclScrollView, RnclSlider, RnclSpinBox, RnclTabView,
-        RnclTextArea, RnclTextField, RnclWindow,
+        RnclButton, RnclCanvas, RnclCheckBox, RnclComboBox, RnclGroupBox, RnclLabel, RnclListBox,
+        RnclPanel, RnclProgressBar, RnclRadioButton, RnclScrollView, RnclSlider, RnclSpinBox,
+        RnclTabView, RnclTextArea, RnclTextField, RnclTreeView, RnclWindow,
     };
     pub use ruf::prelude::*;
+    pub use ruf::{KeyEvent, Menu, MouseAction, MouseEvent, Shape, TreeItem};
 }

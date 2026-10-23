@@ -30,29 +30,35 @@
 
 mod app;
 mod backend;
+mod canvas;
 mod component;
 mod core;
 pub mod dialog;
 mod geometry;
 mod gui_sender;
+mod menu;
 mod property;
 mod registry;
 mod style;
 mod text;
 mod timer;
 mod toolkit;
+mod tree;
 mod widget;
 
 pub use app::{Application, ColorScheme};
+pub use canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
 pub use component::{Component, base};
 pub use geometry::{Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};
+pub use menu::{Menu, MenuBar, MenuEntry};
 pub use property::{PropertyDescriptor, PropertyError, PropertyType, PropertyValue};
 pub use registry::{ComponentFactory, ComponentInfo, ComponentRegistry, RegistryError};
 pub use style::{Color, Style};
 pub use text::{Key, KeySpec};
 pub use timer::Timer;
 pub use toolkit::{Toolkit, toolkit};
+pub use tree::TreeItem;
 pub use widget::{AsWidget, Widget, WidgetKind};
 
 /// `use ruf::prelude::*;` holt die wichtigsten Typen und den

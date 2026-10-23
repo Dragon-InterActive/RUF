@@ -8,7 +8,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use rncl::prelude::*;
-use ruf::PropertyError;
+use ruf::{Color, PropertyError};
 
 fn main() {
     let app = Application::new();
@@ -38,6 +38,10 @@ fn main() {
         ("timer", timer),
         ("gui_sender", gui_sender),
         ("text_area_code_editor", text_area_code_editor),
+        ("canvas_shapes_and_input", canvas_shapes_and_input),
+        ("tree_view", tree_view),
+        ("menus", menus),
+        ("window_position", window_position),
     ];
 
     for (name, test) in tests {
@@ -176,7 +180,7 @@ fn properties() {
 
 fn registry_create() {
     let registry = rncl::registry();
-    assert_eq!(registry.len(), 16);
+    assert_eq!(registry.len(), 18);
     assert!(registry.categories().contains(&"Container"));
 
     let window = registry.create("RnclWindow", None).unwrap();
@@ -600,4 +604,170 @@ fn text_area_code_editor() {
     code.set_marked_line(None, "");
     code.set_marked_line(Some(99), "red"); // außerhalb: kein Absturz
     assert_eq!(code.text().lines().count(), 3);
+}
+
+fn canvas_shapes_and_input() {
+    let window = RnclWindow::new("Zeichenfläche");
+    let canvas = RnclCanvas::new(&window);
+    canvas.set_geometry(0, 0, 200, 100);
+    let shapes = vec![
+        Shape::Rect {
+            rect: Rect::new(10, 10, 80, 30),
+            fill: Some(Color::rgb(240, 240, 240)),
+            stroke: Some(Color::rgb(0, 0, 0)),
+            radius: 4,
+            dashed: false,
+        },
+        Shape::Text {
+            x: 20,
+            y: 16,
+            text: "OK".into(),
+            color: Color::rgb(0, 0, 0),
+            size: 13,
+            bold: false,
+        },
+    ];
+    canvas.set_shapes(shapes.clone());
+    assert_eq!(canvas.shapes(), shapes);
+    assert_eq!(canvas.widget().kind(), WidgetKind::Canvas);
+
+    let seen: Rc<RefCell<Vec<MouseEvent>>> = Rc::default();
+    let s = seen.clone();
+    canvas.on_mouse(move |e| s.borrow_mut().push(e));
+    let keys: Rc<RefCell<Vec<KeyEvent>>> = Rc::default();
+    let k = keys.clone();
+    canvas.on_key(move |e| k.borrow_mut().push(e));
+    let click = MouseEvent {
+        action: MouseAction::Pressed,
+        x: 30,
+        y: 20,
+        button: 1,
+        modifiers: ruf::Modifiers::default(),
+    };
+    canvas.widget().simulate_mouse(click);
+    canvas.widget().simulate_key(KeyEvent {
+        key: ruf::Key::Delete,
+        modifiers: ruf::Modifiers::default(),
+    });
+    assert_eq!(seen.borrow().as_slice(), &[click]);
+    assert_eq!(keys.borrow()[0].key, ruf::Key::Delete);
+
+    // Gemalt wird wirklich (Screenshot ist nicht leer).
+    window.show();
+    Application::process_events();
+    let shot = std::env::temp_dir().join(format!("ruf-canvas-{}.png", std::process::id()));
+    if canvas.widget().save_screenshot(&shot) {
+        assert!(std::fs::metadata(&shot).unwrap().len() > 0);
+        let _ = std::fs::remove_file(&shot);
+    }
+}
+
+fn tree_view() {
+    let window = RnclWindow::new("Baum");
+    let tree = RnclTreeView::new(&window);
+    tree.set_items(vec![
+        TreeItem::new("main", "main")
+            .with_child(TreeItem::new("main.ok", "ok_button"))
+            .with_child(TreeItem::new("main.name", "name_edit")),
+        TreeItem::new("services", "services")
+            .with_child(TreeItem::new("services.pool", "db_pool"))
+            .collapsed(),
+    ]);
+    assert_eq!(
+        tree.visible_items(),
+        ["main", "main.ok", "main.name", "services"]
+    );
+
+    let selections: Rc<RefCell<Vec<String>>> = Rc::default();
+    let s = selections.clone();
+    tree.on_selection_changed(move |id| s.borrow_mut().push(id));
+    let activated: Rc<RefCell<Vec<String>>> = Rc::default();
+    let a = activated.clone();
+    tree.on_item_activated(move |id| a.borrow_mut().push(id));
+
+    tree.select(Some("main.name"));
+    assert_eq!(tree.selected().as_deref(), Some("main.name"));
+    assert_eq!(selections.borrow().as_slice(), ["main.name"]);
+    tree.widget().activate_tree_item();
+    assert_eq!(activated.borrow().as_slice(), ["main.name"]);
+
+    // Aufklappen zeigt Kinder, die Auswahl bleibt.
+    assert!(tree.toggle("services"));
+    assert_eq!(tree.visible_items().len(), 5);
+    assert_eq!(tree.selected().as_deref(), Some("main.name"));
+    // Zuklappen des Elternknotens verbirgt die Auswahl: keine Auswahl mehr.
+    assert!(tree.toggle("main"));
+    assert_eq!(tree.visible_items(), ["main", "services", "services.pool"]);
+    assert_eq!(tree.selected(), None);
+}
+
+fn menus() {
+    let window = RnclWindow::new("Menüs");
+    window.set_menu_bar(vec![
+        (
+            "Datei".into(),
+            Menu::new()
+                .item("file.open", "Öffnen …", Some("Ctrl+O"))
+                .separator()
+                .item("file.quit", "Beenden", Some("Ctrl+Q")),
+        ),
+        (
+            "Bearbeiten".into(),
+            Menu::new()
+                .disabled_item("edit.undo", "Rückgängig")
+                .submenu("Ausrichten", Menu::new().item("align.left", "Links", None)),
+        ),
+    ]);
+    assert_eq!(window.widget().menu_bar().len(), 2);
+    let chosen: Rc<RefCell<Vec<String>>> = Rc::default();
+    let c = chosen.clone();
+    window.on_menu(move |id| c.borrow_mut().push(id));
+    window.widget().activate_menu_item("file.open");
+    assert_eq!(chosen.borrow().as_slice(), ["file.open"]);
+
+    // Menüleiste ersetzen; der Inhalt bekommt weiter seine Größe.
+    window.set_menu_bar(vec![(
+        "Hilfe".into(),
+        Menu::new().item("help.about", "Über", None),
+    )]);
+    let label = RnclLabel::new(&window, "Inhalt");
+    label.set_position(10, 10);
+    window.show();
+    Application::process_events();
+    assert!(label.widget().is_alive());
+    // Kontextmenü an einem Kind öffnen und wieder schließen lassen.
+    assert!(
+        label
+            .widget()
+            .popup_menu(&Menu::new().item("ctx.copy", "Kopieren", None), 5, 5)
+    );
+    Application::process_events();
+}
+
+fn window_position() {
+    let window = RnclWindow::new("Position");
+    window.set_size(200, 100);
+    // Vor dem Anzeigen: vorgemerkt (unter Wayland nicht möglich).
+    if !window.set_screen_position(120, 80) {
+        return;
+    }
+    window.show();
+    let start = std::time::Instant::now();
+    while start.elapsed() < std::time::Duration::from_secs(2) {
+        Application::process_events();
+        if window.screen_position() == Some(Point::new(120, 80)) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(window.screen_position(), Some(Point::new(120, 80)));
+    assert!(window.set_screen_position(300, 200));
+    let start = std::time::Instant::now();
+    while start.elapsed() < std::time::Duration::from_secs(2)
+        && window.screen_position() != Some(Point::new(300, 200))
+    {
+        Application::process_events();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(window.screen_position(), Some(Point::new(300, 200)));
 }

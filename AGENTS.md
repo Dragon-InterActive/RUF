@@ -9,6 +9,11 @@ Projektziel und Vorgaben: siehe `CLAUDE.md`. Ausführliche Anleitungen:
   - `src/backend/mod.rs` – Trait `Backend` (Vertrag des Backends).
   - `src/backend/gtk.rs` – GTK 4 auf Linux, Windows und macOS; einziger Ort mit
     Toolkit-Code und `unsafe`. (Win32/Cocoa am 23.10.2026 entfernt, Git-Historie.)
+    Darin das Modul `position`: Fensterposition nativ setzen/lesen (X11 über
+    zur Laufzeit geladenes Xlib, Win32 `SetWindowPos`, macOS `NSWindow`);
+    unter Wayland nicht möglich.
+  - `src/canvas.rs` (Formen, Maus/Tastatur), `src/menu.rs` (Menüs),
+    `src/tree.rs` (Baumknoten) – Datentypen der Zeichenfläche, Menüs und Baumansicht.
   - `src/core.rs` – plattformunabhängiger Kern: Registry, Signale (`sync`), Semantik,
     Timer, Tastenkürzel, verzögertes Löschen.
   - `src/widget.rs` – sicherer `Widget`-Verweis (Nummer im Kern).

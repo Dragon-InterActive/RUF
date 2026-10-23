@@ -8,7 +8,7 @@ use crate::style::Color;
 // --- Tastenkürzel --------------------------------------------------------------
 
 /// Eine Taste ohne Modifizierer.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Key {
     /// Buchstabe oder Ziffer (immer klein bzw. als Ziffer).
     Char(char),
@@ -27,6 +27,8 @@ pub enum Key {
     Right,
     Up,
     Down,
+    Backspace,
+    Space,
 }
 
 /// Ein Tastenkürzel wie `Ctrl+S`, `Ctrl+Shift+Z` oder `F5`.
@@ -98,6 +100,8 @@ fn parse_key(name: &str) -> Option<Key> {
         "right" => Key::Right,
         "up" => Key::Up,
         "down" => Key::Down,
+        "backspace" => Key::Backspace,
+        "space" => Key::Space,
         _ => return None,
     })
 }

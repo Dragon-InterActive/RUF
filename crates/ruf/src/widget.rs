@@ -1,11 +1,14 @@
 //! [`Widget`]: der sichere Rust-Verweis auf ein natives Steuerelement.
 
 use crate::backend::{Backend, Platform};
+use crate::canvas::{KeyEvent, MouseEvent, Shape};
 use crate::core::{self, Id, ItemChange};
 use crate::geometry::{Point, Rect, Size};
+use crate::menu::{Menu, MenuBar};
 use crate::style::Color;
 use crate::style::Style;
 use crate::text::HighlightRule;
+use crate::tree::TreeItem;
 
 pub use crate::core::WidgetKind;
 
@@ -596,6 +599,126 @@ impl Widget {
 
     pub fn is_vertical(&self) -> bool {
         core::get(self.id, |n| n.vertical).unwrap_or(false)
+    }
+
+    // --- Zeichenfläche ([`WidgetKind::Canvas`]) ----------------------------
+
+    /// Ersetzt, was die Zeichenfläche malt, und zeichnet neu.
+    pub fn set_shapes(&self, shapes: Vec<Shape>) {
+        core::set_shapes(self.id, shapes);
+    }
+
+    /// Die zuletzt gesetzten Formen.
+    pub fn shapes(&self) -> Vec<Shape> {
+        core::get(self.id, |n| n.shapes.clone()).unwrap_or_default()
+    }
+
+    /// Mausereignisse der Zeichenfläche (Drücken, Loslassen, Bewegen,
+    /// Doppelklick). Ein Klick gibt ihr den Tastaturfokus.
+    pub fn on_mouse(&self, f: impl FnMut(MouseEvent) + 'static) -> bool {
+        core::connect_mouse(self.id, f)
+    }
+
+    /// Tastendrücke, solange die Zeichenfläche den Fokus hat.
+    pub fn on_key(&self, f: impl FnMut(KeyEvent) + 'static) -> bool {
+        core::connect_key(self.id, f)
+    }
+
+    // --- Baumansicht ([`WidgetKind::TreeView`]) ------------------------------
+
+    /// Ersetzt alle Knoten; eine Auswahl bleibt erhalten, wenn ihr Knoten
+    /// sichtbar bleibt.
+    pub fn set_tree(&self, items: Vec<TreeItem>) {
+        core::set_tree(self.id, items);
+    }
+
+    pub fn tree(&self) -> Vec<TreeItem> {
+        core::get(self.id, |n| n.tree.clone()).unwrap_or_default()
+    }
+
+    /// Kennungen der sichtbaren Zeilen, von oben nach unten.
+    pub fn visible_tree_items(&self) -> Vec<String> {
+        core::get(self.id, |n| n.tree_rows.clone()).unwrap_or_default()
+    }
+
+    /// Klappt einen Knoten auf bzw. zu.
+    pub fn toggle_tree_item(&self, id: &str) -> bool {
+        core::toggle_tree_item(self.id, id)
+    }
+
+    /// Wählt einen sichtbaren Knoten aus (`None` = keine Auswahl).
+    pub fn select_tree_item(&self, id: Option<&str>) {
+        core::select_tree_item(self.id, id);
+    }
+
+    pub fn selected_tree_item(&self) -> Option<String> {
+        core::get(self.id, |n| n.tree_selected.clone()).flatten()
+    }
+
+    /// Auswahlwechsel (Kennung, leer = keine Auswahl).
+    pub fn on_tree_selection_changed(&self, f: impl FnMut(String) + 'static) -> bool {
+        core::connect_tree_selected(self.id, f)
+    }
+
+    /// Doppelklick bzw. Enter auf einem Knoten.
+    pub fn on_tree_item_activated(&self, f: impl FnMut(String) + 'static) -> bool {
+        core::connect_tree_activated(self.id, f)
+    }
+
+    // --- Menüs -------------------------------------------------------------
+
+    /// Menüleiste eines Fensters (ersetzt eine vorhandene).
+    pub fn set_menu_bar(&self, bar: MenuBar) {
+        core::set_menu_bar(self.id, bar);
+    }
+
+    pub fn menu_bar(&self) -> MenuBar {
+        core::get(self.id, |n| n.menu_bar.clone()).unwrap_or_default()
+    }
+
+    /// Gewählter Menüeintrag eines Fensters – aus der Menüleiste, einem
+    /// Kontextmenü oder per Tastenkürzel.
+    pub fn on_menu(&self, f: impl FnMut(String) + 'static) -> bool {
+        core::connect_menu(self.id, f)
+    }
+
+    /// Zeigt ein Kontextmenü an `x`/`y` (relativ zu diesem Widget). Die
+    /// Auswahl meldet `on_menu` seines Fensters.
+    pub fn popup_menu(&self, menu: &Menu, x: i32, y: i32) -> bool {
+        core::popup_menu(self.id, menu, x, y)
+    }
+
+    /// Simuliert ein Mausereignis auf einer Zeichenfläche (Tests, Automatisierung).
+    pub fn simulate_mouse(&self, event: MouseEvent) {
+        core::notify(self.id, core::Notify::Mouse(event));
+    }
+
+    /// Simuliert einen Tastendruck auf einer Zeichenfläche.
+    pub fn simulate_key(&self, event: KeyEvent) {
+        core::notify(self.id, core::Notify::Key(event));
+    }
+
+    /// Simuliert Doppelklick/Enter auf dem ausgewählten Knoten einer Baumansicht.
+    pub fn activate_tree_item(&self) {
+        core::notify(self.id, core::Notify::Activated);
+    }
+
+    /// Simuliert die Wahl eines Menüeintrags (Tests, Automatisierung).
+    pub fn activate_menu_item(&self, id: &str) {
+        core::notify(self.id, core::Notify::Menu(id.to_owned()));
+    }
+
+    // --- Fensterposition ---------------------------------------------------
+
+    /// Setzt die Position eines Fensters auf dem Bildschirm. `false`, wenn das
+    /// System Programmen das nicht erlaubt (Wayland).
+    pub fn set_window_position(&self, x: i32, y: i32) -> bool {
+        core::set_window_position(self.id, x, y)
+    }
+
+    /// Position eines angezeigten Fensters, falls das System sie nennt.
+    pub fn window_position(&self) -> Option<Point> {
+        core::window_position(self.id)
     }
 
     // --- Signale ----------------------------------------------------------

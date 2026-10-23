@@ -17,13 +17,17 @@
 //! Optionsfeldern, Combobox-Semantik, Geometrie, Callbacks, Panik-Schutz –
 //! liegt in [`crate::core`].
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::app::ColorScheme;
+use crate::canvas::Shape;
 use crate::core::{Id, WidgetKind};
-use crate::geometry::{Rect, Size};
+use crate::dialog::FileFilter;
+use crate::geometry::{Point, Rect, Size};
+use crate::menu::{Menu, MenuBar};
 use crate::style::{Color, Style};
 use crate::text::{KeySpec, Span};
+use crate::tree::TreeRow;
 
 mod gtk;
 pub(crate) use self::gtk::Gtk as Platform;
@@ -153,4 +157,50 @@ pub(crate) trait Backend {
     /// Zeile (ab 0) farbig hinterlegen; `None` entfernt die Markierung.
     fn set_marked_line(native: &Self::Native, line: Option<(usize, Color)>);
     fn goto_line(native: &Self::Native, line: usize);
+
+    // --- Zeichenfläche, Baumansicht, Menüs ---------------------------------------
+
+    /// Ersetzt die Formen einer Zeichenfläche und zeichnet neu. Maus und
+    /// Tastatur meldet das Backend als `Notify::Mouse` / `Notify::Key`.
+    fn set_shapes(native: &Self::Native, shapes: &[Shape]);
+    /// Zeigt die sichtbaren Zeilen einer Baumansicht (Auswahl setzt der Kern
+    /// danach über `set_current_index`). Auf-/Zuklappen meldet das Backend
+    /// als `Notify::TreeToggled(zeile)`.
+    fn set_tree_rows(native: &Self::Native, rows: &[TreeRow]);
+    /// Menüleiste eines Fensters; gewählte Einträge (auch per Kürzel) meldet
+    /// das Backend als `Notify::Menu(id)` für das Fenster.
+    fn set_menu_bar(window: &Self::Native, bar: &MenuBar);
+    /// Kontextmenü an `x`/`y` relativ zu `native`; Meldung wie bei der Menüleiste
+    /// für `window`.
+    fn popup_menu(
+        native: &Self::Native,
+        kind: WidgetKind,
+        window: &Self::Native,
+        menu: &Menu,
+        x: i32,
+        y: i32,
+    );
+
+    // --- Dateidialoge (modal) -----------------------------------------------------
+
+    fn open_file(
+        parent: Option<&Self::Native>,
+        title: &str,
+        filters: &[FileFilter],
+    ) -> Option<PathBuf>;
+    fn save_file(
+        parent: Option<&Self::Native>,
+        title: &str,
+        name: &str,
+        filters: &[FileFilter],
+    ) -> Option<PathBuf>;
+    fn choose_folder(parent: Option<&Self::Native>, title: &str) -> Option<PathBuf>;
+
+    // --- Fensterposition ------------------------------------------------------------
+
+    /// Setzt die Position eines Fensters auf dem Bildschirm; `false`, wenn das
+    /// System es nicht erlaubt. Vor dem ersten Anzeigen wird sie vorgemerkt.
+    fn set_window_position(window: &Self::Native, x: i32, y: i32) -> bool;
+    /// Aktuelle Position eines angezeigten Fensters, falls das System sie nennt.
+    fn window_position(window: &Self::Native) -> Option<Point>;
 }

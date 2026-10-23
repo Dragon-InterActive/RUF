@@ -1,8 +1,11 @@
-//! Modale Standarddialoge (Meldung, Ja/Nein-Frage) mit den Mitteln des Systems.
+//! Modale Standarddialoge (Meldung, Ja/Nein-Frage, Dateiauswahl) mit den
+//! Mitteln des Systems.
 //!
 //! Alle Funktionen blockieren, bis der Anwender den Dialog schließt, und
 //! laufen nur im GUI-Thread. `parent` richtet den Dialog an diesem Fenster aus.
 //! Die Beschriftung der Knöpfe folgt der Systemsprache.
+
+use std::path::PathBuf;
 
 use crate::Widget;
 use crate::backend::{Backend, MessageKind, Platform};
@@ -36,6 +39,46 @@ pub fn error(parent: Option<&Widget>, title: &str, text: &str) {
 pub fn confirm(parent: Option<&Widget>, title: &str, text: &str) -> bool {
     let parent = parent_native(parent);
     core::setter(|| Platform::confirm(parent.as_ref(), title, text))
+}
+
+/// Ein Dateityp-Filter der Dateiauswahl, z. B. `FileFilter::new("Rust", &["*.rs"])`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileFilter {
+    pub name: String,
+    /// Muster wie `*.rs`.
+    pub patterns: Vec<String>,
+}
+
+impl FileFilter {
+    pub fn new(name: &str, patterns: &[&str]) -> Self {
+        Self {
+            name: name.to_owned(),
+            patterns: patterns.iter().map(|p| (*p).to_owned()).collect(),
+        }
+    }
+}
+
+/// Fragt nach einer vorhandenen Datei; `None`, wenn abgebrochen.
+pub fn open_file(parent: Option<&Widget>, title: &str, filters: &[FileFilter]) -> Option<PathBuf> {
+    let parent = parent_native(parent);
+    core::setter(|| Platform::open_file(parent.as_ref(), title, filters))
+}
+
+/// Fragt nach einem Dateinamen zum Speichern (`name` ist der Vorschlag).
+pub fn save_file(
+    parent: Option<&Widget>,
+    title: &str,
+    name: &str,
+    filters: &[FileFilter],
+) -> Option<PathBuf> {
+    let parent = parent_native(parent);
+    core::setter(|| Platform::save_file(parent.as_ref(), title, name, filters))
+}
+
+/// Fragt nach einem Ordner.
+pub fn choose_folder(parent: Option<&Widget>, title: &str) -> Option<PathBuf> {
+    let parent = parent_native(parent);
+    core::setter(|| Platform::choose_folder(parent.as_ref(), title))
 }
 
 /// Sprache der Knopfbeschriftung: Deutsch, wenn die Systemsprache Deutsch ist.

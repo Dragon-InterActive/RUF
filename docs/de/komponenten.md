@@ -48,7 +48,24 @@ window.add_shortcut("Ctrl+S", || println!("Speichern"));
 window.on_close_requested(|| {                           // false = offen lassen
     ruf::dialog::confirm(None, "Beenden", "Wirklich schließen?")
 });
+
+// Menüleiste; Auswahl per Maus oder Kürzel meldet on_menu mit der Kennung.
+window.set_menu_bar(vec![(
+    "Datei".into(),
+    Menu::new().item("file.open", "Öffnen …", Some("Ctrl+O")).separator()
+               .item("file.quit", "Beenden", Some("Ctrl+Q")),
+)]);
+window.on_menu(|id| println!("Menü {id}"));
+label.widget().popup_menu(&Menu::new().item("copy", "Kopieren", None), 10, 10); // Kontextmenü
+
+// Bildschirmposition (Fensteranordnung speichern/wiederherstellen).
+window.set_screen_position(100, 80);     // vor show() vorgemerkt; false unter Wayland
+let pos = window.screen_position();      // Some(Point) solange angezeigt
 ```
+
+GTK 4 kann Fenster nicht selbst positionieren; RUF setzt die Position nativ
+(X11, Win32, macOS). Unter Wayland verbietet das Protokoll das – dort liefert
+`set_screen_position` `false`.
 
 | Eigenschaft | Typ | |
 |---|---|---|
@@ -328,6 +345,49 @@ scroll.set_content_size(0, 8 + 30 * 24);   // Breite 0 = folgt dem sichtbaren Be
 
 ---
 
+## `RnclCanvas` – Zeichenfläche
+
+Nativ: GTK `GtkDrawingArea` · Kategorie *Anzeige*
+
+Malt eine Liste von Formen (`ruf::Shape`: Rechteck mit Füllung, Rahmen, Radius,
+gestrichelt; Text; Linie) und meldet Maus und Tastatur – die Grundlage eigener
+Ansichten wie der Designfläche von Freya TD.
+
+```rust
+let canvas = RnclCanvas::new(&window);
+canvas.set_geometry(0, 0, 400, 300);
+canvas.set_shapes(vec![
+    Shape::Rect { rect: Rect::new(10, 10, 120, 40), fill: Some(Color::rgb(250, 250, 250)),
+                  stroke: Some(Color::rgb(160, 160, 160)), radius: 4, dashed: false },
+    Shape::Text { x: 20, y: 20, text: "OK".into(), color: Color::rgb(0, 0, 0), size: 13, bold: false },
+]);
+canvas.on_mouse(|e| println!("{:?} {} {} Taste {}", e.action, e.x, e.y, e.button));
+canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
+```
+
+Ein Klick gibt der Zeichenfläche den Tastaturfokus. `MouseAction`: `Pressed`,
+`Released`, `Moved`, `DoubleClicked`; Taste 1 = links, 3 = rechts.
+Für Tests: `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
+
+## `RnclTreeView` – Baumansicht
+
+Nativ: GTK `GtkListBox` mit eingerückten Zeilen · Kategorie *Eingabe*
+
+```rust
+let tree = RnclTreeView::new(&window);
+tree.set_items(vec![
+    TreeItem::new("main", "main").with_child(TreeItem::new("main.ok", "ok_button")),
+    TreeItem::new("services", "services").with_child(TreeItem::new("services.pool", "db_pool")).collapsed(),
+]);
+tree.select(Some("main.ok"));
+tree.on_selection_changed(|id| println!("ausgewählt: {id}"));
+tree.on_item_activated(|id| println!("Doppelklick: {id}"));
+tree.toggle("services");                  // auf-/zuklappen
+```
+
+Knoten werden über ihre Kennung angesprochen; die Auswahl bleibt beim Ersetzen
+der Knoten erhalten, solange ihr Knoten sichtbar ist.
+
 ## Gestaltung
 
 `set_style_sheet` (bzw. die Eigenschaft `style_sheet`) versteht auf allen Systemen
@@ -395,6 +455,16 @@ ruf::dialog::information(Some(window.widget()), "Hinweis", "Gespeichert.");
 ruf::dialog::warning(None, "Achtung", "Datei fehlt.");
 ruf::dialog::error(None, "Fehler", "Speichern fehlgeschlagen.");
 if ruf::dialog::confirm(None, "Frage", "Änderungen verwerfen?") { /* … */ }
+```
+
+Dateiauswahl (liefert `None` bei Abbruch):
+
+```rust
+use ruf::dialog::FileFilter;
+let rust = [FileFilter::new("Rust", &["*.rs"])];
+let file = ruf::dialog::open_file(Some(window.widget()), "Öffnen", &rust);
+let target = ruf::dialog::save_file(None, "Speichern unter", "main.rs", &rust);
+let folder = ruf::dialog::choose_folder(None, "Projektordner");
 ```
 
 Die Dialoge sind modal und blockieren bis zur Antwort – in automatischen Tests

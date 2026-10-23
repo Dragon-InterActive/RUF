@@ -48,7 +48,23 @@ window.add_shortcut("Ctrl+S", || println!("save"));
 window.on_close_requested(|| {                           // false = keep open
     ruf::dialog::confirm(None, "Quit", "Really close?")
 });
+
+// Menu bar; choosing by mouse or shortcut reports on_menu with the id.
+window.set_menu_bar(vec![(
+    "File".into(),
+    Menu::new().item("file.open", "Open …", Some("Ctrl+O")).separator()
+               .item("file.quit", "Quit", Some("Ctrl+Q")),
+)]);
+window.on_menu(|id| println!("menu {id}"));
+label.widget().popup_menu(&Menu::new().item("copy", "Copy", None), 10, 10); // context menu
+
+// Screen position (save/restore the window arrangement).
+window.set_screen_position(100, 80);     // remembered before show(); false on Wayland
+let pos = window.screen_position();      // Some(Point) while shown
 ```
+
+GTK 4 cannot position windows itself; RUF sets the position natively (X11, Win32,
+macOS). The Wayland protocol forbids it – there `set_screen_position` returns `false`.
 
 | Property | Type | |
 |---|---|---|
@@ -328,6 +344,49 @@ scroll.set_content_size(0, 8 + 30 * 24);   // width 0 = follow the visible area
 
 ---
 
+## `RnclCanvas` – canvas
+
+Native: GTK `GtkDrawingArea` · category *Display*
+
+Paints a list of shapes (`ruf::Shape`: rectangle with fill, border, radius, dashed;
+text; line) and reports mouse and keyboard – the basis of custom views such as the
+design surface of Freya TD.
+
+```rust
+let canvas = RnclCanvas::new(&window);
+canvas.set_geometry(0, 0, 400, 300);
+canvas.set_shapes(vec![
+    Shape::Rect { rect: Rect::new(10, 10, 120, 40), fill: Some(Color::rgb(250, 250, 250)),
+                  stroke: Some(Color::rgb(160, 160, 160)), radius: 4, dashed: false },
+    Shape::Text { x: 20, y: 20, text: "OK".into(), color: Color::rgb(0, 0, 0), size: 13, bold: false },
+]);
+canvas.on_mouse(|e| println!("{:?} {} {} button {}", e.action, e.x, e.y, e.button));
+canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
+```
+
+A click gives the canvas keyboard focus. `MouseAction`: `Pressed`, `Released`,
+`Moved`, `DoubleClicked`; button 1 = left, 3 = right. For tests:
+`canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
+
+## `RnclTreeView` – tree view
+
+Native: GTK `GtkListBox` with indented rows · category *Input*
+
+```rust
+let tree = RnclTreeView::new(&window);
+tree.set_items(vec![
+    TreeItem::new("main", "main").with_child(TreeItem::new("main.ok", "ok_button")),
+    TreeItem::new("services", "services").with_child(TreeItem::new("services.pool", "db_pool")).collapsed(),
+]);
+tree.select(Some("main.ok"));
+tree.on_selection_changed(|id| println!("selected: {id}"));
+tree.on_item_activated(|id| println!("double click: {id}"));
+tree.toggle("services");                  // expand/collapse
+```
+
+Nodes are addressed by their id; the selection survives replacing the nodes as long
+as its node stays visible.
+
 ## Styling
 
 `set_style_sheet` (or the property `style_sheet`) understands the same CSS subset on
@@ -395,6 +454,16 @@ ruf::dialog::information(Some(window.widget()), "Note", "Saved.");
 ruf::dialog::warning(None, "Attention", "File missing.");
 ruf::dialog::error(None, "Error", "Saving failed.");
 if ruf::dialog::confirm(None, "Question", "Discard changes?") { /* … */ }
+```
+
+File chooser (returns `None` when cancelled):
+
+```rust
+use ruf::dialog::FileFilter;
+let rust = [FileFilter::new("Rust", &["*.rs"])];
+let file = ruf::dialog::open_file(Some(window.widget()), "Open", &rust);
+let target = ruf::dialog::save_file(None, "Save as", "main.rs", &rust);
+let folder = ruf::dialog::choose_folder(None, "Project folder");
 ```
 
 The dialogs are modal and block until answered – do not call them in automated

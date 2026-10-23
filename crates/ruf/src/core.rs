@@ -25,9 +25,13 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::backend::{Backend, Native, Platform};
+use crate::canvas::{KeyEvent, MouseEvent, Shape};
+use crate::geometry::Point;
 use crate::geometry::{Rect, Size};
+use crate::menu::{Menu, MenuBar};
 use crate::style::Color;
 use crate::text::{HighlightRule, highlight};
+use crate::tree::{TreeItem, visible_rows};
 
 /// Eindeutige Nummer eines Widgets (wird nie wiederverwendet).
 pub(crate) type Id = u64;
@@ -62,6 +66,10 @@ pub enum WidgetKind {
     TabView = 14,
     /// Scrollbereich mit einem Container als Inhalt.
     ScrollArea = 15,
+    /// Zeichenfläche: malt [`crate::Shape`]s, meldet Maus und Tastatur.
+    Canvas = 16,
+    /// Baumansicht mit auf- und zuklappbaren Knoten.
+    TreeView = 17,
 }
 
 impl WidgetKind {
@@ -94,7 +102,7 @@ impl WidgetKind {
 }
 
 /// Was ein Backend über eine Benutzeraktion meldet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Notify {
     /// Der Anwender hat einen Button, eine Checkbox oder ein Optionsfeld betätigt.
     Clicked,
@@ -104,6 +112,14 @@ pub(crate) enum Notify {
     Activated,
     /// Neue Größe (Fenster: Innenbereich; Container: zugeteilter Platz).
     Resized(Size),
+    /// Maus auf einer Zeichenfläche.
+    Mouse(MouseEvent),
+    /// Taste auf einer Zeichenfläche.
+    Key(KeyEvent),
+    /// Menüeintrag mit dieser Kennung gewählt (gemeldet für das Fenster).
+    Menu(String),
+    /// Knoten in Zeile `n` der Baumansicht auf-/zuklappen.
+    TreeToggled(usize),
 }
 
 type Callback<F> = Rc<RefCell<F>>;
@@ -118,6 +134,11 @@ enum Handler {
     IndexChanged(Callback<dyn FnMut(i32)>),
     Resized(Callback<dyn FnMut(i32, i32)>),
     CloseRequested(Callback<dyn FnMut() -> bool>),
+    Mouse(Callback<dyn FnMut(MouseEvent)>),
+    Key(Callback<dyn FnMut(KeyEvent)>),
+    Menu(Callback<dyn FnMut(String)>),
+    TreeSelected(Callback<dyn FnMut(String)>),
+    TreeActivated(Callback<dyn FnMut(String)>),
 }
 
 /// Ein Signal, das ein Widget anbieten kann.
@@ -131,6 +152,11 @@ pub(crate) enum Signal {
     IndexChanged,
     Resized,
     CloseRequested,
+    Mouse,
+    Key,
+    Menu,
+    TreeSelected,
+    TreeActivated,
 }
 
 impl Signal {
@@ -144,6 +170,9 @@ impl Signal {
             Signal::ValueChanged => kind.has_range(),
             Signal::IndexChanged => matches!(kind, K::ComboBox | K::ListBox | K::TabView),
             Signal::Resized | Signal::CloseRequested => true,
+            Signal::Mouse | Signal::Key => kind == K::Canvas,
+            Signal::Menu => kind == K::Window,
+            Signal::TreeSelected | Signal::TreeActivated => kind == K::TreeView,
         }
     }
 }
@@ -190,6 +219,14 @@ pub(crate) struct Node {
     pub maximum: i32,
     pub rules: Vec<HighlightRule>,
     pub marked: Option<(usize, Color)>,
+    /// Was eine Zeichenfläche malt.
+    pub shapes: Vec<Shape>,
+    /// Knoten einer Baumansicht und die Kennungen der sichtbaren Zeilen.
+    pub tree: Vec<TreeItem>,
+    pub tree_rows: Vec<String>,
+    pub tree_selected: Option<String>,
+    /// Menüleiste eines Fensters.
+    pub menu_bar: MenuBar,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -357,6 +394,11 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         maximum: 0,
         rules: Vec::new(),
         marked: None,
+        shapes: Vec::new(),
+        tree: Vec::new(),
+        tree_rows: Vec::new(),
+        tree_selected: None,
+        menu_bar: Vec::new(),
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -829,10 +871,48 @@ pub(crate) fn notify(id: Id, event: Notify) {
             fire_clicked(id);
         }
         Notify::Changed => {
-            sync(id);
+            if get(id, |n| n.kind) == Some(WidgetKind::TreeView) {
+                tree_sync(id);
+            } else {
+                sync(id);
+            }
         }
-        Notify::Activated => fire_return(id),
+        Notify::Activated => {
+            if get(id, |n| n.kind) == Some(WidgetKind::TreeView) {
+                if let Some(item) = get(id, |n| n.tree_selected.clone()).flatten() {
+                    fire_string(id, item, |h| match h {
+                        Handler::TreeActivated(f) => Some(f.clone()),
+                        _ => None,
+                    });
+                }
+            } else {
+                fire_return(id);
+            }
+        }
         Notify::Resized(_) => {}
+        Notify::Mouse(event) => fire(
+            handlers(id, |h| match h {
+                Handler::Mouse(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(event),
+        ),
+        Notify::Key(event) => fire(
+            handlers(id, |h| match h {
+                Handler::Key(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(event),
+        ),
+        Notify::Menu(item) => fire_string(id, item, |h| match h {
+            Handler::Menu(f) => Some(f.clone()),
+            _ => None,
+        }),
+        Notify::TreeToggled(row) => {
+            if let Some(item) = get(id, |n| n.tree_rows.get(row).cloned()).flatten() {
+                toggle_tree_item(id, &item);
+            }
+        }
     }
 }
 
@@ -1254,6 +1334,177 @@ fn container_window(id: Id) -> Option<Native> {
         current = parent;
     }
     None
+}
+
+// --- Zeichenfläche, Baumansicht, Menüs, Fensterposition ---------------------------------
+
+/// Feuert Handler mit einer Zeichenkette (Menü, Baumknoten).
+fn fire_string(
+    id: Id,
+    value: String,
+    pick: impl Fn(&Handler) -> Option<Callback<dyn FnMut(String)>>,
+) {
+    fire(handlers(id, pick), |f| f(value.clone()));
+}
+
+pub(crate) fn connect_mouse(id: Id, f: impl FnMut(MouseEvent) + 'static) -> bool {
+    add_handler(id, Signal::Mouse, Handler::Mouse(Rc::new(RefCell::new(f))))
+}
+
+pub(crate) fn connect_key(id: Id, f: impl FnMut(KeyEvent) + 'static) -> bool {
+    add_handler(id, Signal::Key, Handler::Key(Rc::new(RefCell::new(f))))
+}
+
+pub(crate) fn connect_menu(id: Id, f: impl FnMut(String) + 'static) -> bool {
+    add_handler(id, Signal::Menu, Handler::Menu(Rc::new(RefCell::new(f))))
+}
+
+pub(crate) fn connect_tree_selected(id: Id, f: impl FnMut(String) + 'static) -> bool {
+    add_handler(
+        id,
+        Signal::TreeSelected,
+        Handler::TreeSelected(Rc::new(RefCell::new(f))),
+    )
+}
+
+pub(crate) fn connect_tree_activated(id: Id, f: impl FnMut(String) + 'static) -> bool {
+    add_handler(
+        id,
+        Signal::TreeActivated,
+        Handler::TreeActivated(Rc::new(RefCell::new(f))),
+    )
+}
+
+/// Ersetzt, was eine Zeichenfläche malt.
+pub(crate) fn set_shapes(id: Id, shapes: Vec<Shape>) {
+    let Some((native, WidgetKind::Canvas)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_shapes(&native, &shapes));
+    update(id, |n| n.shapes = shapes);
+}
+
+/// Zeigt die sichtbaren Zeilen und stellt die Auswahl wieder her.
+fn refresh_tree(id: Id) {
+    let Some((native, WidgetKind::TreeView)) = native(id) else {
+        return;
+    };
+    let (rows, selected) =
+        get(id, |n| (visible_rows(&n.tree), n.tree_selected.clone())).unwrap_or_default();
+    let index = selected
+        .as_ref()
+        .and_then(|s| rows.iter().position(|r| &r.id == s))
+        .map_or(-1, |i| i as i32);
+    update(id, |n| {
+        n.tree_rows = rows.iter().map(|r| r.id.clone()).collect()
+    });
+    setter(|| {
+        Platform::set_tree_rows(&native, &rows);
+        Platform::set_current_index(&native, WidgetKind::TreeView, index);
+    });
+    // Ein zugeklappter Knoten verdeckt die Auswahl: sie geht auf "nichts".
+    if selected.is_some() && index < 0 {
+        update(id, |n| n.tree_selected = None);
+    }
+}
+
+pub(crate) fn set_tree(id: Id, items: Vec<TreeItem>) {
+    update(id, |n| n.tree = items);
+    refresh_tree(id);
+}
+
+pub(crate) fn toggle_tree_item(id: Id, item: &str) -> bool {
+    let found = update(id, |n| crate::tree::toggle(&mut n.tree, item)).unwrap_or(false);
+    if found {
+        refresh_tree(id);
+    }
+    found
+}
+
+/// Wählt einen Knoten aus (`None` = keine Auswahl); feuert die Auswahl.
+pub(crate) fn select_tree_item(id: Id, item: Option<&str>) {
+    let Some((native, WidgetKind::TreeView)) = native(id) else {
+        return;
+    };
+    let index = item
+        .and_then(|item| get(id, |n| n.tree_rows.iter().position(|r| r == item)).flatten())
+        .map_or(-1, |i| i as i32);
+    setter(|| Platform::set_current_index(&native, WidgetKind::TreeView, index));
+    tree_sync(id);
+}
+
+/// Gleicht die Auswahl der Baumansicht ab und feuert bei Änderung.
+fn tree_sync(id: Id) {
+    let Some((native, kind)) = native(id) else {
+        return;
+    };
+    let index = Platform::current_index(&native, kind);
+    let now = get(id, |n| {
+        usize::try_from(index)
+            .ok()
+            .and_then(|i| n.tree_rows.get(i).cloned())
+    })
+    .flatten();
+    let changed = update(id, |n| {
+        std::mem::replace(&mut n.tree_selected, now.clone()) != now
+    });
+    if changed == Some(true) {
+        fire_string(id, now.unwrap_or_default(), |h| match h {
+            Handler::TreeSelected(f) => Some(f.clone()),
+            _ => None,
+        });
+    }
+}
+
+pub(crate) fn set_menu_bar(id: Id, bar: MenuBar) {
+    let Some((native, WidgetKind::Window)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_menu_bar(&native, &bar));
+    update(id, |n| n.menu_bar = bar);
+}
+
+/// Zeigt ein Kontextmenü an `x`/`y` (relativ zum Widget); gewählte
+/// Einträge meldet das Fenster des Widgets über `on_menu`.
+pub(crate) fn popup_menu(id: Id, menu: &Menu, x: i32, y: i32) -> bool {
+    let Some((native, kind)) = native(id) else {
+        return false;
+    };
+    let mut current = Some(id);
+    while let Some(i) = current {
+        let Some((window_kind, window, parent)) = get(i, |n| (n.kind, n.native.clone(), n.parent))
+        else {
+            return false;
+        };
+        if window_kind == WidgetKind::Window {
+            setter(|| Platform::popup_menu(&native, kind, &window, menu, x, y));
+            return true;
+        }
+        current = parent;
+    }
+    false
+}
+
+/// Setzt die Bildschirmposition eines Fensters (`false`, wenn das System es
+/// nicht erlaubt, z. B. unter Wayland).
+pub(crate) fn set_window_position(id: Id, x: i32, y: i32) -> bool {
+    match native(id) {
+        Some((native, WidgetKind::Window)) => {
+            update(id, |n| {
+                n.geometry.x = x;
+                n.geometry.y = y;
+            });
+            setter(|| Platform::set_window_position(&native, x, y))
+        }
+        _ => false,
+    }
+}
+
+pub(crate) fn window_position(id: Id) -> Option<Point> {
+    match native(id)? {
+        (native, WidgetKind::Window) => Platform::window_position(&native),
+        _ => None,
+    }
 }
 
 /// Vom Backend aufgerufen, wenn ein Tastenkürzel ausgelöst wurde.

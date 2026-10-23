@@ -1,6 +1,6 @@
 use ruf::{
-    Component, ComponentInfo, PropertyDescriptor, PropertyError, PropertyType, PropertyValue,
-    Widget, WidgetKind, base,
+    Component, ComponentInfo, Menu, MenuBar, Point, PropertyDescriptor, PropertyError,
+    PropertyType, PropertyValue, Widget, WidgetKind, base,
 };
 
 /// Ein Top-Level-Fenster – der Container für alle anderen Komponenten.
@@ -46,6 +46,33 @@ impl RnclWindow {
     /// Tastenkürzel für dieses Fenster, z. B. `"Ctrl+S"`. `false` bei ungültiger Folge.
     pub fn add_shortcut(&self, sequence: &str, f: impl FnMut() + 'static) -> bool {
         self.widget.add_shortcut(sequence, f)
+    }
+
+    /// Menüleiste: Titel und Menü je Eintrag. Gewählte Einträge (auch per
+    /// Tastenkürzel) meldet [`RnclWindow::on_menu`].
+    pub fn set_menu_bar(&self, bar: MenuBar) {
+        self.widget.set_menu_bar(bar);
+    }
+
+    /// Gewählter Menüeintrag (Kennung) – aus Menüleiste, Kontextmenü oder Kürzel.
+    pub fn on_menu(&self, f: impl FnMut(String) + 'static) {
+        self.widget.on_menu(f);
+    }
+
+    /// Zeigt ein Kontextmenü an `x`/`y` im Fenster.
+    pub fn popup_menu(&self, menu: &Menu, x: i32, y: i32) -> bool {
+        self.widget.popup_menu(menu, x, y)
+    }
+
+    /// Setzt die Position auf dem Bildschirm (vor dem Anzeigen vorgemerkt).
+    /// `false`, wenn das System es nicht erlaubt (Wayland).
+    pub fn set_screen_position(&self, x: i32, y: i32) -> bool {
+        self.widget.set_window_position(x, y)
+    }
+
+    /// Position auf dem Bildschirm, solange das Fenster angezeigt wird.
+    pub fn screen_position(&self) -> Option<Point> {
+        self.widget.window_position()
     }
 
     /// Schließt das Fenster. Ist es das letzte, endet `Application::exec`.

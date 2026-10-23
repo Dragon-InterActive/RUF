@@ -17,3 +17,19 @@ regex = "1.13.1"
 # liefert das Release die GTK-Laufzeitdateien mit (siehe docs/de/release.md).
 # GTK 4 on all systems; Windows and macOS releases ship the GTK runtime.
 gtk4 = { version = "0.11.5", features = ["v4_12"] }
+# Text auf der Zeichenfläche (Canvas). / Text on the canvas.
+pangocairo = "0.22.9"
+
+# Fensterposition setzen/lesen – GTK 4 kann das nicht selbst.
+# Setting/reading window positions – GTK 4 cannot do it itself.
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+gdk4-x11 = { version = "0.11.5", features = ["xlib"] }
+
+[target.'cfg(windows)'.dependencies]
+gdk4-win32 = "0.11.5"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+gdk4-macos = "0.11.5"
+objc2 = "0.6.5"
+objc2-foundation = { version = "0.3.2", features = ["NSGeometry"] }
