@@ -695,6 +695,14 @@ impl Backend for Gtk {
                     // Der Kern blendet das Fenster selbst aus (statt es zu zerstören).
                     glib::Propagation::Stop
                 });
+                // Vor dem Erscheinen: Position samt Hinweis setzen, damit der
+                // Fenstermanager das Fenster gleich dort platziert …
+                window.connect_realize(move |w| {
+                    if let Some((x, y)) = PENDING_POSITIONS.with(|p| p.borrow().get(&id).copied()) {
+                        position::set(w, x, y);
+                    }
+                });
+                // … und danach noch einmal, falls er den Hinweis übergeht.
                 window.connect_map(move |w| {
                     if let Some((x, y)) = PENDING_POSITIONS.with(|p| p.borrow_mut().remove(&id)) {
                         let w = w.clone();
@@ -1932,8 +1940,22 @@ mod position {
         let (Some(x11), Some((display, xid))) = (xlib(), handles(window)) else {
             return false;
         };
-        // SAFETY: gültige Verbindung und Fensterkennung von GDK.
+        // SAFETY: gültige Verbindung und Fensterkennung von GDK; die Hinweis-
+        // Struktur kommt von Xlib und wird mit XFree freigegeben.
         unsafe {
+            // "Vom Programm festgelegte Position" (ICCCM): Fenstermanager wie
+            // KWin platzieren das Fenster dann nicht nach eigener Regel
+            // (unter der Maus, auf dem aktiven Bildschirm …).
+            let hints = (x11.XAllocSizeHints)();
+            if !hints.is_null() {
+                let mut supplied = 0;
+                (x11.XGetWMNormalHints)(display, xid, hints, &mut supplied);
+                (*hints).flags |= xlib::USPosition | xlib::PPosition;
+                (*hints).x = x;
+                (*hints).y = y;
+                (x11.XSetWMNormalHints)(display, xid, hints);
+                (x11.XFree)(hints.cast());
+            }
             (x11.XMoveWindow)(display, xid, x, y);
             (x11.XFlush)(display);
         }
