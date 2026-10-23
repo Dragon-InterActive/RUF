@@ -234,6 +234,8 @@ thread_local! {
     static MENU_SHORTCUTS: RefCell<HashMap<Id, gtk::ShortcutController>> = RefCell::new(HashMap::new());
     /// Offene Kontextmenüs – sie hängen an einem Widget und müssen vor ihm gehen.
     static POPOVERS: RefCell<Vec<glib::WeakRef<gtk::PopoverMenu>>> = const { RefCell::new(Vec::new()) };
+    /// Hell/Dunkel folgt dem System, bis das Programm es festlegt.
+    static FOLLOW_SYSTEM: Cell<bool> = const { Cell::new(true) };
     /// Vorgemerkte Fensterpositionen (angewendet, sobald das Fenster erscheint).
     static PENDING_POSITIONS: RefCell<HashMap<Id, (i32, i32)>> = RefCell::new(HashMap::new());
     static RADIO_GROUPS: RefCell<Vec<(glib::WeakRef<gtk::Widget>, glib::WeakRef<gtk::CheckButton>)>> = const { RefCell::new(Vec::new()) };
@@ -416,6 +418,10 @@ impl Backend for Gtk {
                  Sitzung? Ohne Bildschirm z. B. mit `xvfb-run` starten."
             );
         }
+        // Reines GTK folgt dem Hell/Dunkel des Systems unter macOS und Windows
+        // nicht (und unter Linux nicht überall) – RUF übernimmt das.
+        system_scheme::watch(apply_system_scheme);
+        apply_system_scheme();
     }
 
     fn run() {
@@ -482,6 +488,15 @@ impl Backend for Gtk {
     }
 
     fn color_scheme() -> ColorScheme {
+        if FOLLOW_SYSTEM.get()
+            && let Some(dark) = system_scheme::dark()
+        {
+            return if dark {
+                ColorScheme::Dark
+            } else {
+                ColorScheme::Light
+            };
+        }
         let Some(settings) = gtk::Settings::default() else {
             return ColorScheme::Unknown;
         };
@@ -497,13 +512,21 @@ impl Backend for Gtk {
     }
 
     fn set_color_scheme(scheme: ColorScheme) -> bool {
-        match gtk::Settings::default() {
-            Some(settings) => {
-                settings.set_gtk_application_prefer_dark_theme(scheme == ColorScheme::Dark);
-                true
+        let Some(settings) = gtk::Settings::default() else {
+            return false;
+        };
+        if scheme == ColorScheme::Unknown {
+            // Wieder dem System folgen.
+            FOLLOW_SYSTEM.set(true);
+            match system_scheme::dark() {
+                Some(_) => apply_system_scheme(),
+                None => set_dark(&settings, None),
             }
-            None => false,
+        } else {
+            FOLLOW_SYSTEM.set(false);
+            set_dark(&settings, Some(scheme == ColorScheme::Dark));
         }
+        true
     }
 
     fn message(parent: Option<&GtkNative>, kind: MessageKind, title: &str, text: &str) {
@@ -1919,5 +1942,204 @@ mod position {
         let frame: NSRect = unsafe { msg_send![ns, frame] };
         let top = screen_height() - (frame.origin.y + frame.size.height);
         Some(Point::new(frame.origin.x as i32, top as i32))
+    }
+}
+
+// --- Hell/Dunkel des Systems -----------------------------------------------------------
+
+/// Übernimmt das Hell/Dunkel des Systems, solange das Programm es nicht
+/// selbst festgelegt hat.
+fn apply_system_scheme() {
+    if !FOLLOW_SYSTEM.get() {
+        return;
+    }
+    if let (Some(dark), Some(settings)) = (system_scheme::dark(), gtk::Settings::default())
+        && APPLIED.get() != Some(dark)
+    {
+        set_dark(&settings, Some(dark));
+    }
+}
+
+thread_local! {
+    /// Zuletzt gesetztes Hell/Dunkel (nur bei Änderung neu setzen).
+    static APPLIED: Cell<Option<bool>> = const { Cell::new(None) };
+}
+
+/// Setzt Hell/Dunkel (`None` = Vorgabe des Themas). GTK ab 4.20 nutzt
+/// `gtk-interface-color-scheme`, ältere Versionen
+/// `gtk-application-prefer-dark-theme` – beides wird gesetzt; die neue
+/// Einstellung über ihren Namen, damit RUF auch mit GTK 4.12 läuft.
+fn set_dark(settings: &gtk::Settings, dark: Option<bool>) {
+    APPLIED.set(dark);
+    settings.set_gtk_application_prefer_dark_theme(dark == Some(true));
+    let Some(spec) = settings.find_property("gtk-interface-color-scheme") else {
+        return;
+    };
+    let nick = match dark {
+        Some(true) => "dark",
+        Some(false) => "light",
+        None => "default",
+    };
+    if let Some(value) =
+        glib::EnumClass::with_type(spec.value_type()).and_then(|class| class.to_value_by_nick(nick))
+    {
+        settings.set_property_from_value("gtk-interface-color-scheme", &value);
+    }
+}
+
+/// Linux/BSD: Desktop-Portal `org.freedesktop.appearance color-scheme`
+/// (GNOME, KDE, …), Änderungen kommen als D-Bus-Signal.
+#[cfg(all(unix, not(target_os = "macos")))]
+mod system_scheme {
+    use std::cell::{Cell, RefCell};
+
+    use gtk::glib::prelude::*;
+    use gtk::{gio, glib};
+    use gtk4 as gtk;
+
+    const DEST: &str = "org.freedesktop.portal.Desktop";
+    const PATH: &str = "/org/freedesktop/portal/desktop";
+    const IFACE: &str = "org.freedesktop.portal.Settings";
+    const NAMESPACE: &str = "org.freedesktop.appearance";
+    const KEY: &str = "color-scheme";
+
+    thread_local! {
+        static DARK: Cell<Option<bool>> = const { Cell::new(None) };
+        static SUBSCRIPTION: RefCell<Option<(gio::DBusConnection, gio::SignalSubscriptionId)>> =
+            const { RefCell::new(None) };
+    }
+
+    /// 1 = dunkel bevorzugt, 2 = hell, 0 = keine Vorgabe (auch verschachtelt in `v`).
+    fn parse(value: &glib::Variant) -> Option<bool> {
+        let mut value = value.clone();
+        while value.is_type(glib::VariantTy::VARIANT) {
+            value = value.as_variant()?;
+        }
+        match value.get::<u32>()? {
+            1 => Some(true),
+            2 => Some(false),
+            _ => None,
+        }
+    }
+
+    fn read(connection: &gio::DBusConnection) -> Option<bool> {
+        let args = (NAMESPACE, KEY).to_variant();
+        // `ReadOne` (neuere Portale), sonst `Read`.
+        ["ReadOne", "Read"].iter().find_map(|method| {
+            let reply = connection
+                .call_sync(
+                    Some(DEST),
+                    PATH,
+                    IFACE,
+                    method,
+                    Some(&args),
+                    None,
+                    gio::DBusCallFlags::NONE,
+                    1000,
+                    None::<&gio::Cancellable>,
+                )
+                .ok()?;
+            parse(&reply.child_value(0))
+        })
+    }
+
+    pub fn dark() -> Option<bool> {
+        DARK.get()
+    }
+
+    pub fn watch(changed: fn()) {
+        let Ok(connection) = gio::bus_get_sync(gio::BusType::Session, None::<&gio::Cancellable>)
+        else {
+            return;
+        };
+        DARK.set(read(&connection));
+        #[allow(deprecated)]
+        let id = connection.signal_subscribe(
+            Some(DEST),
+            Some(IFACE),
+            Some("SettingChanged"),
+            Some(PATH),
+            None,
+            gio::DBusSignalFlags::NONE,
+            move |_, _, _, _, _, params| {
+                let namespace = params.child_value(0);
+                let key = params.child_value(1);
+                if namespace.str() == Some(NAMESPACE) && key.str() == Some(KEY) {
+                    DARK.set(parse(&params.child_value(2)));
+                    changed();
+                }
+            },
+        );
+        SUBSCRIPTION.with(|s| *s.borrow_mut() = Some((connection, id)));
+    }
+}
+
+/// Windows: `AppsUseLightTheme` in der Registry, alle 2 s abgefragt.
+#[cfg(windows)]
+mod system_scheme {
+    use std::time::Duration;
+
+    use gtk::glib;
+    use gtk4 as gtk;
+    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+
+    fn wide(text: &str) -> Vec<u16> {
+        text.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    pub fn dark() -> Option<bool> {
+        let key = wide("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+        let name = wide("AppsUseLightTheme");
+        let mut value: u32 = 1;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        // SAFETY: gültige, nullterminierte Zeichenketten und Puffer passender Größe.
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                key.as_ptr(),
+                name.as_ptr(),
+                RRF_RT_REG_DWORD,
+                std::ptr::null_mut(),
+                (&mut value as *mut u32).cast(),
+                &mut size,
+            )
+        };
+        (status == 0).then_some(value == 0)
+    }
+
+    pub fn watch(changed: fn()) {
+        glib::timeout_add_local(Duration::from_secs(2), move || {
+            changed();
+            glib::ControlFlow::Continue
+        });
+    }
+}
+
+/// macOS: `AppleInterfaceStyle` (nur bei dunkler Darstellung gesetzt), alle 2 s abgefragt.
+#[cfg(target_os = "macos")]
+mod system_scheme {
+    use std::time::Duration;
+
+    use gtk::glib;
+    use gtk4 as gtk;
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    use objc2_foundation::NSString;
+
+    pub fn dark() -> Option<bool> {
+        let key = NSString::from_str("AppleInterfaceStyle");
+        // SAFETY: Klassenmethode und Abfrage von Foundation, im Hauptthread.
+        let value: *mut AnyObject = unsafe {
+            let defaults: *mut AnyObject = msg_send![class!(NSUserDefaults), standardUserDefaults];
+            msg_send![defaults, stringForKey: &*key]
+        };
+        Some(!value.is_null())
+    }
+
+    pub fn watch(changed: fn()) {
+        glib::timeout_add_local(Duration::from_secs(2), move || {
+            changed();
+            glib::ControlFlow::Continue
+        });
     }
 }

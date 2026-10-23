@@ -27,9 +27,9 @@ gdk4-x11 = { version = "0.11.5", features = ["xlib"] }
 
 [target.'cfg(windows)'.dependencies]
 gdk4-win32 = "0.11.5"
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 gdk4-macos = "0.11.5"
 objc2 = "0.6.5"
-objc2-foundation = { version = "0.3.2", features = ["NSGeometry"] }
+objc2-foundation = { version = "0.3.2", features = ["NSGeometry", "NSString"] }
