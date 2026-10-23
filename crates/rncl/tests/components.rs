@@ -42,6 +42,7 @@ fn main() {
         ("tree_view", tree_view),
         ("menus", menus),
         ("window_position", window_position),
+        ("adjust_size_is_stable", adjust_size_is_stable),
     ];
 
     for (name, test) in tests {
@@ -770,4 +771,19 @@ fn window_position() {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     assert_eq!(window.screen_position(), Some(Point::new(300, 200)));
+}
+
+/// Die bevorzugte Größe hängt nicht von der zuletzt gesetzten Größe ab –
+/// sonst wachsen Knöpfe, die "bevorzugt + Rand" gesetzt werden, bei jeder
+/// Neuanordnung weiter.
+fn adjust_size_is_stable() {
+    let window = RnclWindow::new("Größe");
+    let button = RnclButton::new(&window, "Mit Cargo prüfen");
+    button.widget().adjust_size();
+    let natural = button.size();
+    for _ in 0..5 {
+        button.set_size(natural.width + 200, natural.height);
+        button.widget().adjust_size();
+        assert_eq!(button.size(), natural);
+    }
 }

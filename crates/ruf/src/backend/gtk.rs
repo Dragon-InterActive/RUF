@@ -418,6 +418,7 @@ impl Backend for Gtk {
                  Sitzung? Ohne Bildschirm z. B. mit `xvfb-run` starten."
             );
         }
+        quiet_frame_timing_warnings();
         // Reines GTK folgt dem Hell/Dunkel des Systems unter macOS und Windows
         // nicht (und unter Linux nicht überall) – RUF übernimmt das.
         system_scheme::watch(apply_system_scheme);
@@ -491,6 +492,13 @@ impl Backend for Gtk {
         if FOLLOW_SYSTEM.get()
             && let Some(dark) = system_scheme::dark()
         {
+            return if dark {
+                ColorScheme::Dark
+            } else {
+                ColorScheme::Light
+            };
+        }
+        if let Some(dark) = APPLIED.get() {
             return if dark {
                 ColorScheme::Dark
             } else {
@@ -818,8 +826,14 @@ impl Backend for Gtk {
 
     fn preferred_size(native: &GtkNative, _kind: WidgetKind) -> Size {
         let widget = &native.outer;
+        // GTK rechnet eine gesetzte Größe (`set_size_request`) in die Messung
+        // ein. Sonst wüchse ein Widget, das nach seiner bevorzugten Größe
+        // plus Rand gesetzt wird, bei jeder Neuanordnung weiter.
+        let request = widget.size_request();
+        widget.set_size_request(-1, -1);
         let (_, width, _, _) = widget.measure(gtk::Orientation::Horizontal, -1);
         let (_, height, _, _) = widget.measure(gtk::Orientation::Vertical, width);
+        widget.set_size_request(request.0, request.1);
         Size::new(width, height)
     }
 
@@ -1966,13 +1980,12 @@ thread_local! {
 }
 
 /// Setzt Hell/Dunkel (`None` = Vorgabe des Themas). GTK ab 4.20 nutzt
-/// `gtk-interface-color-scheme`, ältere Versionen
-/// `gtk-application-prefer-dark-theme` – beides wird gesetzt; die neue
-/// Einstellung über ihren Namen, damit RUF auch mit GTK 4.12 läuft.
+/// `gtk-interface-color-scheme` (über den Namen gesetzt, damit RUF auch mit
+/// GTK 4.12 läuft), ältere Versionen `gtk-application-prefer-dark-theme`.
 fn set_dark(settings: &gtk::Settings, dark: Option<bool>) {
     APPLIED.set(dark);
-    settings.set_gtk_application_prefer_dark_theme(dark == Some(true));
     let Some(spec) = settings.find_property("gtk-interface-color-scheme") else {
+        settings.set_gtk_application_prefer_dark_theme(dark == Some(true));
         return;
     };
     let nick = match dark {
@@ -2142,4 +2155,37 @@ mod system_scheme {
             glib::ControlFlow::Continue
         });
     }
+}
+
+// --- Meldungen -------------------------------------------------------------------------
+
+/// GDK warnt über Unstimmigkeiten seines eigenen Bildtakts (z. B. auf
+/// 120-Hz-Displays unter macOS oder unter Xvfb): `gdk_frame_timings_…`,
+/// `gdk_frame_presented()`. Die Meldungen sind harmlos und betreffen nicht
+/// das Programm – sie werden ausgefiltert, alle anderen bleiben.
+///
+/// GLib erlaubt nur einen Log-Writer pro Prozess; RUF setzt ihn einmalig.
+fn quiet_frame_timing_warnings() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(install_log_filter);
+}
+
+fn install_log_filter() {
+    glib::log_set_writer_func(|level, fields| {
+        let field = |key: &str| {
+            fields
+                .iter()
+                .find(|f| f.key() == key)
+                .and_then(|f| f.value_str())
+        };
+        let frame_noise = field("GLIB_DOMAIN") == Some("Gdk")
+            && field("MESSAGE").is_some_and(|m| {
+                m.contains("gdk_frame_timings_") || m.contains("gdk_frame_presented()")
+            });
+        if frame_noise {
+            glib::LogWriterOutput::Handled
+        } else {
+            glib::log_writer_default(level, fields)
+        }
+    });
 }
