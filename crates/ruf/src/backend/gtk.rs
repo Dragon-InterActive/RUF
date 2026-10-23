@@ -186,7 +186,14 @@ pub enum Inner {
         view: gtk::TextView,
         placeholder: gtk::Label,
     },
+    /// Auswahlliste mit freier Eingabe.
     Combo(gtk::ComboBoxText),
+    /// Auswahlliste ohne freie Eingabe (`GtkComboBox` ist veraltet und öffnet
+    /// sich unter macOS nach der Auswahl erneut).
+    Drop {
+        drop: gtk::DropDown,
+        model: gtk::StringList,
+    },
     List(gtk::ListBox),
     Spin(gtk::SpinButton),
     Scale(gtk::Scale),
@@ -369,20 +376,24 @@ fn combo_entry(combo: &gtk::ComboBoxText) -> Option<gtk::Entry> {
     combo.child().and_then(|c| c.downcast::<gtk::Entry>().ok())
 }
 
-fn new_combo(id: Id, editable: bool) -> gtk::ComboBoxText {
-    let combo = if editable {
-        gtk::ComboBoxText::with_entry()
+/// Eine Auswahlliste: mit freier Eingabe `GtkComboBoxText`, sonst `GtkDropDown`.
+fn new_choice(id: Id, editable: bool) -> (gtk::Widget, Inner) {
+    if editable {
+        let combo = gtk::ComboBoxText::with_entry();
+        // Erst melden, wenn GTK die Auswahlliste geschlossen hat; Änderungen
+        // per Code gleicht der Kern ohnehin selbst ab.
+        combo.connect_changed(move |_| {
+            glib::idle_add_local_once(move || notify(id, Notify::Changed));
+        });
+        (combo.clone().upcast(), Inner::Combo(combo))
     } else {
-        gtk::ComboBoxText::new()
-    };
-    // Erst melden, wenn GTK die Auswahlliste geschlossen hat: Arbeitet das
-    // Programm sofort im Signal (z. B. Listen neu aufbauen), trifft unter macOS
-    // das Loslassen der Maus sonst den Knopf darunter und die Liste geht
-    // wieder auf. Änderungen per Code gleicht der Kern ohnehin selbst ab.
-    combo.connect_changed(move |_| {
-        glib::idle_add_local_once(move || notify(id, Notify::Changed));
-    });
-    combo
+        let model = gtk::StringList::new(&[]);
+        let drop = gtk::DropDown::new(Some(model.clone()), None::<gtk::Expression>);
+        drop.connect_selected_notify(move |_| {
+            glib::idle_add_local_once(move || notify(id, Notify::Changed));
+        });
+        (drop.clone().upcast(), Inner::Drop { drop, model })
+    }
 }
 
 fn color_css(color: Color) -> String {
@@ -676,8 +687,8 @@ impl Backend for Gtk {
                 (overlay.upcast(), None, Inner::Text { view, placeholder })
             }
             WidgetKind::ComboBox => {
-                let combo = new_combo(id, false);
-                (combo.clone().upcast(), None, Inner::Combo(combo))
+                let (widget, inner) = new_choice(id, false);
+                (widget, None, inner)
             }
             WidgetKind::Canvas => {
                 let area = gtk::DrawingArea::new();
@@ -1003,6 +1014,10 @@ impl Backend for Gtk {
                 Some(entry) => entry.text().to_string(),
                 None => c.active_text().map(|t| t.to_string()).unwrap_or_default(),
             },
+            Inner::Drop { drop, model } => model
+                .string(drop.selected())
+                .map(|t| t.to_string())
+                .unwrap_or_default(),
             _ => String::new(),
         }
     }
@@ -1067,6 +1082,10 @@ impl Backend for Gtk {
                     c.append_text(item);
                 }
             }
+            Inner::Drop { model, .. } => {
+                let items: Vec<&str> = items.iter().map(String::as_str).collect();
+                model.splice(0, model.n_items(), &items);
+            }
             Inner::List(list) => {
                 list.remove_all();
                 for item in items {
@@ -1084,6 +1103,9 @@ impl Backend for Gtk {
     fn set_current_index(native: &GtkNative, _kind: WidgetKind, index: i32) {
         match &native.inner {
             Inner::Combo(c) => c.set_active(u32::try_from(index).ok()),
+            Inner::Drop { drop, .. } => {
+                drop.set_selected(u32::try_from(index).unwrap_or(gtk::INVALID_LIST_POSITION))
+            }
             Inner::List(list) | Inner::Tree(list) => match list.row_at_index(index) {
                 Some(row) if index >= 0 => list.select_row(Some(&row)),
                 _ => list.unselect_all(),
@@ -1096,6 +1118,10 @@ impl Backend for Gtk {
     fn current_index(native: &GtkNative, _kind: WidgetKind) -> i32 {
         match &native.inner {
             Inner::Combo(c) => c.active().map(|i| i as i32).unwrap_or(-1),
+            Inner::Drop { drop, .. } => match drop.selected() {
+                gtk::INVALID_LIST_POSITION => -1,
+                i => i as i32,
+            },
             Inner::List(list) | Inner::Tree(list) => {
                 list.selected_row().map(|r| r.index()).unwrap_or(-1)
             }
@@ -1105,30 +1131,34 @@ impl Backend for Gtk {
     }
 
     fn set_editable(native: &GtkNative, editable: bool) -> Option<GtkNative> {
-        let Inner::Combo(old) = &native.inner else {
-            return None;
+        let is_editable = match &native.inner {
+            Inner::Combo(c) => combo_entry(c).is_some(),
+            Inner::Drop { .. } => false,
+            _ => return None,
         };
-        if combo_entry(old).is_some() == editable {
+        if is_editable == editable {
             return None;
         }
-        // GTK kann eine Combobox nicht nachträglich editierbar machen: ersetzen.
-        let combo = new_combo(native.id, editable);
-        if let Some(fixed) = parent_fixed(old.upcast_ref()) {
+        // Eine Liste mit und eine ohne freie Eingabe sind verschiedene
+        // GTK-Steuerelemente: ersetzen (Einträge und Auswahl setzt der Kern).
+        let old = &native.outer;
+        let (widget, inner) = new_choice(native.id, editable);
+        if let Some(fixed) = parent_fixed(old) {
             let (x, y) = fixed.child_position(old);
             fixed.remove(old);
-            fixed.put(&combo, x, y);
+            fixed.put(&widget, x, y);
         }
-        combo.set_tooltip_text(old.tooltip_text().as_deref());
-        combo.set_sensitive(old.is_sensitive());
-        combo.set_visible(old.is_visible());
+        widget.set_tooltip_text(old.tooltip_text().as_deref());
+        widget.set_sensitive(old.is_sensitive());
+        widget.set_visible(old.is_visible());
         for class in old.css_classes() {
-            combo.add_css_class(&class);
+            widget.add_css_class(&class);
         }
         Some(GtkNative {
             id: native.id,
-            outer: combo.clone().upcast(),
+            outer: widget,
             fixed: None,
-            inner: Inner::Combo(combo),
+            inner,
         })
     }
 

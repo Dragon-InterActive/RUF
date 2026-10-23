@@ -224,7 +224,7 @@ bei ungültigem Muster oder ungültiger Farbe.
 
 ## `RnclComboBox` – Auswahlliste
 
-Nativ: GTK `GtkComboBoxText` · Kategorie *Eingabe*
+Nativ: GTK `GtkDropDown` (mit freier Eingabe: `GtkComboBoxText`) · Kategorie *Eingabe*
 
 ```rust
 let city = RnclComboBox::new(&window);

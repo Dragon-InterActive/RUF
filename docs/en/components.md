@@ -223,7 +223,7 @@ invalid pattern or colour.
 
 ## `RnclComboBox` – drop-down list
 
-Native: GTK `GtkComboBoxText` · category *Eingabe* (input)
+Native: GTK `GtkDropDown` (editable: `GtkComboBoxText`) · category *Eingabe* (input)
 
 ```rust
 let city = RnclComboBox::new(&window);

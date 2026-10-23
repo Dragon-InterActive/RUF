@@ -14,7 +14,7 @@
 //! | [`RnclRadioButton`] | `GtkCheckButton` | nein |
 //! | [`RnclGroupBox`] | `GtkFrame` | ja |
 //! | [`RnclTextArea`] | `GtkTextView` | nein |
-//! | [`RnclComboBox`] | `GtkComboBoxText` | nein |
+//! | [`RnclComboBox`] | `GtkDropDown` (mit Eingabe: `GtkComboBoxText`) | nein |
 //! | [`RnclListBox`] | `GtkListBox` | nein |
 //! | [`RnclSpinBox`] | `GtkSpinButton` | nein |
 //! | [`RnclSlider`] | `GtkScale` | nein |
