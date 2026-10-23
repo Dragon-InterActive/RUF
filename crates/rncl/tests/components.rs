@@ -298,9 +298,20 @@ fn combo_box() {
     assert!(indices.borrow().contains(&2));
 
     combo.set_editable(true);
-    combo.set_current_text("Freitext");
     assert!(combo.is_editable());
+    // Einträge bleiben; Wahl aus der Liste übernimmt Text und Index.
+    assert_eq!(combo.items(), ["Bremen", "Berlin", "Hamburg"]);
+    combo.set_current_index(1);
+    assert_eq!(combo.current_text(), "Berlin");
+    assert_eq!(combo.current_index(), 1);
+    // Freier Text: keine Auswahl mehr.
+    combo.set_current_text("Freitext");
     assert_eq!(combo.current_text(), "Freitext");
+    assert_eq!(combo.current_index(), -1);
+    // Zurück ohne Eingabe: wieder eine Liste.
+    combo.set_editable(false);
+    assert!(!combo.is_editable());
+    combo.set_editable(true);
 
     combo.clear();
     assert_eq!(combo.count(), 0);

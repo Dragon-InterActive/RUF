@@ -10,11 +10,6 @@
 //! nicht setzen – das Modul `position` erledigt es nativ (X11, Win32,
 //! macOS); unter Wayland ist es nicht möglich.
 
-// `GtkComboBoxText` ist seit GTK 4.10 als veraltet markiert, hat aber noch
-// keinen Ersatz mit Eingabefeld (`GtkDropDown` kann keinen freien Text).
-// Es bleibt bis GTK 5 verfügbar.
-#![allow(deprecated)]
-
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -186,10 +181,10 @@ pub enum Inner {
         view: gtk::TextView,
         placeholder: gtk::Label,
     },
-    /// Auswahlliste mit freier Eingabe.
-    Combo(gtk::ComboBoxText),
-    /// Auswahlliste ohne freie Eingabe (`GtkComboBox` ist veraltet und öffnet
-    /// sich unter macOS nach der Auswahl erneut).
+    /// Auswahlliste mit freier Eingabe (Eingabefeld + Vorschlagsliste).
+    Combo(Suggest),
+    /// Auswahlliste ohne freie Eingabe. (`GtkComboBox` ist seit GTK 4.10
+    /// veraltet und öffnet sich unter macOS nach der Auswahl erneut.)
     Drop {
         drop: gtk::DropDown,
         model: gtk::StringList,
@@ -372,23 +367,111 @@ fn text_buffer(native: &GtkNative) -> Option<(gtk::TextView, gtk::TextBuffer)> {
     }
 }
 
-fn combo_entry(combo: &gtk::ComboBoxText) -> Option<gtk::Entry> {
-    combo.child().and_then(|c| c.downcast::<gtk::Entry>().ok())
+/// Eingabefeld mit Vorschlagsliste – Ersatz für das veraltete
+/// `GtkComboBoxText` mit Eingabe (nach dem Vorbild aus `gtk4-demo`,
+/// „Lists → Selections“). Wie dort: Tippen setzt die Auswahl auf -1, die
+/// Wahl aus der Liste übernimmt Text und Index.
+#[derive(Clone)]
+pub struct Suggest {
+    root: gtk::Box,
+    entry: gtk::Entry,
+    list: gtk::ListBox,
+    popover: gtk::Popover,
+    items: Rc<RefCell<Vec<String>>>,
+    current: Rc<Cell<i32>>,
+    /// Während der Text aus der Liste übernommen wird: Index nicht zurücksetzen.
+    choosing: Rc<Cell<bool>>,
 }
 
-/// Eine Auswahlliste: mit freier Eingabe `GtkComboBoxText`, sonst `GtkDropDown`.
-fn new_choice(id: Id, editable: bool) -> (gtk::Widget, Inner) {
-    if editable {
-        let combo = gtk::ComboBoxText::with_entry();
-        // Erst melden, wenn GTK die Auswahlliste geschlossen hat; Änderungen
-        // per Code gleicht der Kern ohnehin selbst ab.
-        combo.connect_changed(move |_| {
+impl Suggest {
+    fn new(id: Id) -> Self {
+        let entry = gtk::Entry::new();
+        entry.set_hexpand(true);
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::None);
+        list.set_activate_on_single_click(true);
+        let scroll = gtk::ScrolledWindow::new();
+        scroll.set_child(Some(&list));
+        scroll.set_propagate_natural_height(true);
+        scroll.set_max_content_height(260);
+        scroll.set_min_content_width(160);
+        let popover = gtk::Popover::new();
+        popover.set_child(Some(&scroll));
+        popover.set_has_arrow(false);
+        let button = gtk::MenuButton::new();
+        button.set_popover(Some(&popover));
+        button.set_focusable(false);
+        let root = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        root.add_css_class("linked");
+        root.append(&entry);
+        root.append(&button);
+
+        let suggest = Self {
+            root,
+            entry,
+            list,
+            popover,
+            items: Rc::default(),
+            current: Rc::new(Cell::new(-1)),
+            choosing: Rc::new(Cell::new(false)),
+        };
+        let s = suggest.clone();
+        suggest.list.connect_row_activated(move |_, row| {
+            s.select(row.index());
+            s.popover.popdown();
+        });
+        let s = suggest.clone();
+        suggest.entry.connect_changed(move |_| {
+            if !s.choosing.get() {
+                s.current.set(-1);
+            }
             glib::idle_add_local_once(move || notify(id, Notify::Changed));
         });
-        (combo.clone().upcast(), Inner::Combo(combo))
+        suggest
+    }
+
+    fn set_items(&self, items: &[String]) {
+        self.list.remove_all();
+        for item in items {
+            let label = gtk::Label::new(Some(item));
+            label.set_xalign(0.0);
+            label.set_margin_start(6);
+            label.set_margin_end(6);
+            label.set_margin_top(3);
+            label.set_margin_bottom(3);
+            self.list.append(&label);
+        }
+        *self.items.borrow_mut() = items.to_vec();
+        self.current.set(-1);
+    }
+
+    /// Übernimmt Eintrag `index` (−1 = keine Auswahl, Text bleibt).
+    fn select(&self, index: i32) {
+        let item = usize::try_from(index)
+            .ok()
+            .and_then(|i| self.items.borrow().get(i).cloned());
+        match item {
+            Some(text) => {
+                self.choosing.set(true);
+                self.entry.set_text(&text);
+                self.choosing.set(false);
+                self.current.set(index);
+            }
+            None => self.current.set(-1),
+        }
+    }
+}
+
+/// Eine Auswahlliste: mit freier Eingabe [`Suggest`], sonst `GtkDropDown`.
+fn new_choice(id: Id, editable: bool) -> (gtk::Widget, Inner) {
+    if editable {
+        let suggest = Suggest::new(id);
+        (suggest.root.clone().upcast(), Inner::Combo(suggest))
     } else {
         let model = gtk::StringList::new(&[]);
         let drop = gtk::DropDown::new(Some(model.clone()), None::<gtk::Expression>);
+        // Erst melden, wenn GTK die Liste geschlossen hat; Änderungen per Code
+        // gleicht der Kern ohnehin selbst ab.
         drop.connect_selected_notify(move |_| {
             glib::idle_add_local_once(move || notify(id, Notify::Changed));
         });
@@ -992,11 +1075,7 @@ impl Backend for Gtk {
             }
             Inner::Entry(e) => e.set_text(text),
             Inner::Text { view, .. } => view.buffer().set_text(text),
-            Inner::Combo(c) => {
-                if let Some(entry) = combo_entry(c) {
-                    entry.set_text(text);
-                }
-            }
+            Inner::Combo(c) => c.entry.set_text(text),
             _ => {}
         }
     }
@@ -1010,10 +1089,7 @@ impl Backend for Gtk {
                     .text(&buffer.start_iter(), &buffer.end_iter(), false)
                     .to_string()
             }
-            Inner::Combo(c) => match combo_entry(c) {
-                Some(entry) => entry.text().to_string(),
-                None => c.active_text().map(|t| t.to_string()).unwrap_or_default(),
-            },
+            Inner::Combo(c) => c.entry.text().to_string(),
             Inner::Drop { drop, model } => model
                 .string(drop.selected())
                 .map(|t| t.to_string())
@@ -1029,11 +1105,7 @@ impl Backend for Gtk {
                 placeholder.set_text(text);
                 placeholder.set_visible(view.buffer().char_count() == 0);
             }
-            Inner::Combo(c) => {
-                if let Some(entry) = combo_entry(c) {
-                    entry.set_placeholder_text(Some(text));
-                }
-            }
+            Inner::Combo(c) => c.entry.set_placeholder_text(Some(text)),
             _ => {}
         }
     }
@@ -1076,12 +1148,7 @@ impl Backend for Gtk {
 
     fn set_items(native: &GtkNative, _kind: WidgetKind, items: &[String]) {
         match &native.inner {
-            Inner::Combo(c) => {
-                c.remove_all();
-                for item in items {
-                    c.append_text(item);
-                }
-            }
+            Inner::Combo(c) => c.set_items(items),
             Inner::Drop { model, .. } => {
                 let items: Vec<&str> = items.iter().map(String::as_str).collect();
                 model.splice(0, model.n_items(), &items);
@@ -1102,7 +1169,7 @@ impl Backend for Gtk {
 
     fn set_current_index(native: &GtkNative, _kind: WidgetKind, index: i32) {
         match &native.inner {
-            Inner::Combo(c) => c.set_active(u32::try_from(index).ok()),
+            Inner::Combo(c) => c.select(index),
             Inner::Drop { drop, .. } => {
                 drop.set_selected(u32::try_from(index).unwrap_or(gtk::INVALID_LIST_POSITION))
             }
@@ -1117,7 +1184,7 @@ impl Backend for Gtk {
 
     fn current_index(native: &GtkNative, _kind: WidgetKind) -> i32 {
         match &native.inner {
-            Inner::Combo(c) => c.active().map(|i| i as i32).unwrap_or(-1),
+            Inner::Combo(c) => c.current.get(),
             Inner::Drop { drop, .. } => match drop.selected() {
                 gtk::INVALID_LIST_POSITION => -1,
                 i => i as i32,
@@ -1132,7 +1199,7 @@ impl Backend for Gtk {
 
     fn set_editable(native: &GtkNative, editable: bool) -> Option<GtkNative> {
         let is_editable = match &native.inner {
-            Inner::Combo(c) => combo_entry(c).is_some(),
+            Inner::Combo(_) => true,
             Inner::Drop { .. } => false,
             _ => return None,
         };
