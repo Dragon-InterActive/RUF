@@ -22,6 +22,7 @@
 | Callback läuft nicht | Signal gibt es für diese Art nicht | Rückgabewert von `on_…` prüfen (`false` = nicht unterstützt) |
 | Callback ruft sich nicht selbst erneut auf | Re-Entranz-Schutz | gewollt: ein laufender Handler wird nicht verschachtelt aufgerufen |
 | `ruf: Panik in einem Callback abgefangen: …` | Panik in einer Closure | Fehler in der Closure beheben; die Anwendung läuft weiter |
+| `Gdk-CRITICAL: gdk_surface_thaw_updates: assertion …` (macOS) | Fehler in GTKs macOS-Teil beim Öffnen von Auswahllisten (auch in `gtk4-demo`) | harmlos; RUF blendet die Meldung unter macOS aus |
 
 ## Tests
 

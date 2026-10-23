@@ -2161,8 +2161,10 @@ mod system_scheme {
 
 /// GDK warnt über Unstimmigkeiten seines eigenen Bildtakts (z. B. auf
 /// 120-Hz-Displays unter macOS oder unter Xvfb): `gdk_frame_timings_…`,
-/// `gdk_frame_presented()`. Die Meldungen sind harmlos und betreffen nicht
-/// das Programm – sie werden ausgefiltert, alle anderen bleiben.
+/// `gdk_frame_presented()`. Unter macOS meldet GTK außerdem beim Öffnen von
+/// Auswahllisten `gdk_surface_thaw_updates: assertion … failed` – ein Fehler
+/// in GTK selbst (tritt auch in `gtk4-demo` auf), ohne sichtbare Folgen.
+/// Diese Meldungen werden ausgefiltert, alle anderen bleiben.
 ///
 /// GLib erlaubt nur einen Log-Writer pro Prozess; RUF setzt ihn einmalig.
 fn quiet_frame_timing_warnings() {
@@ -2180,7 +2182,12 @@ fn install_log_filter() {
         };
         let frame_noise = field("GLIB_DOMAIN") == Some("Gdk")
             && field("MESSAGE").is_some_and(|m| {
-                m.contains("gdk_frame_timings_") || m.contains("gdk_frame_presented()")
+                m.contains("gdk_frame_timings_")
+                    || m.contains("gdk_frame_presented()")
+                    || (cfg!(target_os = "macos")
+                        && m.contains(
+                            "gdk_surface_thaw_updates: assertion 'surface->update_freeze_count > 0' failed",
+                        ))
             });
         if frame_noise {
             glib::LogWriterOutput::Handled
