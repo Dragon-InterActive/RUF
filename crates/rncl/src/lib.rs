@@ -128,5 +128,5 @@ pub mod prelude {
         RnclTabView, RnclTextArea, RnclTextField, RnclTreeView, RnclWindow,
     };
     pub use ruf::prelude::*;
-    pub use ruf::{KeyEvent, Menu, MouseAction, MouseEvent, Shape, TreeItem};
+    pub use ruf::{KeyEvent, Menu, MenuBar, Modifiers, MouseAction, MouseEvent, Shape, TreeItem};
 }
