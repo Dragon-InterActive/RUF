@@ -1,5 +1,7 @@
 //! Daten der Baumansicht ([`crate::WidgetKind::TreeView`]).
 
+use crate::style::Color;
+
 /// Ein Knoten der Baumansicht.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreeItem {
@@ -9,6 +11,11 @@ pub struct TreeItem {
     pub children: Vec<TreeItem>,
     /// Kinder sichtbar?
     pub expanded: bool,
+    /// Textfarbe (`None` = Standard).
+    pub color: Option<Color>,
+    /// Kurzer Zusatz rechts neben dem Text, z. B. ein Git-Status `M`; in
+    /// `color`, falls gesetzt.
+    pub badge: Option<String>,
 }
 
 impl TreeItem {
@@ -19,7 +26,19 @@ impl TreeItem {
             text: text.to_owned(),
             children: Vec::new(),
             expanded: true,
+            color: None,
+            badge: None,
         }
+    }
+
+    pub fn with_color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    pub fn with_badge(mut self, badge: &str) -> Self {
+        self.badge = Some(badge.to_owned());
+        self
     }
 
     pub fn with_child(mut self, child: TreeItem) -> Self {
@@ -41,6 +60,8 @@ pub(crate) struct TreeRow {
     pub depth: usize,
     pub has_children: bool,
     pub expanded: bool,
+    pub color: Option<Color>,
+    pub badge: Option<String>,
 }
 
 /// Die sichtbaren Zeilen (aufgeklappte Knoten mit ihren Kindern).
@@ -53,6 +74,8 @@ pub(crate) fn visible_rows(items: &[TreeItem]) -> Vec<TreeRow> {
                 depth,
                 has_children: !item.children.is_empty(),
                 expanded: item.expanded,
+                color: item.color,
+                badge: item.badge.clone(),
             });
             if item.expanded {
                 walk(&item.children, depth + 1, out);

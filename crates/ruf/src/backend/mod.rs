@@ -77,9 +77,14 @@ pub(crate) trait Backend {
     fn set_color_scheme(scheme: ColorScheme) -> bool;
     fn message(parent: Option<&Self::Native>, kind: MessageKind, title: &str, text: &str);
     fn confirm(parent: Option<&Self::Native>, title: &str, text: &str) -> bool;
-    /// Fragt nach einer Textzeile; `None`, wenn abgebrochen.
-    fn input(parent: Option<&Self::Native>, title: &str, label: &str, text: &str)
-    -> Option<String>;
+    /// Fragt nach einer Textzeile (`secret`: verdeckt); `None`, wenn abgebrochen.
+    fn input(
+        parent: Option<&Self::Native>,
+        title: &str,
+        label: &str,
+        text: &str,
+        secret: bool,
+    ) -> Option<String>;
 
     // --- Erzeugen und Struktur ------------------------------------------------
 

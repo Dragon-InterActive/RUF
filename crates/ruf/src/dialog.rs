@@ -1,4 +1,4 @@
-//! Modale Standarddialoge (Meldung, Ja/Nein-Frage, Texteingabe, Dateiauswahl) mit den
+//! Modale Standarddialoge (Meldung, Ja/Nein-Frage, Texteingabe, Passwort, Dateiauswahl) mit den
 //! Mitteln des Systems.
 //!
 //! Alle Funktionen blockieren, bis der Anwender den Dialog schließt, und
@@ -45,7 +45,13 @@ pub fn confirm(parent: Option<&Widget>, title: &str, text: &str) -> bool {
 /// zum letzten Punkt – passend für Dateinamen); `None` bei Abbruch.
 pub fn input(parent: Option<&Widget>, title: &str, label: &str, text: &str) -> Option<String> {
     let parent = parent_native(parent);
-    core::setter(|| Platform::input(parent.as_ref(), title, label, text))
+    core::setter(|| Platform::input(parent.as_ref(), title, label, text, false))
+}
+
+/// Fragt verdeckt nach einem Passwort oder einer Passphrase; `None` bei Abbruch.
+pub fn password(parent: Option<&Widget>, title: &str, label: &str) -> Option<String> {
+    let parent = parent_native(parent);
+    core::setter(|| Platform::input(parent.as_ref(), title, label, "", true))
 }
 
 /// Ein Dateityp-Filter der Dateiauswahl, z. B. `FileFilter::new("Rust", &["*.rs"])`.

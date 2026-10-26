@@ -50,6 +50,8 @@ window.on_close_requested(|| {                           // false = keep open
 });
 
 // Menu bar; choosing by mouse or shortcut reports on_menu with the id.
+// Shortcuts work in the whole window and take precedence over the focused
+// widget (Ctrl+Enter in a text area triggers the item, not a line break).
 window.set_menu_bar(vec![(
     "File".into(),
     Menu::new().item("file.open", "Open …", Some("Ctrl+O")).separator()
@@ -418,6 +420,8 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("selected: {id}"));
 tree.on_item_activated(|id| println!("double click: {id}"));
 tree.toggle("services");                  // expand/collapse
+// Color and a badge on the right (e.g. a Git status):
+// TreeItem::new("src/main.rs", "main.rs").with_color(Color::rgb(0xd1, 0x9a, 0x3c)).with_badge("M")
 // Right click: the node is selected then; the choice reaches the window's `on_menu`.
 let t = tree.clone();
 tree.on_context_menu(move |id, x, y| {
@@ -498,6 +502,7 @@ ruf::dialog::error(None, "Error", "Saving failed.");
 if ruf::dialog::confirm(None, "Question", "Discard changes?") { /* … */ }
 // Text input; the suggestion is selected up to the last dot (file names).
 if let Some(name) = ruf::dialog::input(None, "Rename", "New name:", "main.rs") { /* … */ }
+let secret = ruf::dialog::password(None, "Sign in", "Passphrase for the SSH key:"); // hidden
 ```
 
 File chooser (returns `None` when cancelled):

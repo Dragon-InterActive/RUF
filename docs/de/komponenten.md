@@ -50,6 +50,8 @@ window.on_close_requested(|| {                           // false = offen lassen
 });
 
 // Menüleiste; Auswahl per Maus oder Kürzel meldet on_menu mit der Kennung.
+// Kürzel gelten im ganzen Fenster und gehen dem fokussierten Widget vor
+// (Strg+Enter in einem Textfeld löst den Eintrag aus, keinen Zeilenumbruch).
 window.set_menu_bar(vec![(
     "Datei".into(),
     Menu::new().item("file.open", "Öffnen …", Some("Ctrl+O")).separator()
@@ -420,6 +422,8 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("ausgewählt: {id}"));
 tree.on_item_activated(|id| println!("Doppelklick: {id}"));
 tree.toggle("services");                  // auf-/zuklappen
+// Farbe und Zusatz rechts (z. B. Git-Status):
+// TreeItem::new("src/main.rs", "main.rs").with_color(Color::rgb(0xd1, 0x9a, 0x3c)).with_badge("M")
 // Rechtsklick: der Knoten ist dann gewählt; die Wahl meldet `on_menu` des Fensters.
 let t = tree.clone();
 tree.on_context_menu(move |id, x, y| {
@@ -500,6 +504,7 @@ ruf::dialog::error(None, "Fehler", "Speichern fehlgeschlagen.");
 if ruf::dialog::confirm(None, "Frage", "Änderungen verwerfen?") { /* … */ }
 // Texteingabe; der Vorschlag ist bis zum letzten Punkt ausgewählt (Dateinamen).
 if let Some(name) = ruf::dialog::input(None, "Umbenennen", "Neuer Name:", "main.rs") { /* … */ }
+let secret = ruf::dialog::password(None, "Anmeldung", "Passphrase für den SSH-Schlüssel:"); // verdeckt
 ```
 
 Dateiauswahl (liefert `None` bei Abbruch):

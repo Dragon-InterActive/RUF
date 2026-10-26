@@ -687,7 +687,13 @@ impl Backend for Gtk {
         answer.get()
     }
 
-    fn input(parent: Option<&GtkNative>, title: &str, label: &str, text: &str) -> Option<String> {
+    fn input(
+        parent: Option<&GtkNative>,
+        title: &str,
+        label: &str,
+        text: &str,
+        secret: bool,
+    ) -> Option<String> {
         let (cancel, ok) = if crate::dialog::german() {
             ("Abbrechen", "OK")
         } else {
@@ -712,6 +718,10 @@ impl Backend for Gtk {
         let entry = gtk::Entry::new();
         entry.set_text(text);
         entry.set_activates_default(true);
+        if secret {
+            entry.set_visibility(false);
+            entry.set_input_purpose(gtk::InputPurpose::Password);
+        }
         let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         buttons.set_halign(gtk::Align::End);
         let cancel = gtk::Button::with_label(cancel);
@@ -1763,7 +1773,27 @@ impl Backend for Gtk {
             line.append(&toggle);
             let label = gtk::Label::new(Some(&row.text));
             label.set_xalign(0.0);
+            label.set_hexpand(true);
+            label.set_ellipsize(pango::EllipsizeMode::Middle);
+            let colored = |label: &gtk::Label, text: &str| {
+                if let Some(c) = row.color {
+                    label.set_markup(&format!(
+                        "<span foreground=\"#{:02x}{:02x}{:02x}\">{}</span>",
+                        c.r,
+                        c.g,
+                        c.b,
+                        glib::markup_escape_text(text)
+                    ));
+                }
+            };
+            colored(&label, &row.text);
             line.append(&label);
+            if let Some(badge) = &row.badge {
+                let badge_label = gtk::Label::new(Some(badge));
+                badge_label.set_margin_end(6);
+                colored(&badge_label, badge);
+                line.append(&badge_label);
+            }
             list.append(&line);
         }
     }
@@ -1775,6 +1805,9 @@ impl Backend for Gtk {
         let group = gio::SimpleActionGroup::new();
         let shortcuts = gtk::ShortcutController::new();
         shortcuts.set_scope(gtk::ShortcutScope::Global);
+        // Menükürzel vor dem fokussierten Widget: Strg+Enter in einem
+        // Textfeld löst den Menüeintrag aus statt einen Zeilenumbruch.
+        shortcuts.set_propagation_phase(gtk::PropagationPhase::Capture);
         let model = gio::Menu::new();
         let mut counter = 0;
         for (title, menu) in bar {
