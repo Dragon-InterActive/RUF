@@ -57,6 +57,11 @@ impl RnclScrollView {
         self.content.widget().set_minimum_size(width, height);
     }
 
+    /// Scrollt, bis `x`/`y` des Inhalts links oben steht.
+    pub fn scroll_to(&self, x: i32, y: i32) {
+        self.widget.scroll_to(x, y);
+    }
+
     /// Die aktuelle Größe des Inhalts.
     pub fn content_size(&self) -> ruf::Size {
         self.content.size()

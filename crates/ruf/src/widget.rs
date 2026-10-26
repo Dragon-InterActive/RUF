@@ -290,6 +290,12 @@ impl Widget {
         Self::wrap(content, false)
     }
 
+    /// Scrollt einen Scrollbereich, bis `x`/`y` des Inhalts links oben steht
+    /// (begrenzt auf den möglichen Bereich).
+    pub fn scroll_to(&self, x: i32, y: i32) {
+        self.native_call(|n, _| Platform::scroll_to(n, x, y));
+    }
+
     // --- Code-Editor (Textbereich) -------------------------------------------
 
     /// Schrift mit fester Zeichenbreite (Systemschrift für Code).
@@ -390,9 +396,9 @@ impl Widget {
         core::get(self.id, |n| n.password).unwrap_or(false)
     }
 
-    /// Automatischer Zeilenumbruch eines Labels.
+    /// Automatischer Zeilenumbruch eines Labels oder Textbereichs.
     pub fn set_word_wrap(&self, wrap: bool) {
-        if self.kind() == WidgetKind::Label {
+        if matches!(self.kind(), WidgetKind::Label | WidgetKind::TextArea) {
             core::update(self.id, |n| n.word_wrap = wrap);
             self.native_call(|n, _| Platform::set_word_wrap(n, wrap));
         }

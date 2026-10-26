@@ -1308,6 +1308,13 @@ impl Backend for Gtk {
             l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
             l.set_yalign(if wrap { 0.0 } else { 0.5 });
         }
+        if let Inner::Text { view, .. } = &native.inner {
+            view.set_wrap_mode(if wrap {
+                gtk::WrapMode::WordChar
+            } else {
+                gtk::WrapMode::None
+            });
+        }
     }
 
     fn set_checked(native: &GtkNative, _kind: WidgetKind, checked: bool) {
@@ -1482,6 +1489,13 @@ impl Backend for Gtk {
                 bar.set_inverted(vertical);
             }
             _ => {}
+        }
+    }
+
+    fn scroll_to(native: &GtkNative, x: i32, y: i32) {
+        if let Some(window) = native.outer.downcast_ref::<gtk::ScrolledWindow>() {
+            window.hadjustment().set_value(f64::from(x));
+            window.vadjustment().set_value(f64::from(y));
         }
     }
 

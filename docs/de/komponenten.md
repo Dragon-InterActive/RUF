@@ -196,6 +196,7 @@ let notes = RnclTextArea::new(&window);          // Standardgröße 240×120
 notes.set_text("Zeile 1");
 notes.append_line("Zeile 2");
 notes.on_text_changed(|t| println!("{} Zeichen", t.len()));
+notes.set_word_wrap(true);                      // lange Zeilen umbrechen
 ```
 
 Als **Code-Editor** (Schrift mit fester Breite, Syntax-Hervorhebung über reguläre
@@ -339,6 +340,7 @@ for i in 0..30 {
     RnclCheckBox::new(scroll.content(), &format!("Option {i}")).set_position(8, 8 + i * 24);
 }
 scroll.set_content_size(0, 8 + 30 * 24);   // Breite 0 = folgt dem sichtbaren Bereich
+scroll.scroll_to(0, 20 * 24);              // Option 20 nach oben holen
 ```
 
 | Eigenschaft | Typ | |

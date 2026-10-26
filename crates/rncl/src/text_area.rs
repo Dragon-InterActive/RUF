@@ -65,6 +65,15 @@ impl RnclTextArea {
     }
 
     /// Schrift mit fester Zeichenbreite – für Quelltext.
+    /// Lange Zeilen umbrechen statt seitlich zu scrollen.
+    pub fn set_word_wrap(&self, wrap: bool) {
+        self.widget.set_word_wrap(wrap);
+    }
+
+    pub fn is_word_wrap(&self) -> bool {
+        self.widget.is_word_wrap()
+    }
+
     pub fn set_monospace(&self, monospace: bool) {
         self.widget.set_monospace(monospace);
     }

@@ -157,6 +157,8 @@ pub(crate) trait Backend {
 
     /// Der Container im Scrollbereich (wird beim Erzeugen mit angelegt).
     fn scroll_content(native: &Self::Native, content_id: Id) -> Self::Native;
+    /// Scrollt einen Scrollbereich, bis `x`/`y` des Inhalts links oben steht.
+    fn scroll_to(native: &Self::Native, x: i32, y: i32);
     fn set_content_min_size(native: &Self::Native, size: Size);
 
     // --- Code-Editor (Textbereich) ---------------------------------------------

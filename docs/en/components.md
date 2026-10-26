@@ -195,6 +195,7 @@ let notes = RnclTextArea::new(&window);          // default size 240×120
 notes.set_text("line 1");
 notes.append_line("line 2");
 notes.on_text_changed(|t| println!("{} chars", t.len()));
+notes.set_word_wrap(true);                      // wrap long lines
 ```
 
 As a **code editor** (fixed-width font, syntax highlighting via regular expressions,
@@ -337,7 +338,8 @@ scroll.set_geometry(10, 10, 300, 200);
 for i in 0..30 {
     RnclCheckBox::new(scroll.content(), &format!("Option {i}")).set_position(8, 8 + i * 24);
 }
-scroll.set_content_size(0, 8 + 30 * 24);   // width 0 = follow the visible area
+scroll.set_content_size(0, 8 + 30 * 24);
+scroll.scroll_to(0, 20 * 24);              // bring option 20 to the top   // width 0 = follow the visible area
 ```
 
 | Property | Type | |
