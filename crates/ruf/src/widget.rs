@@ -615,7 +615,9 @@ impl Widget {
     }
 
     /// Mausereignisse der Zeichenfläche (Drücken, Loslassen, Bewegen,
-    /// Doppelklick). Ein Klick gibt ihr den Tastaturfokus.
+    /// Doppelklick). Ein Klick gibt ihr den Tastaturfokus. Der Code-Editor
+    /// meldet das Loslassen, die Baumansicht den Rechtsklick (die Zeile ist
+    /// dann schon gewählt).
     pub fn on_mouse(&self, f: impl FnMut(MouseEvent) + 'static) -> bool {
         core::connect_mouse(self.id, f)
     }

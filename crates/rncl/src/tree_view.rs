@@ -60,6 +60,20 @@ impl RnclTreeView {
         self.widget.on_tree_item_activated(f);
     }
 
+    /// Rechtsklick auf einen Knoten (er ist dann gewählt): Kennung und
+    /// Position relativ zur Baumansicht – passend für
+    /// `widget().popup_menu(&menu, x, y)`; die Wahl meldet `on_menu` des Fensters.
+    pub fn on_context_menu(&self, mut f: impl FnMut(String, i32, i32) + 'static) {
+        let widget = self.widget.clone();
+        self.widget.on_mouse(move |e| {
+            if e.button == 3
+                && let Some(id) = widget.selected_tree_item()
+            {
+                f(id, e.x, e.y);
+            }
+        });
+    }
+
     pub fn info() -> ComponentInfo {
         ComponentInfo::new(Self::TYPE_NAME, |parent| {
             Box::new(Self::with_parent(parent))

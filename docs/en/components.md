@@ -418,6 +418,12 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("selected: {id}"));
 tree.on_item_activated(|id| println!("double click: {id}"));
 tree.toggle("services");                  // expand/collapse
+// Right click: the node is selected then; the choice reaches the window's `on_menu`.
+let t = tree.clone();
+tree.on_context_menu(move |id, x, y| {
+    let menu = Menu::new().item("node.rename", "Rename …", None);
+    t.widget().popup_menu(&menu, x, y);
+});
 ```
 
 Nodes are addressed by their id; the selection survives replacing the nodes as long
@@ -490,6 +496,8 @@ ruf::dialog::information(Some(window.widget()), "Note", "Saved.");
 ruf::dialog::warning(None, "Attention", "File missing.");
 ruf::dialog::error(None, "Error", "Saving failed.");
 if ruf::dialog::confirm(None, "Question", "Discard changes?") { /* … */ }
+// Text input; the suggestion is selected up to the last dot (file names).
+if let Some(name) = ruf::dialog::input(None, "Rename", "New name:", "main.rs") { /* … */ }
 ```
 
 File chooser (returns `None` when cancelled):

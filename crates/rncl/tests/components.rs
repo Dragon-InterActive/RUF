@@ -712,6 +712,25 @@ fn tree_view() {
     assert!(tree.toggle("main"));
     assert_eq!(tree.visible_items(), ["main", "services", "services.pool"]);
     assert_eq!(tree.selected(), None);
+
+    // Rechtsklick (die Zeile ist dann gewählt) meldet Kennung und Position.
+    let context: Rc<RefCell<Vec<(String, i32, i32)>>> = Rc::default();
+    let c = context.clone();
+    tree.on_context_menu(move |id, x, y| c.borrow_mut().push((id, x, y)));
+    tree.select(Some("services.pool"));
+    let click = |button| MouseEvent {
+        action: MouseAction::Pressed,
+        x: 20,
+        y: 40,
+        button,
+        modifiers: ruf::Modifiers::default(),
+    };
+    tree.widget().simulate_mouse(click(1));
+    tree.widget().simulate_mouse(click(3));
+    assert_eq!(
+        context.borrow().as_slice(),
+        [("services.pool".to_owned(), 20, 40)]
+    );
 }
 
 fn menus() {

@@ -420,6 +420,12 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("ausgewählt: {id}"));
 tree.on_item_activated(|id| println!("Doppelklick: {id}"));
 tree.toggle("services");                  // auf-/zuklappen
+// Rechtsklick: der Knoten ist dann gewählt; die Wahl meldet `on_menu` des Fensters.
+let t = tree.clone();
+tree.on_context_menu(move |id, x, y| {
+    let menu = Menu::new().item("node.rename", "Umbenennen …", None);
+    t.widget().popup_menu(&menu, x, y);
+});
 ```
 
 Knoten werden über ihre Kennung angesprochen; die Auswahl bleibt beim Ersetzen
@@ -492,6 +498,8 @@ ruf::dialog::information(Some(window.widget()), "Hinweis", "Gespeichert.");
 ruf::dialog::warning(None, "Achtung", "Datei fehlt.");
 ruf::dialog::error(None, "Fehler", "Speichern fehlgeschlagen.");
 if ruf::dialog::confirm(None, "Frage", "Änderungen verwerfen?") { /* … */ }
+// Texteingabe; der Vorschlag ist bis zum letzten Punkt ausgewählt (Dateinamen).
+if let Some(name) = ruf::dialog::input(None, "Umbenennen", "Neuer Name:", "main.rs") { /* … */ }
 ```
 
 Dateiauswahl (liefert `None` bei Abbruch):

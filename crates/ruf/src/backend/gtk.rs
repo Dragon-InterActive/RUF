@@ -687,6 +687,98 @@ impl Backend for Gtk {
         answer.get()
     }
 
+    fn input(parent: Option<&GtkNative>, title: &str, label: &str, text: &str) -> Option<String> {
+        let (cancel, ok) = if crate::dialog::german() {
+            ("Abbrechen", "OK")
+        } else {
+            ("Cancel", "OK")
+        };
+        let dialog = gtk::Window::builder()
+            .title(title)
+            .modal(true)
+            .resizable(false)
+            .default_width(360)
+            .build();
+        if let Some(window) = parent.and_then(window_of) {
+            dialog.set_transient_for(Some(&window));
+        }
+        let column = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        column.set_margin_top(12);
+        column.set_margin_bottom(12);
+        column.set_margin_start(12);
+        column.set_margin_end(12);
+        let caption = gtk::Label::new(Some(label));
+        caption.set_xalign(0.0);
+        let entry = gtk::Entry::new();
+        entry.set_text(text);
+        entry.set_activates_default(true);
+        let buttons = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        buttons.set_halign(gtk::Align::End);
+        let cancel = gtk::Button::with_label(cancel);
+        let ok = gtk::Button::with_label(ok);
+        ok.add_css_class("suggested-action");
+        buttons.append(&cancel);
+        buttons.append(&ok);
+        column.append(&caption);
+        column.append(&entry);
+        column.append(&buttons);
+        dialog.set_child(Some(&column));
+        dialog.set_default_widget(Some(&ok));
+
+        let main_loop = glib::MainLoop::new(None, false);
+        let answer: Rc<RefCell<Option<String>>> = Rc::default();
+        let finish = {
+            let (l, d) = (main_loop.clone(), dialog.downgrade());
+            move || {
+                if let Some(d) = d.upgrade() {
+                    d.destroy();
+                }
+                l.quit();
+            }
+        };
+        {
+            let (a, e, f) = (answer.clone(), entry.clone(), finish.clone());
+            ok.connect_clicked(move |_| {
+                *a.borrow_mut() = Some(e.text().to_string());
+                f();
+            });
+        }
+        {
+            let f = finish.clone();
+            cancel.connect_clicked(move |_| f());
+        }
+        {
+            let f = finish.clone();
+            dialog.connect_close_request(move |_| {
+                f();
+                glib::Propagation::Proceed
+            });
+        }
+        let keys = gtk::EventControllerKey::new();
+        {
+            let f = finish;
+            keys.connect_key_pressed(move |_, key, _, _| {
+                if key == gdk::Key::Escape {
+                    f();
+                    glib::Propagation::Stop
+                } else {
+                    glib::Propagation::Proceed
+                }
+            });
+        }
+        dialog.add_controller(keys);
+        dialog.present();
+        entry.grab_focus();
+        // Dateinamen: nur den Namen ohne Endung auswählen.
+        let end = text
+            .rfind('.')
+            .filter(|&i| i > 0)
+            .map_or(-1, |i| text[..i].chars().count() as i32);
+        entry.select_region(0, end);
+        main_loop.run();
+        answer.take()
+    }
+
     fn create(id: Id, kind: WidgetKind, parent: Option<&GtkNative>) -> GtkNative {
         let (outer, fixed, inner): (gtk::Widget, Option<RufFixed>, Inner) = match kind {
             WidgetKind::Window => {
@@ -828,6 +920,34 @@ impl Backend for Gtk {
                 let scroll = gtk::ScrolledWindow::new();
                 scroll.set_child(Some(&list));
                 scroll.set_has_frame(true);
+                // Rechtsklick wählt die Zeile und meldet sich als Mausereignis
+                // (Koordinaten relativ zur Baumansicht) – z. B. für ein Kontextmenü.
+                let click = gtk::GestureClick::new();
+                click.set_button(gdk::BUTTON_SECONDARY);
+                let outer = scroll.downgrade();
+                click.connect_pressed(move |g, _, x, y| {
+                    let Some(list) = g.widget().and_downcast::<gtk::ListBox>() else {
+                        return;
+                    };
+                    if let Some(row) = list.row_at_y(y as i32) {
+                        list.select_row(Some(&row));
+                    }
+                    let at = outer.upgrade().and_then(|outer| {
+                        list.compute_point(&outer, &gtk::graphene::Point::new(x as f32, y as f32))
+                    });
+                    let (x, y) = at.map_or((x, y), |p| (f64::from(p.x()), f64::from(p.y())));
+                    notify(
+                        id,
+                        Notify::Mouse(MouseEvent {
+                            action: MouseAction::Pressed,
+                            x: x as i32,
+                            y: y as i32,
+                            button: 3,
+                            modifiers: modifiers(g.current_event_state()),
+                        }),
+                    );
+                });
+                list.add_controller(click);
                 (scroll.upcast(), None, Inner::Tree(list))
             }
             WidgetKind::ListBox => {

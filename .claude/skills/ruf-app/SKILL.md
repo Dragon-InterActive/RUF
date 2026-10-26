@@ -76,7 +76,7 @@ Alle (Trait `Component`, kommt mit der prelude): `set_position`, `set_size`,
 - **Netzwerk/Dateien/Prozesse:** im `std::thread` ausführen, Ergebnis per
   `ruf::GuiSender::new(move |v: T| …)` zurück – der Handler läuft im GUI-Thread.
   Veraltete Antworten mit einem Generationszähler verwerfen.
-- **Rückfragen:** `ruf::dialog::{information, warning, error, confirm}` (modal –
+- **Rückfragen:** `ruf::dialog::{information, warning, error, confirm, input}` (modal –
   nicht in Tests), Schließen abfangen mit `window.on_close_requested(|| bool)`.
 - **Signale beim Befüllen:** Setter lösen Signale aus. Beim programmatischen
   Befüllen ein `Cell<bool>`-Flag setzen und in den Handlern prüfen.

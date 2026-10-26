@@ -181,7 +181,7 @@ impl Signal {
             Signal::ValueChanged => kind.has_range(),
             Signal::IndexChanged => matches!(kind, K::ComboBox | K::ListBox | K::TabView),
             Signal::Resized | Signal::CloseRequested => true,
-            Signal::Mouse => matches!(kind, K::Canvas | K::CodeEditor),
+            Signal::Mouse => matches!(kind, K::Canvas | K::CodeEditor | K::TreeView),
             Signal::Key => kind == K::Canvas,
             Signal::Menu => kind == K::Window,
             Signal::TreeSelected | Signal::TreeActivated => kind == K::TreeView,
