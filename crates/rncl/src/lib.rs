@@ -23,6 +23,7 @@
 //! | [`RnclScrollView`] | `GtkScrolledWindow` | ja (Inhalt) |
 //! | [`RnclCanvas`] | `GtkDrawingArea` | nein |
 //! | [`RnclTreeView`] | `GtkListBox` (eingerückt) | nein |
+//! | [`RnclCodeEditor`] | `GtkSourceView` | nein |
 //!
 //! ```no_run
 //! use rncl::prelude::*;
@@ -50,6 +51,7 @@
 mod button;
 mod canvas;
 mod checkbox;
+mod code_editor;
 mod combo_box;
 mod group_box;
 mod label;
@@ -70,6 +72,7 @@ mod window;
 pub use button::RnclButton;
 pub use canvas::RnclCanvas;
 pub use checkbox::RnclCheckBox;
+pub use code_editor::RnclCodeEditor;
 pub use combo_box::RnclComboBox;
 pub use group_box::RnclGroupBox;
 pub use label::RnclLabel;
@@ -110,6 +113,7 @@ pub fn register_all(registry: &mut ComponentRegistry) -> Result<(), RegistryErro
     registry.register(RnclScrollView::info())?;
     registry.register(RnclCanvas::info())?;
     registry.register(RnclTreeView::info())?;
+    registry.register(RnclCodeEditor::info())?;
     Ok(())
 }
 
@@ -123,10 +127,14 @@ pub fn registry() -> ComponentRegistry {
 /// `use rncl::prelude::*;` – alle Komponenten plus [`ruf::prelude`].
 pub mod prelude {
     pub use crate::{
-        RnclButton, RnclCanvas, RnclCheckBox, RnclComboBox, RnclGroupBox, RnclLabel, RnclListBox,
-        RnclPanel, RnclProgressBar, RnclRadioButton, RnclScrollView, RnclSlider, RnclSpinBox,
-        RnclTabView, RnclTextArea, RnclTextField, RnclTreeView, RnclWindow,
+        RnclButton, RnclCanvas, RnclCheckBox, RnclCodeEditor, RnclComboBox, RnclGroupBox,
+        RnclLabel, RnclListBox, RnclPanel, RnclProgressBar, RnclRadioButton, RnclScrollView,
+        RnclSlider, RnclSpinBox, RnclTabView, RnclTextArea, RnclTextField, RnclTreeView,
+        RnclWindow,
     };
     pub use ruf::prelude::*;
-    pub use ruf::{KeyEvent, Menu, MenuBar, Modifiers, MouseAction, MouseEvent, Shape, TreeItem};
+    pub use ruf::{
+        KeyEvent, LineMark, MarkKind, Menu, MenuBar, Modifiers, MouseAction, MouseEvent, Shape,
+        TreeItem,
+    };
 }

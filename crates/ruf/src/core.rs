@@ -26,6 +26,7 @@ use std::rc::Rc;
 
 use crate::backend::{Backend, Native, Platform};
 use crate::canvas::{KeyEvent, MouseEvent, Shape};
+use crate::code::LineMark;
 use crate::geometry::Point;
 use crate::geometry::{Rect, Size};
 use crate::menu::{Menu, MenuBar};
@@ -70,6 +71,8 @@ pub enum WidgetKind {
     Canvas = 16,
     /// Baumansicht mit auf- und zuklappbaren Knoten.
     TreeView = 17,
+    /// Code-Editor: Hervorhebung, Zeilennummern, Marken am Rand.
+    CodeEditor = 18,
 }
 
 impl WidgetKind {
@@ -97,7 +100,10 @@ impl WidgetKind {
 
     /// Text wird im Steuerelement bearbeitet (sonst liegt er im Kern).
     fn has_native_text(self) -> bool {
-        matches!(self, WidgetKind::LineEdit | WidgetKind::TextArea)
+        matches!(
+            self,
+            WidgetKind::LineEdit | WidgetKind::TextArea | WidgetKind::CodeEditor
+        )
     }
 }
 
@@ -165,7 +171,12 @@ impl Signal {
         use WidgetKind as K;
         match self {
             Signal::Clicked | Signal::Toggled => kind.is_checkable(),
-            Signal::TextChanged => matches!(kind, K::LineEdit | K::TextArea | K::ComboBox),
+            Signal::TextChanged => {
+                matches!(
+                    kind,
+                    K::LineEdit | K::TextArea | K::ComboBox | K::CodeEditor
+                )
+            }
             Signal::ReturnPressed => kind == K::LineEdit,
             Signal::ValueChanged => kind.has_range(),
             Signal::IndexChanged => matches!(kind, K::ComboBox | K::ListBox | K::TabView),
@@ -227,6 +238,9 @@ pub(crate) struct Node {
     pub tree_selected: Option<String>,
     /// Menüleiste eines Fensters.
     pub menu_bar: MenuBar,
+    /// Sprache und Zeilenmarken eines Code-Editors.
+    pub language: String,
+    pub line_marks: Vec<LineMark>,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -399,6 +413,8 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         tree_rows: Vec::new(),
         tree_selected: None,
         menu_bar: Vec::new(),
+        language: String::new(),
+        line_marks: Vec::new(),
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -789,7 +805,7 @@ pub(crate) fn sync(id: Id) -> bool {
                 toggled = Some(checked);
             }
         }
-        WidgetKind::LineEdit | WidgetKind::TextArea => {
+        WidgetKind::LineEdit | WidgetKind::TextArea | WidgetKind::CodeEditor => {
             let now = Platform::text(&native, kind);
             if update(id, |n| n.last.text != now).unwrap_or(false) {
                 update(id, |n| n.last.text = now.clone());
@@ -1483,6 +1499,23 @@ pub(crate) fn popup_menu(id: Id, menu: &Menu, x: i32, y: i32) -> bool {
         current = parent;
     }
     false
+}
+
+/// Sprache eines Code-Editors, z. B. `"rust"` (leer = ohne Hervorhebung).
+pub(crate) fn set_language(id: Id, language: &str) {
+    let Some((native, WidgetKind::CodeEditor)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_language(&native, language));
+    update(id, |n| n.language = language.to_owned());
+}
+
+pub(crate) fn set_line_marks(id: Id, marks: Vec<LineMark>) {
+    let Some((native, WidgetKind::CodeEditor)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_line_marks(&native, &marks));
+    update(id, |n| n.line_marks = marks);
 }
 
 /// Setzt die Bildschirmposition eines Fensters (`false`, wenn das System es

@@ -17,7 +17,7 @@ scripts in `tools/` do that.
 Once, in the MSYS2 shell "UCRT64":
 
 ```bash
-pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-pkgconf \
+pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-gtksourceview5 mingw-w64-ucrt-x86_64-pkgconf \
                    mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-adwaita-icon-theme
 rustup target add x86_64-pc-windows-gnu
 ```
@@ -43,7 +43,7 @@ relative to `bin/` – the folder can be moved and zipped freely. A shortcut to
 Once:
 
 ```bash
-brew install gtk4 adwaita-icon-theme dylibbundler
+brew install gtk4 gtksourceview5 adwaita-icon-theme dylibbundler
 ```
 
 Build and bundle:

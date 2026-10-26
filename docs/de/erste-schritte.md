@@ -12,17 +12,17 @@ GTK-Laufzeit mit (siehe [Release](release.md)).
 | alle | Rust ≥ 1.99 (Edition 2024) | `rustup update` |
 | Linux | GTK 4 mit Entwicklungsdateien, `pkg-config` | siehe unten |
 | Windows | MSYS2 (UCRT64) mit GTK 4, Rust-Ziel `x86_64-pc-windows-gnu` | siehe unten |
-| macOS | Xcode Command Line Tools, Homebrew mit GTK 4 | `xcode-select --install`, `brew install gtk4` |
+| macOS | Xcode Command Line Tools, Homebrew mit GTK 4 | `xcode-select --install`, `brew install gtk4 gtksourceview5` |
 
 GTK unter Linux:
 
 ```bash
 # Arch / CachyOS
-sudo pacman -S gtk4
+sudo pacman -S gtk4 gtksourceview5
 # Debian / Ubuntu (≥ 24.04)
-sudo apt install libgtk-4-dev
+sudo apt install libgtk-4-dev libgtksourceview-5-dev
 # Fedora
-sudo dnf install gtk4-devel
+sudo dnf install gtk4-devel gtksourceview5-devel
 ```
 
 ## Bauen und testen
@@ -41,7 +41,7 @@ xvfb-run -a cargo test --workspace         # Linux ohne Bildschirm (CI, Server)
 Gebaut wird unter Windows in der MSYS2-Shell „UCRT64“ (<https://www.msys2.org>):
 
 ```bash
-pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-pkgconf \
+pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-gtksourceview5 mingw-w64-ucrt-x86_64-pkgconf \
                    mingw-w64-ucrt-x86_64-gcc
 rustup target add x86_64-pc-windows-gnu      # rustup unter Windows installiert
 cargo build --release --target x86_64-pc-windows-gnu
@@ -50,7 +50,7 @@ cargo build --release --target x86_64-pc-windows-gnu
 ### macOS
 
 ```bash
-brew install gtk4
+brew install gtk4 gtksourceview5
 cargo build --release
 ```
 

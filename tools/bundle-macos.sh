@@ -3,7 +3,7 @@
 # Bundle a RUF program with the GTK 4 runtime as a .app (macOS, Homebrew).
 #
 # Voraussetzung / prerequisites:
-#   brew install gtk4 adwaita-icon-theme dylibbundler
+#   brew install gtk4 gtksourceview5 adwaita-icon-theme dylibbundler
 #   cargo build --release
 #
 # Aufruf / usage:

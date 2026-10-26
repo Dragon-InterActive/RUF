@@ -2,6 +2,7 @@
 
 use crate::backend::{Backend, Platform};
 use crate::canvas::{KeyEvent, MouseEvent, Shape};
+use crate::code::LineMark;
 use crate::core::{self, Id, ItemChange};
 use crate::geometry::{Point, Rect, Size};
 use crate::menu::{Menu, MenuBar};
@@ -338,7 +339,7 @@ impl Widget {
         };
         core::update(self.id, |n| n.marked = marked);
         self.native_call(|n, k| {
-            if k == WidgetKind::TextArea {
+            if matches!(k, WidgetKind::TextArea | WidgetKind::CodeEditor) {
                 Platform::set_marked_line(n, marked);
             }
         });
@@ -348,7 +349,7 @@ impl Widget {
     pub fn goto_line(&self, line: i32) {
         if line >= 0 {
             self.native_call(|n, k| {
-                if k == WidgetKind::TextArea {
+                if matches!(k, WidgetKind::TextArea | WidgetKind::CodeEditor) {
                     Platform::goto_line(n, line as usize);
                 }
             });
@@ -622,6 +623,26 @@ impl Widget {
     /// Tastendrücke, solange die Zeichenfläche den Fokus hat.
     pub fn on_key(&self, f: impl FnMut(KeyEvent) + 'static) -> bool {
         core::connect_key(self.id, f)
+    }
+
+    // --- Code-Editor ([`WidgetKind::CodeEditor`]) ----------------------------
+
+    /// Sprache für die Hervorhebung, z. B. `"rust"` oder `"toml"`.
+    pub fn set_language(&self, language: &str) {
+        core::set_language(self.id, language);
+    }
+
+    pub fn language(&self) -> String {
+        core::get(self.id, |n| n.language.clone()).unwrap_or_default()
+    }
+
+    /// Marken am Rand (Fehler, Warnungen, Hinweise); ersetzt die bisherigen.
+    pub fn set_line_marks(&self, marks: Vec<LineMark>) {
+        core::set_line_marks(self.id, marks);
+    }
+
+    pub fn line_marks(&self) -> Vec<LineMark> {
+        core::get(self.id, |n| n.line_marks.clone()).unwrap_or_default()
     }
 
     // --- Baumansicht ([`WidgetKind::TreeView`]) ------------------------------

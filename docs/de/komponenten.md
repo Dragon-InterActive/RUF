@@ -369,6 +369,25 @@ Ein Klick gibt der Zeichenfläche den Tastaturfokus. `MouseAction`: `Pressed`,
 `Released`, `Moved`, `DoubleClicked`; Taste 1 = links, 3 = rechts.
 Für Tests: `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
 
+## `RnclCodeEditor` – Code-Editor
+
+Nativ: GtkSourceView 5 · Kategorie *Eingabe*
+
+Syntax-Hervorhebung, Zeilennummern, aktuelle Zeile, Einrückung mit Leerzeichen,
+passende Klammern und Marken am Rand. Das Farbschema folgt Hell/Dunkel.
+
+```rust
+let editor = RnclCodeEditor::new(&window);   // Sprache: Rust
+editor.set_text(&std::fs::read_to_string("src/main.rs")?);
+editor.set_language("toml");                  // oder "json", "markdown", "" …
+editor.set_line_marks(vec![
+    LineMark::new(12, MarkKind::Error, "cannot find value `x`"),   // Tooltip an der Marke
+]);
+editor.goto_line(12);                         // ab 1
+editor.set_read_only(true);
+editor.on_text_changed(|text| println!("{} Zeichen", text.len()));
+```
+
 ## `RnclTreeView` – Baumansicht
 
 Nativ: GTK `GtkListBox` mit eingerückten Zeilen · Kategorie *Eingabe*

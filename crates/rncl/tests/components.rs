@@ -43,6 +43,7 @@ fn main() {
         ("menus", menus),
         ("window_position", window_position),
         ("adjust_size_is_stable", adjust_size_is_stable),
+        ("code_editor", code_editor),
     ];
 
     for (name, test) in tests {
@@ -181,7 +182,7 @@ fn properties() {
 
 fn registry_create() {
     let registry = rncl::registry();
-    assert_eq!(registry.len(), 18);
+    assert_eq!(registry.len(), 19);
     assert!(registry.categories().contains(&"Container"));
 
     let window = registry.create("RnclWindow", None).unwrap();
@@ -797,4 +798,31 @@ fn adjust_size_is_stable() {
         button.widget().adjust_size();
         assert_eq!(button.size(), natural);
     }
+}
+
+fn code_editor() {
+    let window = RnclWindow::new("Code");
+    let editor = RnclCodeEditor::new(&window);
+    assert_eq!(editor.language(), "rust");
+    let changes = Rc::new(Cell::new(0));
+    let c = changes.clone();
+    editor.on_text_changed(move |_| c.set(c.get() + 1));
+    editor.set_text("fn main() {\n    println!(\"hi\");\n}\n");
+    assert_eq!(editor.text(), "fn main() {\n    println!(\"hi\");\n}\n");
+    assert!(changes.get() >= 1);
+
+    editor.set_line_marks(vec![
+        LineMark::new(2, MarkKind::Error, "cannot find macro"),
+        LineMark::new(1, MarkKind::Warning, "unused"),
+    ]);
+    assert_eq!(editor.line_marks().len(), 2);
+    editor.set_line_marks(Vec::new());
+    assert!(editor.line_marks().is_empty());
+
+    editor.set_read_only(true);
+    assert!(editor.is_read_only());
+    editor.goto_line(3);
+    editor.set_language("toml");
+    assert_eq!(editor.language(), "toml");
+    assert_eq!(editor.widget().kind(), WidgetKind::CodeEditor);
 }

@@ -16,14 +16,15 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
 
-use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib, pango};
 use gtk4 as gtk;
+use sourceview5::prelude::*;
 
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
+use crate::code::{LineMark, MarkKind};
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::Point;
@@ -205,6 +206,7 @@ pub enum Inner {
         shapes: Rc<RefCell<Vec<Shape>>>,
     },
     Tree(gtk::ListBox),
+    Code(sourceview5::View),
 }
 
 #[derive(Default)]
@@ -363,6 +365,7 @@ fn update_progress(bar: &gtk::ProgressBar, state: &ProgressState) {
 fn text_buffer(native: &GtkNative) -> Option<(gtk::TextView, gtk::TextBuffer)> {
     match &native.inner {
         Inner::Text { view, .. } => Some((view.clone(), view.buffer())),
+        Inner::Code(view) => Some((view.clone().upcast(), view.buffer())),
         _ => None,
     }
 }
@@ -754,6 +757,15 @@ impl Backend for Gtk {
                 check.connect_toggled(move |_| notify(id, Notify::Clicked));
                 (check.clone().upcast(), None, Inner::Check(check))
             }
+            WidgetKind::CodeEditor => {
+                let view = new_code_view();
+                view.buffer()
+                    .connect_changed(move |_| notify(id, Notify::Changed));
+                let scroll = gtk::ScrolledWindow::new();
+                scroll.set_child(Some(&view));
+                scroll.set_has_frame(true);
+                (scroll.upcast(), None, Inner::Code(view))
+            }
             WidgetKind::TextArea => {
                 let view = gtk::TextView::new();
                 view.set_wrap_mode(gtk::WrapMode::None);
@@ -909,6 +921,7 @@ impl Backend for Gtk {
             Inner::Window(w) => w.clone().upcast(),
             Inner::Group(f) => f.clone().upcast(),
             Inner::Text { view, .. } => view.clone().upcast(),
+            Inner::Code(view) => view.clone().upcast(),
             Inner::List(l) | Inner::Tree(l) => l.clone().upcast(),
             _ => native.outer.clone(),
         };
@@ -984,6 +997,7 @@ impl Backend for Gtk {
                 .map(|f| f.upcast())
                 .unwrap_or(native.outer.clone()),
             Inner::Text { view, .. } => view.clone().upcast(),
+            Inner::Code(view) => view.clone().upcast(),
             _ => native.outer.clone(),
         };
         target.add_css_class(&class);
@@ -1083,6 +1097,7 @@ impl Backend for Gtk {
             }
             Inner::Entry(e) => e.set_text(text),
             Inner::Text { view, .. } => view.buffer().set_text(text),
+            Inner::Code(view) => view.buffer().set_text(text),
             Inner::Combo(c) => c.entry.set_text(text),
             _ => {}
         }
@@ -1091,6 +1106,12 @@ impl Backend for Gtk {
     fn text(native: &GtkNative, _kind: WidgetKind) -> String {
         match &native.inner {
             Inner::Entry(e) => e.text().to_string(),
+            Inner::Code(view) => {
+                let buffer = view.buffer();
+                buffer
+                    .text(&buffer.start_iter(), &buffer.end_iter(), false)
+                    .to_string()
+            }
             Inner::Text { view, .. } => {
                 let buffer = view.buffer();
                 buffer
@@ -1128,6 +1149,7 @@ impl Backend for Gtk {
         match &native.inner {
             Inner::Entry(e) => e.set_editable(!read_only),
             Inner::Text { view, .. } => view.set_editable(!read_only),
+            Inner::Code(view) => view.set_editable(!read_only),
             Inner::Spin(s) => s.set_editable(!read_only),
             _ => {}
         }
@@ -1346,6 +1368,7 @@ impl Backend for Gtk {
     fn set_monospace(native: &GtkNative, _kind: WidgetKind, monospace: bool) {
         match &native.inner {
             Inner::Text { view, .. } => view.set_monospace(monospace),
+            Inner::Code(view) => view.set_monospace(monospace),
             Inner::Entry(e) => {
                 if monospace {
                     e.add_css_class("monospace");
@@ -1407,6 +1430,43 @@ impl Backend for Gtk {
         {
             buffer.place_cursor(&iter);
             view.scroll_to_mark(&buffer.get_insert(), 0.1, false, 0.0, 0.0);
+        }
+    }
+
+    fn set_language(native: &GtkNative, language: &str) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        let language = (!language.is_empty())
+            .then(|| sourceview5::LanguageManager::default().language(language))
+            .flatten();
+        buffer.set_language(language.as_ref());
+        buffer.set_highlight_syntax(language.is_some());
+    }
+
+    fn set_line_marks(native: &GtkNative, marks: &[LineMark]) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        let (start, end) = buffer.bounds();
+        for category in MARK_CATEGORIES {
+            buffer.remove_source_marks(&start, &end, Some(category));
+        }
+        for mark in marks {
+            let Some(iter) = buffer.iter_at_line(mark.line.saturating_sub(1) as i32) else {
+                continue;
+            };
+            let source_mark = buffer.create_source_mark(None, mark_category(mark.kind), &iter);
+            MARK_MESSAGES.with(|m| {
+                m.borrow_mut()
+                    .push((source_mark.downgrade(), mark.message.clone()))
+            });
         }
     }
 
@@ -2109,6 +2169,7 @@ thread_local! {
 /// GTK 4.12 läuft), ältere Versionen `gtk-application-prefer-dark-theme`.
 fn set_dark(settings: &gtk::Settings, dark: Option<bool>) {
     APPLIED.set(dark);
+    update_code_schemes(dark == Some(true));
     let Some(spec) = settings.find_property("gtk-interface-color-scheme") else {
         settings.set_gtk_application_prefer_dark_theme(dark == Some(true));
         return;
@@ -2329,4 +2390,101 @@ fn install_log_filter() {
             glib::log_writer_default(level, fields)
         }
     });
+}
+
+// --- Code-Editor ---------------------------------------------------------------------------
+
+const MARK_CATEGORIES: [&str; 3] = ["ruf-error", "ruf-warning", "ruf-info"];
+
+fn mark_category(kind: MarkKind) -> &'static str {
+    match kind {
+        MarkKind::Error => MARK_CATEGORIES[0],
+        MarkKind::Warning => MARK_CATEGORIES[1],
+        MarkKind::Info => MARK_CATEGORIES[2],
+    }
+}
+
+thread_local! {
+    /// Texte der Marken (Tooltip), zum Mark-Objekt.
+    static MARK_MESSAGES: RefCell<Vec<(glib::WeakRef<sourceview5::Mark>, String)>> =
+        const { RefCell::new(Vec::new()) };
+    /// Alle Code-Editoren: ihr Farbschema folgt Hell/Dunkel.
+    static CODE_BUFFERS: RefCell<Vec<glib::WeakRef<sourceview5::Buffer>>> =
+        const { RefCell::new(Vec::new()) };
+}
+
+/// Farbschema von GtkSourceView passend zu Hell/Dunkel.
+fn code_scheme(dark: bool) -> Option<sourceview5::StyleScheme> {
+    let manager = sourceview5::StyleSchemeManager::default();
+    let ids: &[&str] = if dark {
+        &["Adwaita-dark", "classic-dark", "oblivion"]
+    } else {
+        &["Adwaita", "classic"]
+    };
+    ids.iter().find_map(|id| manager.scheme(id))
+}
+
+/// Setzt das Farbschema aller Code-Editoren (nach einem Hell/Dunkel-Wechsel).
+fn update_code_schemes(dark: bool) {
+    let scheme = code_scheme(dark);
+    CODE_BUFFERS.with(|buffers| {
+        buffers.borrow_mut().retain(|weak| match weak.upgrade() {
+            Some(buffer) => {
+                buffer.set_style_scheme(scheme.as_ref());
+                true
+            }
+            None => false,
+        });
+    });
+}
+
+fn new_code_view() -> sourceview5::View {
+    let buffer = sourceview5::Buffer::new(None::<&gtk::TextTagTable>);
+    buffer.set_highlight_matching_brackets(true);
+    buffer.set_style_scheme(code_scheme(APPLIED.get() == Some(true)).as_ref());
+    CODE_BUFFERS.with(|b| b.borrow_mut().push(buffer.downgrade()));
+    let view = sourceview5::View::with_buffer(&buffer);
+    view.set_monospace(true);
+    view.set_show_line_numbers(true);
+    view.set_highlight_current_line(true);
+    view.set_auto_indent(true);
+    view.set_indent_on_tab(true);
+    view.set_insert_spaces_instead_of_tabs(true);
+    view.set_tab_width(4);
+    view.set_smart_backspace(true);
+    view.set_show_line_marks(true);
+    view.set_left_margin(4);
+    for (category, icon, color) in [
+        (
+            MARK_CATEGORIES[0],
+            "dialog-error-symbolic",
+            (0.88, 0.2, 0.2),
+        ),
+        (
+            MARK_CATEGORIES[1],
+            "dialog-warning-symbolic",
+            (0.9, 0.6, 0.1),
+        ),
+        (
+            MARK_CATEGORIES[2],
+            "dialog-information-symbolic",
+            (0.2, 0.5, 0.9),
+        ),
+    ] {
+        let attributes = sourceview5::MarkAttributes::new();
+        attributes.set_icon_name(icon);
+        attributes.set_background(&gdk::RGBA::new(color.0, color.1, color.2, 0.18));
+        attributes.connect_query_tooltip_text(|_, mark| {
+            MARK_MESSAGES.with(|m| {
+                let mut m = m.borrow_mut();
+                m.retain(|(weak, _)| weak.upgrade().is_some());
+                m.iter()
+                    .find(|(weak, _)| weak.upgrade().as_ref() == Some(mark))
+                    .map(|(_, text)| text.clone())
+                    .unwrap_or_default()
+            })
+        });
+        view.set_mark_attributes(category, &attributes, 10);
+    }
+    view
 }

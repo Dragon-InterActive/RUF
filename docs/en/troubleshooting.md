@@ -4,7 +4,7 @@
 
 | Message | Cause | Fix |
 |---|---|---|
-| `The system library gtk4 required by crate gdk4-sys was not found` | GTK development files missing (Linux) | `sudo pacman -S gtk4` / `sudo apt install libgtk-4-dev` / `sudo dnf install gtk4-devel` |
+| `The system library gtk4 required by crate gdk4-sys was not found` | GTK development files missing (Linux) | `sudo pacman -S gtk4 gtksourceview5` / `sudo apt install libgtk-4-dev libgtksourceview-5-dev` / `sudo dnf install gtk4-devel gtksourceview5-devel` |
 | `package gtk4 … was not found in the pkg-config search path` | `pkg-config` missing or searching the wrong place | install `pkg-config`; set `PKG_CONFIG_PATH` if needed |
 | `pkg-config` cannot find `gtk4` (Windows) | build outside the MSYS2 UCRT64 shell | build in the UCRT64 shell, install `mingw-w64-ucrt-x86_64-gtk4` |
 | program does not start on Windows/macOS: DLL/dylib missing | GTK runtime not shipped | bundle with `tools/bundle-windows.sh` / `tools/bundle-macos.sh` ([Release](release.md)) |

@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 
 use crate::app::ColorScheme;
 use crate::canvas::Shape;
+use crate::code::LineMark;
 use crate::core::{Id, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::{Point, Rect, Size};
@@ -180,6 +181,13 @@ pub(crate) trait Backend {
         x: i32,
         y: i32,
     );
+
+    // --- Code-Editor ---------------------------------------------------------------
+
+    /// Sprache für die Hervorhebung (`"rust"`, `"toml"` …; leer = keine).
+    fn set_language(native: &Self::Native, language: &str);
+    /// Marken am Rand (ersetzt die bisherigen).
+    fn set_line_marks(native: &Self::Native, marks: &[LineMark]);
 
     // --- Dateidialoge (modal) -----------------------------------------------------
 

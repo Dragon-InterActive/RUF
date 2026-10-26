@@ -31,6 +31,7 @@
 mod app;
 mod backend;
 mod canvas;
+mod code;
 mod component;
 mod core;
 pub mod dialog;
@@ -48,6 +49,7 @@ mod widget;
 
 pub use app::{Application, ColorScheme};
 pub use canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
+pub use code::{LineMark, MarkKind};
 pub use component::{Component, base};
 pub use geometry::{Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};

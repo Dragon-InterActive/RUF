@@ -3,7 +3,7 @@
 # Bundle the GTK 4 runtime next to a RUF program (Windows, MSYS2 UCRT64).
 #
 # Voraussetzung / prerequisites (MSYS2-Shell "UCRT64"):
-#   pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-pkgconf \
+#   pacman -S --needed mingw-w64-ucrt-x86_64-gtk4 mingw-w64-ucrt-x86_64-gtksourceview5 mingw-w64-ucrt-x86_64-pkgconf \
 #                      mingw-w64-ucrt-x86_64-adwaita-icon-theme
 #   rustup target add x86_64-pc-windows-gnu
 #   cargo build --release --target x86_64-pc-windows-gnu

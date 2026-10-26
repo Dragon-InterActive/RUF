@@ -368,6 +368,25 @@ A click gives the canvas keyboard focus. `MouseAction`: `Pressed`, `Released`,
 `Moved`, `DoubleClicked`; button 1 = left, 3 = right. For tests:
 `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
 
+## `RnclCodeEditor` – code editor
+
+Native: GtkSourceView 5 · category *Input*
+
+Syntax highlighting, line numbers, current line, indentation with spaces, matching
+brackets and marks in the gutter. The color scheme follows light/dark.
+
+```rust
+let editor = RnclCodeEditor::new(&window);   // language: Rust
+editor.set_text(&std::fs::read_to_string("src/main.rs")?);
+editor.set_language("toml");                  // or "json", "markdown", "" …
+editor.set_line_marks(vec![
+    LineMark::new(12, MarkKind::Error, "cannot find value `x`"),   // tooltip on the mark
+]);
+editor.goto_line(12);                         // 1-based
+editor.set_read_only(true);
+editor.on_text_changed(|text| println!("{} chars", text.len()));
+```
+
 ## `RnclTreeView` – tree view
 
 Native: GTK `GtkListBox` with indented rows · category *Input*
