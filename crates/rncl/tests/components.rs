@@ -833,6 +833,39 @@ fn code_editor() {
     }]);
     editor.show_completions(&[]);
 
+    // Faltung: Bereiche aus den Klammern, Zustand folgt Bearbeitungen.
+    editor.set_text("fn main() {\n    let v = [\n        1,\n    ];\n}\n");
+    let starts: Vec<(usize, usize)> = editor.folds().iter().map(|f| (f.start, f.end)).collect();
+    assert_eq!(starts, [(1, 5), (2, 4)]);
+    editor.set_cursor(3, 4);
+    editor.set_folded(2, true);
+    assert!(editor.folds()[1].folded);
+    assert_eq!(
+        editor.cursor().0,
+        2,
+        "Cursor verlässt den gefalteten Bereich"
+    );
+    editor.set_cursor(1, 0);
+    editor.apply_completion("// oben\n");
+    assert_eq!(
+        editor
+            .folds()
+            .iter()
+            .map(|f| (f.start, f.folded))
+            .collect::<Vec<_>>(),
+        [(2, false), (3, true)],
+        "Faltung wandert mit"
+    );
+    editor.goto_line(4);
+    assert!(
+        editor.folds().iter().all(|f| !f.folded),
+        "Sprung klappt auf"
+    );
+    editor.set_all_folded(true);
+    assert!(editor.folds().iter().all(|f| f.folded));
+    editor.set_all_folded(false);
+    assert!(editor.folds().iter().all(|f| !f.folded));
+
     editor.set_read_only(true);
     assert!(editor.is_read_only());
     editor.goto_line(3);

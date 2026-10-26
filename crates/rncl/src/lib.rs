@@ -134,7 +134,7 @@ pub mod prelude {
     };
     pub use ruf::prelude::*;
     pub use ruf::{
-        Completion, KeyEvent, LineMark, MarkKind, Menu, MenuBar, Modifiers, MouseAction,
+        Completion, Fold, KeyEvent, LineMark, MarkKind, Menu, MenuBar, Modifiers, MouseAction,
         MouseEvent, Shape, TreeItem,
     };
 }

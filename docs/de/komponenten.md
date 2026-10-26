@@ -386,6 +386,24 @@ editor.set_line_marks(vec![
 editor.goto_line(12);                         // ab 1
 editor.set_read_only(true);
 editor.on_text_changed(|text| println!("{} Zeichen", text.len()));
+
+editor.set_cursor(3, 8);                      // Zeile ab 1, Spalte ab 0
+editor.show_completions(&[Completion { label: "len".into(), detail: None, insert: "len".into() }]);
+editor.on_mouse(|e| if e.modifiers.ctrl { /* Strg+Klick */ });
+```
+
+**Faltung:** Klammerblöcke (`{}`, `[]`, `()`) über mehr als zwei Zeilen lassen
+sich mit dem Pfeil am Rand falten (Rust, JSON, C-ähnliche Sprachen). Der Zustand
+wandert beim Bearbeiten mit; springt der Cursor in einen gefalteten Bereich,
+klappt er auf. Marken verborgener Zeilen stehen an der Kopfzeile. Die Bereiche
+berechnet `ruf::fold_regions(text)` ohne Oberfläche.
+
+```rust
+for fold in editor.folds() {                  // Fold { start, end, folded }
+    println!("{}–{} gefaltet: {}", fold.start, fold.end, fold.folded);
+}
+editor.set_folded(7, true);                   // Bereich ab Zeile 7 falten
+editor.set_all_folded(false);                 // alles aufklappen
 ```
 
 ## `RnclTreeView` – Baumansicht

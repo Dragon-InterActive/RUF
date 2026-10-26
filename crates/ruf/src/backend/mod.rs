@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use crate::app::ColorScheme;
 use crate::canvas::Shape;
-use crate::code::{Completion, LineMark};
+use crate::code::{Completion, Fold, LineMark};
 use crate::core::{Id, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::{Point, Rect, Size};
@@ -188,6 +188,10 @@ pub(crate) trait Backend {
     fn set_language(native: &Self::Native, language: &str);
     /// Marken am Rand (ersetzt die bisherigen).
     fn set_line_marks(native: &Self::Native, marks: &[LineMark]);
+    /// Faltbare Bereiche mit Zustand (siehe [`crate::code::fold_regions`]).
+    fn folds(native: &Self::Native) -> Vec<Fold>;
+    /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.
+    fn set_folded(native: &Self::Native, line: usize, folded: bool);
     /// Cursor: Zeile ab 1, Spalte in Zeichen ab 0.
     fn cursor(native: &Self::Native) -> (usize, usize);
     fn set_cursor(native: &Self::Native, line: usize, column: usize);

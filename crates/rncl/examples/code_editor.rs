@@ -3,6 +3,7 @@
 //! ```bash
 //! cargo run -p rncl --example code_editor
 //! cargo run -p rncl --example code_editor -- --screenshot editor.png
+//! cargo run -p rncl --example code_editor -- --folded   # Funktion gefaltet
 //! ```
 
 use rncl::prelude::*;
@@ -40,6 +41,10 @@ fn main() {
     editor.goto_line(9);
 
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--folded") {
+        editor.goto_line(1);
+        editor.set_folded(7, true);
+    }
     if let Some(pos) = args.iter().position(|a| a == "--screenshot") {
         let path = args.get(pos + 1).map_or("editor.png", String::as_str);
         window.show();

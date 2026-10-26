@@ -385,6 +385,23 @@ editor.set_line_marks(vec![
 editor.goto_line(12);                         // 1-based
 editor.set_read_only(true);
 editor.on_text_changed(|text| println!("{} chars", text.len()));
+
+editor.set_cursor(3, 8);                      // line 1-based, column 0-based
+editor.show_completions(&[Completion { label: "len".into(), detail: None, insert: "len".into() }]);
+editor.on_mouse(|e| if e.modifiers.ctrl { /* Ctrl+Click */ });
+```
+
+**Folding:** bracket blocks (`{}`, `[]`, `()`) spanning more than two lines fold
+with the arrow in the gutter (Rust, JSON, C-like languages). The state follows
+edits; moving the cursor into a folded block unfolds it. Marks of hidden lines
+appear on the header line. `ruf::fold_regions(text)` computes the blocks without UI.
+
+```rust
+for fold in editor.folds() {                  // Fold { start, end, folded }
+    println!("{}–{} folded: {}", fold.start, fold.end, fold.folded);
+}
+editor.set_folded(7, true);                   // fold the block starting on line 7
+editor.set_all_folded(false);                 // unfold everything
 ```
 
 ## `RnclTreeView` – tree view

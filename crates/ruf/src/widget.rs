@@ -2,7 +2,7 @@
 
 use crate::backend::{Backend, Platform};
 use crate::canvas::{KeyEvent, MouseEvent, Shape};
-use crate::code::{Completion, LineMark};
+use crate::code::{Completion, Fold, LineMark};
 use crate::core::{self, Id, ItemChange};
 use crate::geometry::{Point, Rect, Size};
 use crate::menu::{Menu, MenuBar};
@@ -643,6 +643,32 @@ impl Widget {
 
     pub fn line_marks(&self) -> Vec<LineMark> {
         core::get(self.id, |n| n.line_marks.clone()).unwrap_or_default()
+    }
+
+    /// Faltbare Bereiche eines Code-Editors (Klammerpaare über mehr als
+    /// zwei Zeilen) mit ihrem Zustand. Gefaltet wird per Klick auf den Pfeil
+    /// am Rand oder mit [`Widget::set_folded`].
+    pub fn folds(&self) -> Vec<Fold> {
+        match core::native(self.id) {
+            Some((native, WidgetKind::CodeEditor)) => Platform::folds(&native),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.
+    /// Springt der Cursor in einen gefalteten Bereich, klappt er auf.
+    pub fn set_folded(&self, line: usize, folded: bool) {
+        if let Some((native, WidgetKind::CodeEditor)) = core::native(self.id) {
+            Platform::set_folded(&native, line, folded);
+        }
+    }
+
+    /// Faltet alle Bereiche bzw. klappt alle auf.
+    pub fn set_all_folded(&self, folded: bool) {
+        // Von innen nach außen, damit verschachtelte Bereiche mitkommen.
+        for fold in self.folds().iter().rev() {
+            self.set_folded(fold.start, folded);
+        }
     }
 
     /// Cursor eines Code-Editors: Zeile ab 1, Spalte in Zeichen ab 0.

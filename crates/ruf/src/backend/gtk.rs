@@ -24,7 +24,7 @@ use sourceview5::prelude::*;
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
-use crate::code::{Completion, LineMark, MarkKind};
+use crate::code::{Completion, Fold, LineMark, MarkKind, fold_regions, folds_language};
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::Point;
@@ -1471,19 +1471,30 @@ impl Backend for Gtk {
         let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
             return;
         };
-        let (start, end) = buffer.bounds();
-        for category in MARK_CATEGORIES {
-            buffer.remove_source_marks(&start, &end, Some(category));
+        if let Some(state) = fold_state(&buffer) {
+            let mut state = state.borrow_mut();
+            state.line_marks = marks.to_vec();
+            place_line_marks(&buffer, &state);
         }
-        for mark in marks {
-            let Some(iter) = buffer.iter_at_line(mark.line.saturating_sub(1) as i32) else {
-                continue;
-            };
-            let source_mark = buffer.create_source_mark(None, mark_category(mark.kind), &iter);
-            MARK_MESSAGES.with(|m| {
-                m.borrow_mut()
-                    .push((source_mark.downgrade(), mark.message.clone()))
-            });
+    }
+
+    fn folds(native: &GtkNative) -> Vec<Fold> {
+        let Inner::Code(view) = &native.inner else {
+            return Vec::new();
+        };
+        view.buffer()
+            .downcast::<sourceview5::Buffer>()
+            .ok()
+            .and_then(|buffer| fold_state(&buffer))
+            .map(|state| state.borrow().regions.clone())
+            .unwrap_or_default()
+    }
+
+    fn set_folded(native: &GtkNative, line: usize, folded: bool) {
+        if let Inner::Code(view) = &native.inner
+            && let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>()
+        {
+            set_folded(&buffer, line, folded);
         }
     }
 
@@ -2567,7 +2578,6 @@ fn new_code_view() -> sourceview5::View {
     CODE_BUFFERS.with(|b| b.borrow_mut().push(buffer.downgrade()));
     let view = sourceview5::View::with_buffer(&buffer);
     view.set_monospace(true);
-    view.set_show_line_numbers(true);
     view.set_highlight_current_line(true);
     view.set_auto_indent(true);
     view.set_indent_on_tab(true);
@@ -2608,7 +2618,291 @@ fn new_code_view() -> sourceview5::View {
         });
         view.set_mark_attributes(category, &attributes, 10);
     }
+    setup_folding(&view, &buffer);
     view
+}
+
+// --- Faltung ------------------------------------------------------------------------
+//
+// GtkSourceView 5 faltet nicht selbst. Die Bereiche kommen aus
+// `code::fold_regions`; Pfeile stehen als Marken in der Markenleiste (Klick
+// faltet), gefaltete Zeilen verbirgt eine unsichtbare Textmarke. Welche
+// Bereiche gefaltet sind, merken sich Textmarken an der Startzeile – so
+// überlebt der Zustand Bearbeitungen darüber.
+
+const FOLD_OPEN: &str = "ruf-fold-open";
+const FOLD_CLOSED: &str = "ruf-fold-closed";
+const FOLDED_TAG: &str = "ruf-folded";
+
+#[derive(Default)]
+struct FoldState {
+    regions: Vec<Fold>,
+    /// Marken am Rand (Fehler usw.); in gefalteten Bereichen stehen sie an
+    /// der Startzeile.
+    line_marks: Vec<LineMark>,
+    /// Anker der gefalteten Bereiche (Anfang der Startzeile).
+    anchors: Vec<gtk::TextMark>,
+}
+
+type FoldStates = Vec<(glib::WeakRef<sourceview5::Buffer>, Rc<RefCell<FoldState>>)>;
+
+thread_local! {
+    static FOLDS: RefCell<FoldStates> =
+        const { RefCell::new(Vec::new()) };
+}
+
+fn fold_state(buffer: &sourceview5::Buffer) -> Option<Rc<RefCell<FoldState>>> {
+    FOLDS.with(|f| {
+        let mut f = f.borrow_mut();
+        f.retain(|(weak, _)| weak.upgrade().is_some());
+        f.iter()
+            .find(|(weak, _)| weak.upgrade().as_ref() == Some(buffer))
+            .map(|(_, state)| state.clone())
+    })
+}
+
+fn setup_folding(view: &sourceview5::View, buffer: &sourceview5::Buffer) {
+    let tag = gtk::TextTag::builder()
+        .name(FOLDED_TAG)
+        .invisible(true)
+        .build();
+    buffer.tag_table().add(&tag);
+    for (category, icon) in [
+        (FOLD_OPEN, "pan-down-symbolic"),
+        (FOLD_CLOSED, "pan-end-symbolic"),
+    ] {
+        let attributes = sourceview5::MarkAttributes::new();
+        attributes.set_icon_name(icon);
+        view.set_mark_attributes(category, &attributes, 0);
+    }
+    FOLDS.with(|f| f.borrow_mut().push((buffer.downgrade(), Rc::default())));
+    buffer.connect_changed(refresh_folds);
+    buffer.connect_language_notify(refresh_folds);
+    // Cursor in verborgenen Zeilen (Sprung, Suche): Bereich aufklappen.
+    buffer.connect_cursor_position_notify(|buffer| {
+        let line = buffer.iter_at_mark(&buffer.get_insert()).line() as usize + 1;
+        let Some(state) = fold_state(buffer) else {
+            return;
+        };
+        let hidden: Vec<usize> = state
+            .borrow()
+            .regions
+            .iter()
+            .filter(|r| r.folded && r.start < line && line < r.end)
+            .map(|r| r.start)
+            .collect();
+        for start in hidden {
+            set_folded(buffer, start, false);
+        }
+    });
+    // Eigene Zeilennummern: die eingebauten zeichnen verborgene Zeilen
+    // übereinander. Diese lassen sie leer; die Cursorzeile ist fett.
+    let numbers = sourceview5::GutterRendererText::new();
+    numbers.set_xalign(1.0);
+    numbers.set_xpad(6);
+    numbers.set_alignment_mode(sourceview5::GutterRendererAlignmentMode::First);
+    let weak = buffer.downgrade();
+    numbers.connect_query_data(move |renderer, lines, line| {
+        let Some(buffer) = weak.upgrade() else {
+            return;
+        };
+        let number = line as usize + 1;
+        let hidden = fold_state(&buffer).is_some_and(|state| {
+            state
+                .borrow()
+                .regions
+                .iter()
+                .any(|r| r.folded && r.start < number && number < r.end)
+        });
+        let cursor = lines
+            .downcast_ref::<sourceview5::GutterLines>()
+            .is_some_and(|l| l.is_cursor(line));
+        if hidden {
+            renderer.set_text("");
+        } else if cursor {
+            renderer.set_markup(&format!("<b>{number}</b>"));
+        } else {
+            renderer.set_text(&number.to_string());
+        }
+    });
+    // Die Bindung liefert die schwebende Referenz; ohne sie zu übernehmen
+    // nähme die Randleiste sie an sich und Rust gäbe sie ein zweites Mal frei.
+    // SAFETY: `numbers` ist ein gültiges GObject.
+    unsafe {
+        let object = numbers.as_ptr() as *mut glib::gobject_ffi::GObject;
+        if glib::gobject_ffi::g_object_is_floating(object as *mut _) != 0 {
+            glib::gobject_ffi::g_object_ref_sink(object as *mut _);
+        }
+    }
+    sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).insert(&numbers, -30);
+    let fit = {
+        let numbers = numbers.clone();
+        move |buffer: &sourceview5::Buffer| {
+            let digits = buffer.line_count().max(1).to_string().len().max(2);
+            let (width, _) = numbers.measure_markup(&format!("<b>{}</b>", "9".repeat(digits)));
+            numbers.set_width_request(width + 12);
+        }
+    };
+    fit(buffer);
+    buffer.connect_changed(fit);
+    view.connect_line_mark_activated(|view, iter, button, _, _| {
+        if button != 1 {
+            return;
+        }
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        let line = iter.line() as usize + 1;
+        let folded = fold_state(&buffer).and_then(|state| {
+            state
+                .borrow()
+                .regions
+                .iter()
+                .find(|r| r.start == line)
+                .map(|r| r.folded)
+        });
+        if let Some(folded) = folded {
+            set_folded(&buffer, line, !folded);
+        }
+    });
+}
+
+/// Bereiche neu bestimmen, Pfeile und verborgene Zeilen neu setzen.
+fn refresh_folds(buffer: &sourceview5::Buffer) {
+    let Some(state) = fold_state(buffer) else {
+        return;
+    };
+    let mut state = state.borrow_mut();
+    let enabled = buffer
+        .language()
+        .is_some_and(|l| folds_language(l.id().as_str()));
+    let (start, end) = buffer.bounds();
+    let mut regions = if enabled {
+        fold_regions(&buffer.text(&start, &end, true))
+    } else {
+        Vec::new()
+    };
+    // Anker, deren Zeile keinen Bereich mehr beginnt, verwerfen.
+    let mut folded = Vec::new();
+    state.anchors.retain(|mark| {
+        let line = buffer.iter_at_mark(mark).line() as usize + 1;
+        let keep = !folded.contains(&line) && regions.iter().any(|r| r.start == line);
+        if keep {
+            folded.push(line);
+        } else {
+            buffer.delete_mark(mark);
+        }
+        keep
+    });
+    buffer.remove_tag_by_name(FOLDED_TAG, &start, &end);
+    buffer.remove_source_marks(&start, &end, Some(FOLD_OPEN));
+    buffer.remove_source_marks(&start, &end, Some(FOLD_CLOSED));
+    for region in &mut regions {
+        region.folded = folded.contains(&region.start);
+    }
+    let folded_ranges: Vec<(usize, usize)> = regions
+        .iter()
+        .filter(|r| r.folded)
+        .map(|r| (r.start, r.end))
+        .collect();
+    for region in &regions {
+        let Some(at) = buffer.iter_at_line(region.start as i32 - 1) else {
+            continue;
+        };
+        let category = if region.folded {
+            FOLD_CLOSED
+        } else {
+            FOLD_OPEN
+        };
+        // Pfeile verborgener Zeilen lägen übereinander.
+        let hidden = folded_ranges
+            .iter()
+            .any(|(s, e)| *s < region.start && region.start < *e);
+        if !hidden {
+            buffer.create_source_mark(None, category, &at);
+        }
+        if region.folded
+            && let (Some(from), Some(to)) = (
+                buffer.iter_at_line(region.start as i32),
+                buffer.iter_at_line(region.end as i32 - 1),
+            )
+        {
+            buffer.apply_tag_by_name(FOLDED_TAG, &from, &to);
+        }
+    }
+    state.regions = regions;
+    place_line_marks(buffer, &state);
+}
+
+/// Setzt die Marken am Rand; Marken verborgener Zeilen an die Startzeile des
+/// äußersten gefalteten Bereichs.
+fn place_line_marks(buffer: &sourceview5::Buffer, state: &FoldState) {
+    let (start, end) = buffer.bounds();
+    for category in MARK_CATEGORIES {
+        buffer.remove_source_marks(&start, &end, Some(category));
+    }
+    for mark in &state.line_marks {
+        let line = state
+            .regions
+            .iter()
+            .find(|r| r.folded && r.start < mark.line && mark.line < r.end)
+            .map_or(mark.line, |r| r.start);
+        let Some(iter) = buffer.iter_at_line(line.saturating_sub(1) as i32) else {
+            continue;
+        };
+        let source_mark = buffer.create_source_mark(None, mark_category(mark.kind), &iter);
+        MARK_MESSAGES.with(|m| {
+            m.borrow_mut()
+                .push((source_mark.downgrade(), mark.message.clone()))
+        });
+    }
+}
+
+fn set_folded(buffer: &sourceview5::Buffer, line: usize, folded: bool) {
+    let Some(state) = fold_state(buffer) else {
+        return;
+    };
+    // Cursor aus dem Bereich, der gleich verschwindet (sonst klappte er
+    // sofort wieder auf): ans Ende der Startzeile.
+    let end = state
+        .borrow()
+        .regions
+        .iter()
+        .find(|r| r.start == line)
+        .map(|r| r.end);
+    let cursor = buffer.iter_at_mark(&buffer.get_insert()).line() as usize + 1;
+    if folded
+        && let Some(end) = end
+        && line < cursor
+        && cursor < end
+        && let Some(mut at) = buffer.iter_at_line(line as i32 - 1)
+    {
+        at.forward_to_line_end();
+        buffer.place_cursor(&at);
+    }
+    {
+        let mut state = state.borrow_mut();
+        let Some(region) = state.regions.iter().find(|r| r.start == line).copied() else {
+            return;
+        };
+        if region.folded == folded {
+            return;
+        }
+        if folded {
+            if let Some(at) = buffer.iter_at_line(line as i32 - 1) {
+                state.anchors.push(buffer.create_mark(None, &at, true));
+            }
+        } else {
+            state.anchors.retain(|mark| {
+                let at = buffer.iter_at_mark(mark).line() as usize + 1;
+                if at == line {
+                    buffer.delete_mark(mark);
+                }
+                at != line
+            });
+        }
+    }
+    refresh_folds(buffer);
 }
 
 thread_local! {

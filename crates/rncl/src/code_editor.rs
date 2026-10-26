@@ -1,5 +1,5 @@
 use ruf::{
-    AsWidget, Completion, Component, ComponentInfo, LineMark, MouseEvent, PropertyDescriptor,
+    AsWidget, Completion, Component, ComponentInfo, Fold, LineMark, MouseEvent, PropertyDescriptor,
     PropertyError, PropertyValue, Widget, WidgetKind, base,
 };
 
@@ -67,6 +67,22 @@ impl RnclCodeEditor {
     /// Setzt den Cursor an den Anfang der Zeile `line` (ab 1) und scrollt hin.
     pub fn goto_line(&self, line: usize) {
         self.widget.goto_line(line.saturating_sub(1) as i32);
+    }
+
+    /// Faltbare Bereiche (Klammerpaare über mehr als zwei Zeilen) mit
+    /// Zustand; per Klick auf den Pfeil am Rand faltet der Nutzer selbst.
+    pub fn folds(&self) -> Vec<Fold> {
+        self.widget.folds()
+    }
+
+    /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.
+    pub fn set_folded(&self, line: usize, folded: bool) {
+        self.widget.set_folded(line, folded);
+    }
+
+    /// Faltet alle Bereiche bzw. klappt alle auf.
+    pub fn set_all_folded(&self, folded: bool) {
+        self.widget.set_all_folded(folded);
     }
 
     /// Cursor: Zeile ab 1, Spalte in Zeichen ab 0.
