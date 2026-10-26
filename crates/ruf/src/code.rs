@@ -27,3 +27,14 @@ impl LineMark {
         }
     }
 }
+
+/// Ein Vorschlag der Vervollständigung.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Completion {
+    /// Angezeigter Text.
+    pub label: String,
+    /// Zusatz (z. B. Typ), grau hinter dem Text.
+    pub detail: Option<String>,
+    /// Ersetzt das Wort vor dem Cursor.
+    pub insert: String,
+}

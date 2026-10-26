@@ -24,7 +24,7 @@ use sourceview5::prelude::*;
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
-use crate::code::{LineMark, MarkKind};
+use crate::code::{Completion, LineMark, MarkKind};
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::Point;
@@ -761,6 +761,23 @@ impl Backend for Gtk {
                 let view = new_code_view();
                 view.buffer()
                     .connect_changed(move |_| notify(id, Notify::Changed));
+                // Maus melden (z. B. Strg+Klick = Gehe zu Definition). Beim
+                // Loslassen hat GTK den Cursor schon gesetzt.
+                let click = gtk::GestureClick::new();
+                click.set_button(0);
+                click.connect_released(move |g, _, x, y| {
+                    notify(
+                        id,
+                        Notify::Mouse(MouseEvent {
+                            action: MouseAction::Released,
+                            x: x as i32,
+                            y: y as i32,
+                            button: g.current_button() as u8,
+                            modifiers: modifiers(g.current_event_state()),
+                        }),
+                    );
+                });
+                view.add_controller(click);
                 let scroll = gtk::ScrolledWindow::new();
                 scroll.set_child(Some(&view));
                 scroll.set_has_frame(true);
@@ -1468,6 +1485,111 @@ impl Backend for Gtk {
                     .push((source_mark.downgrade(), mark.message.clone()))
             });
         }
+    }
+
+    fn cursor(native: &GtkNative) -> (usize, usize) {
+        let Inner::Code(view) = &native.inner else {
+            return (1, 0);
+        };
+        let buffer = view.buffer();
+        let iter = buffer.iter_at_mark(&buffer.get_insert());
+        (iter.line() as usize + 1, iter.line_offset() as usize)
+    }
+
+    fn set_cursor(native: &GtkNative, line: usize, column: usize) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let buffer = view.buffer();
+        let line = line.saturating_sub(1) as i32;
+        if let Some(mut iter) = buffer.iter_at_line(line) {
+            let length = iter.chars_in_line();
+            iter.set_line_offset((column as i32).min((length - 1).max(0)));
+            buffer.place_cursor(&iter);
+            view.scroll_to_mark(&buffer.get_insert(), 0.1, false, 0.0, 0.0);
+        }
+    }
+
+    fn apply_completion(native: &GtkNative, text: &str) {
+        if let Inner::Code(view) = &native.inner {
+            replace_word_before_cursor(view, text);
+        }
+    }
+
+    fn show_completions(native: &GtkNative, items: &[Completion]) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        close_completions();
+        if items.is_empty() {
+            return;
+        }
+        let list = gtk::ListBox::new();
+        list.set_selection_mode(gtk::SelectionMode::Browse);
+        for item in items {
+            let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+            row.set_margin_start(6);
+            row.set_margin_end(6);
+            let label = gtk::Label::new(Some(&item.label));
+            label.set_xalign(0.0);
+            label.set_hexpand(true);
+            row.append(&label);
+            if let Some(detail) = &item.detail {
+                let detail = gtk::Label::new(Some(detail));
+                detail.add_css_class("dim-label");
+                detail.set_ellipsize(pango::EllipsizeMode::End);
+                detail.set_max_width_chars(40);
+                row.append(&detail);
+            }
+            list.append(&row);
+        }
+        let scroll = gtk::ScrolledWindow::new();
+        scroll.set_child(Some(&list));
+        scroll.set_propagate_natural_height(true);
+        scroll.set_propagate_natural_width(true);
+        scroll.set_max_content_height(260);
+        scroll.set_min_content_width(260);
+        let popover = gtk::Popover::new();
+        popover.set_child(Some(&scroll));
+        popover.set_has_arrow(false);
+        popover.set_position(gtk::PositionType::Bottom);
+        popover.set_parent(view);
+        // Am Cursor öffnen.
+        let buffer = view.buffer();
+        let cursor = buffer.iter_at_mark(&buffer.get_insert());
+        let location = view.iter_location(&cursor);
+        let (x, y) =
+            view.buffer_to_window_coords(gtk::TextWindowType::Widget, location.x(), location.y());
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x, y, 1, location.height())));
+
+        let inserts: Vec<String> = items.iter().map(|i| i.insert.clone()).collect();
+        let (v, p) = (view.clone(), popover.clone());
+        list.connect_row_activated(move |_, row| {
+            if let Some(text) = usize::try_from(row.index())
+                .ok()
+                .and_then(|i| inserts.get(i))
+            {
+                replace_word_before_cursor(&v, text);
+            }
+            p.popdown();
+            v.grab_focus();
+        });
+        let v = view.clone();
+        popover.connect_closed(move |p| {
+            let p = p.clone();
+            glib::idle_add_local_once(move || {
+                if p.parent().is_some() {
+                    p.unparent();
+                }
+            });
+            v.grab_focus();
+        });
+        if let Some(first) = list.row_at_index(0) {
+            list.select_row(Some(&first));
+        }
+        COMPLETION.with(|c| *c.borrow_mut() = Some(popover.downgrade()));
+        popover.popup();
+        list.grab_focus();
     }
 
     fn set_shapes(native: &GtkNative, shapes: &[Shape]) {
@@ -2487,4 +2609,37 @@ fn new_code_view() -> sourceview5::View {
         view.set_mark_attributes(category, &attributes, 10);
     }
     view
+}
+
+thread_local! {
+    /// Die offene Vorschlagsliste (höchstens eine).
+    static COMPLETION: RefCell<Option<glib::WeakRef<gtk::Popover>>> = const { RefCell::new(None) };
+}
+
+fn close_completions() {
+    if let Some(popover) = COMPLETION
+        .with(|c| c.borrow_mut().take())
+        .and_then(|w| w.upgrade())
+    {
+        popover.popdown();
+    }
+}
+
+/// Ersetzt das Bezeichner-Stück vor dem Cursor durch `text`.
+fn replace_word_before_cursor(view: &sourceview5::View, text: &str) {
+    let buffer = view.buffer();
+    let end = buffer.iter_at_mark(&buffer.get_insert());
+    let mut start = end;
+    while start.backward_char() {
+        let c = start.char();
+        if !(c.is_alphanumeric() || c == '_') {
+            start.forward_char();
+            break;
+        }
+    }
+    let (mut start, mut end) = (start, end);
+    buffer.begin_user_action();
+    buffer.delete(&mut start, &mut end);
+    buffer.insert(&mut start, text);
+    buffer.end_user_action();
 }

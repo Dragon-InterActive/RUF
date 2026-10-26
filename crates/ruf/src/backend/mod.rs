@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use crate::app::ColorScheme;
 use crate::canvas::Shape;
-use crate::code::LineMark;
+use crate::code::{Completion, LineMark};
 use crate::core::{Id, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::{Point, Rect, Size};
@@ -188,6 +188,14 @@ pub(crate) trait Backend {
     fn set_language(native: &Self::Native, language: &str);
     /// Marken am Rand (ersetzt die bisherigen).
     fn set_line_marks(native: &Self::Native, marks: &[LineMark]);
+    /// Cursor: Zeile ab 1, Spalte in Zeichen ab 0.
+    fn cursor(native: &Self::Native) -> (usize, usize);
+    fn set_cursor(native: &Self::Native, line: usize, column: usize);
+    /// Zeigt Vorschläge am Cursor; die Wahl ersetzt das Wort vor dem Cursor
+    /// (meldet `Notify::Changed`). Leere Liste schließt die Anzeige.
+    fn show_completions(native: &Self::Native, items: &[Completion]);
+    /// Ersetzt das Wort vor dem Cursor durch `text` (wie die Wahl eines Vorschlags).
+    fn apply_completion(native: &Self::Native, text: &str);
 
     // --- Dateidialoge (modal) -----------------------------------------------------
 

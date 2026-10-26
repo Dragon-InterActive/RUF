@@ -2,7 +2,7 @@
 
 use crate::backend::{Backend, Platform};
 use crate::canvas::{KeyEvent, MouseEvent, Shape};
-use crate::code::LineMark;
+use crate::code::{Completion, LineMark};
 use crate::core::{self, Id, ItemChange};
 use crate::geometry::{Point, Rect, Size};
 use crate::menu::{Menu, MenuBar};
@@ -643,6 +643,36 @@ impl Widget {
 
     pub fn line_marks(&self) -> Vec<LineMark> {
         core::get(self.id, |n| n.line_marks.clone()).unwrap_or_default()
+    }
+
+    /// Cursor eines Code-Editors: Zeile ab 1, Spalte in Zeichen ab 0.
+    pub fn cursor(&self) -> (usize, usize) {
+        match core::native(self.id) {
+            Some((native, WidgetKind::CodeEditor)) => Platform::cursor(&native),
+            _ => (1, 0),
+        }
+    }
+
+    pub fn set_cursor(&self, line: usize, column: usize) {
+        if let Some((native, WidgetKind::CodeEditor)) = core::native(self.id) {
+            core::setter(|| Platform::set_cursor(&native, line, column));
+        }
+    }
+
+    /// Ersetzt das Wort vor dem Cursor durch `text` – wie die Wahl eines
+    /// Vorschlags (auch für Tests und Automatisierung).
+    pub fn apply_completion(&self, text: &str) {
+        if let Some((native, WidgetKind::CodeEditor)) = core::native(self.id) {
+            Platform::apply_completion(&native, text);
+        }
+    }
+
+    /// Zeigt Vorschläge am Cursor (leer = schließen). Die Wahl ersetzt das
+    /// Wort vor dem Cursor und meldet eine Textänderung.
+    pub fn show_completions(&self, items: &[Completion]) {
+        if let Some((native, WidgetKind::CodeEditor)) = core::native(self.id) {
+            Platform::show_completions(&native, items);
+        }
     }
 
     // --- Baumansicht ([`WidgetKind::TreeView`]) ------------------------------

@@ -1,6 +1,6 @@
 use ruf::{
-    AsWidget, Component, ComponentInfo, LineMark, PropertyDescriptor, PropertyError, PropertyValue,
-    Widget, WidgetKind, base,
+    AsWidget, Completion, Component, ComponentInfo, LineMark, MouseEvent, PropertyDescriptor,
+    PropertyError, PropertyValue, Widget, WidgetKind, base,
 };
 
 use crate::props::text;
@@ -67,6 +67,32 @@ impl RnclCodeEditor {
     /// Setzt den Cursor an den Anfang der Zeile `line` (ab 1) und scrollt hin.
     pub fn goto_line(&self, line: usize) {
         self.widget.goto_line(line.saturating_sub(1) as i32);
+    }
+
+    /// Cursor: Zeile ab 1, Spalte in Zeichen ab 0.
+    pub fn cursor(&self) -> (usize, usize) {
+        self.widget.cursor()
+    }
+
+    pub fn set_cursor(&self, line: usize, column: usize) {
+        self.widget.set_cursor(line, column);
+    }
+
+    /// Zeigt Vorschläge am Cursor; die Wahl ersetzt das Wort vor dem Cursor.
+    /// Eine leere Liste schließt die Anzeige.
+    pub fn show_completions(&self, items: &[Completion]) {
+        self.widget.show_completions(items);
+    }
+
+    /// Ersetzt das Wort vor dem Cursor (wie die Wahl eines Vorschlags).
+    pub fn apply_completion(&self, text: &str) {
+        self.widget.apply_completion(text);
+    }
+
+    /// Mausklicks (gemeldet beim Loslassen, der Cursor steht dann schon) –
+    /// z. B. Strg+Klick für „Gehe zu Definition“.
+    pub fn on_mouse(&self, f: impl FnMut(MouseEvent) + 'static) {
+        self.widget.on_mouse(f);
     }
 
     /// Wird bei jeder Textänderung aufgerufen (auch per Code).

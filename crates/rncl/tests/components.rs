@@ -819,6 +819,20 @@ fn code_editor() {
     editor.set_line_marks(Vec::new());
     assert!(editor.line_marks().is_empty());
 
+    // Cursor und Vervollständigung: "pri" wird zu "println".
+    editor.set_text("fn main() {\n    pri\n}\n");
+    editor.set_cursor(2, 7);
+    assert_eq!(editor.cursor(), (2, 7));
+    editor.apply_completion("println");
+    assert_eq!(editor.text(), "fn main() {\n    println\n}\n");
+    assert_eq!(editor.cursor(), (2, 11));
+    editor.show_completions(&[Completion {
+        label: "len".into(),
+        detail: Some("fn(&self) -> usize".into()),
+        insert: "len".into(),
+    }]);
+    editor.show_completions(&[]);
+
     editor.set_read_only(true);
     assert!(editor.is_read_only());
     editor.goto_line(3);
