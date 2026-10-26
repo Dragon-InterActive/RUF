@@ -1329,15 +1329,23 @@ pub(crate) fn timer_fired(id: u64) {
 // --- Tastenkürzel ----------------------------------------------------------------------------
 
 pub(crate) fn add_shortcut(window: Id, sequence: &str, f: impl FnMut() + 'static) -> bool {
-    let Some(spec) = crate::text::KeySpec::parse(sequence) else {
-        return false;
-    };
+    match crate::text::KeySpec::parse(sequence) {
+        Some(spec) => add_key_shortcut(window, &spec, f),
+        None => false,
+    }
+}
+
+pub(crate) fn add_key_shortcut(
+    window: Id,
+    spec: &crate::text::KeySpec,
+    f: impl FnMut() + 'static,
+) -> bool {
     let Some(native) = container_window(window) else {
         return false;
     };
     let id = next_id();
     with_core(|c| c.shortcuts.insert(id, Rc::new(RefCell::new(f))));
-    Platform::add_shortcut(&native, &spec, id)
+    Platform::add_shortcut(&native, spec, id)
 }
 
 /// Das Fenster, zu dem ein Widget gehört.

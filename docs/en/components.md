@@ -58,6 +58,8 @@ window.set_menu_bar(vec![(
                .item("file.quit", "Quit", Some("Ctrl+Q")),
 )]);
 window.on_menu(|id| println!("menu {id}"));
+// Several windows: the main menu's shortcuts work here too (own ones win).
+other_window.inherit_menu_shortcuts(&window);
 label.widget().popup_menu(&Menu::new().item("copy", "Copy", None), 10, 10); // context menu
 
 // Screen position (save/restore the window arrangement).

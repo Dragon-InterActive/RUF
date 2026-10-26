@@ -757,6 +757,46 @@ impl Widget {
         core::set_menu_bar(self.id, bar);
     }
 
+    /// Die Menükürzel von `source` (einem anderen Fenster) gelten auch in
+    /// diesem Fenster – außer denen, die dieses Fenster selbst im Menü hat.
+    /// Gewählte Einträge meldet `on_menu` von `source`. Für Anwendungen aus
+    /// mehreren Fenstern (Strg+S, F9 … aus jedem Fenster). Übernommen wird die
+    /// Menüleiste von `source`, wie sie jetzt ist; liefert die Anzahl.
+    pub fn inherit_menu_shortcuts(&self, source: &Widget) -> usize {
+        use crate::menu::MenuEntry;
+        use crate::text::KeySpec;
+        let shortcuts = |bar: &MenuBar| -> Vec<(KeySpec, String)> {
+            bar.iter()
+                .flat_map(|(_, menu)| menu.items())
+                .filter_map(|entry| match entry {
+                    MenuEntry::Item {
+                        id,
+                        shortcut: Some(s),
+                        enabled: true,
+                        ..
+                    } => KeySpec::parse(s).map(|k| (k, id.clone())),
+                    _ => None,
+                })
+                .collect()
+        };
+        let own: Vec<KeySpec> = shortcuts(&self.menu_bar())
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect();
+        let source_id = source.id;
+        let mut count = 0;
+        for (key, item) in shortcuts(&source.menu_bar()) {
+            if own.contains(&key) {
+                continue;
+            }
+            let added = core::add_key_shortcut(self.id, &key, move || {
+                core::notify(source_id, core::Notify::Menu(item.clone()));
+            });
+            count += usize::from(added);
+        }
+        count
+    }
+
     pub fn menu_bar(&self) -> MenuBar {
         core::get(self.id, |n| n.menu_bar.clone()).unwrap_or_default()
     }

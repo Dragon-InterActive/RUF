@@ -58,6 +58,8 @@ window.set_menu_bar(vec![(
                .item("file.quit", "Beenden", Some("Ctrl+Q")),
 )]);
 window.on_menu(|id| println!("Menü {id}"));
+// Mehrere Fenster: die Kürzel des Hauptmenüs gelten auch hier (eigene gehen vor).
+other_window.inherit_menu_shortcuts(&window);
 label.widget().popup_menu(&Menu::new().item("copy", "Kopieren", None), 10, 10); // Kontextmenü
 
 // Bildschirmposition (Fensteranordnung speichern/wiederherstellen).

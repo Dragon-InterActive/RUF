@@ -54,6 +54,12 @@ impl RnclWindow {
         self.widget.set_menu_bar(bar);
     }
 
+    /// Die Menükürzel von `source` gelten auch in diesem Fenster (außer
+    /// denen seines eigenen Menüs); gewählte Einträge meldet `source`.
+    pub fn inherit_menu_shortcuts(&self, source: &RnclWindow) -> usize {
+        self.widget.inherit_menu_shortcuts(&source.widget)
+    }
+
     /// Gewählter Menüeintrag (Kennung) – aus Menüleiste, Kontextmenü oder Kürzel.
     pub fn on_menu(&self, f: impl FnMut(String) + 'static) {
         self.widget.on_menu(f);

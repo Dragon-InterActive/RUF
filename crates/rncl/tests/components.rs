@@ -755,6 +755,22 @@ fn menus() {
     let c = chosen.clone();
     window.on_menu(move |id| c.borrow_mut().push(id));
     window.widget().activate_menu_item("file.open");
+
+    // Kürzel eines anderen Fensters übernehmen – außer den eigenen.
+    let main = RnclWindow::new("Haupt");
+    main.set_menu_bar(vec![(
+        "Projekt".into(),
+        Menu::new()
+            .item("project.generate", "Code erzeugen", Some("Ctrl+G"))
+            .item("file.save", "Speichern", Some("Ctrl+S"))
+            .item("plain", "Ohne Kürzel", None),
+    )]);
+    let code = RnclWindow::new("Code");
+    code.set_menu_bar(vec![(
+        "Datei".into(),
+        Menu::new().item("code.save", "Speichern", Some("Ctrl+S")),
+    )]);
+    assert_eq!(code.inherit_menu_shortcuts(&main), 1);
     assert_eq!(chosen.borrow().as_slice(), ["file.open"]);
 
     // Menüleiste ersetzen; der Inhalt bekommt weiter seine Größe.
