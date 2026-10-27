@@ -1506,10 +1506,23 @@ impl Backend for Gtk {
     }
 
     fn tab_set_title(native: &GtkNative, index: i32, title: &str) {
-        if let Inner::Tabs(n) = &native.inner
-            && let Some(page) = n.nth_page(u32::try_from(index).ok())
-        {
-            n.set_tab_label_text(&page, title);
+        let Inner::Tabs(n) = &native.inner else {
+            return;
+        };
+        let Some(page) = n.nth_page(u32::try_from(index).ok()) else {
+            return;
+        };
+        // Den Text des vorhandenen Labels ändern: `set_tab_label_text` ersetzt
+        // das Label-Widget. Liegt der Mauszeiger gerade darauf, verschickt GTK
+        // danach Ereignisse an das freigegebene Label (Absturz unter macOS in
+        // `gtk_synthesize_crossing_events`), und der Reiter springt beim Klicken.
+        match n.tab_label(&page).and_downcast::<gtk::Label>() {
+            Some(label) => {
+                if label.text() != title {
+                    label.set_text(title);
+                }
+            }
+            None => n.set_tab_label_text(&page, title),
         }
     }
 
