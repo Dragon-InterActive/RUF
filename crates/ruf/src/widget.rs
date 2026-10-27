@@ -221,6 +221,19 @@ impl Widget {
         self.native_call(|n, k| Platform::set_tool_tip(n, k, text));
     }
 
+    /// Mauszeiger über dem Widget als CSS-Name, z. B. `row-resize`,
+    /// `col-resize`, `pointer`; leer = Standard.
+    pub fn set_mouse_cursor(&self, name: &str) {
+        self.native_call(|n, _| Platform::set_mouse_cursor(n, name));
+    }
+
+    /// Höhe, die der Text eines Textbereichs oder Code-Editors bei `width`
+    /// braucht (mit Umbruch, ohne Innenabstand), und die Höhe einer Zeile.
+    pub fn text_height(&self, width: i32) -> Option<(i32, i32)> {
+        let (native, _) = core::native(self.id)?;
+        Platform::text_height(&native, width)
+    }
+
     pub fn tool_tip(&self) -> String {
         core::get(self.id, |n| n.tool_tip.clone()).unwrap_or_default()
     }

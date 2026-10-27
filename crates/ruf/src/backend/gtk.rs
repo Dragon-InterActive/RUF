@@ -1122,6 +1122,35 @@ impl Backend for Gtk {
             .set_tooltip_text((!text.is_empty()).then_some(text));
     }
 
+    fn set_mouse_cursor(native: &GtkNative, name: &str) {
+        let target = match &native.inner {
+            Inner::Canvas { area, .. } => area.clone().upcast(),
+            _ => native.outer.clone(),
+        };
+        target.set_cursor_from_name((!name.is_empty()).then_some(name));
+    }
+
+    fn text_height(native: &GtkNative, width: i32) -> Option<(i32, i32)> {
+        let view: gtk::TextView = match &native.inner {
+            Inner::Text { view, .. } => view.clone(),
+            Inner::Code(view) => view.clone().upcast(),
+            _ => return None,
+        };
+        let buffer = view.buffer();
+        let text = buffer.text(&buffer.start_iter(), &buffer.end_iter(), false);
+        // Rand des Rahmens und Innenabstände der Textansicht abziehen.
+        let inner = width - view.left_margin() - view.right_margin() - 4;
+        let measure = |text: &str| {
+            let layout = view.create_pango_layout(Some(text));
+            if view.wrap_mode() != gtk::WrapMode::None {
+                layout.set_width(inner.max(1) * pango::SCALE);
+                layout.set_wrap(pango::WrapMode::WordChar);
+            }
+            layout.pixel_size().1
+        };
+        Some((measure(&text), measure("X")))
+    }
+
     fn set_style(native: &GtkNative, _kind: WidgetKind, style: &Style) {
         let class = format!("ruf-{}", native.id);
         let mut css = String::new();

@@ -63,6 +63,7 @@ mod radio_button;
 mod scroll_view;
 mod slider;
 mod spin_box;
+mod splitter;
 mod tab_view;
 mod text_area;
 mod text_field;
@@ -83,6 +84,7 @@ pub use radio_button::RnclRadioButton;
 pub use scroll_view::RnclScrollView;
 pub use slider::RnclSlider;
 pub use spin_box::RnclSpinBox;
+pub use splitter::{RnclSplitter, SPLITTER_SIZE};
 pub use tab_view::RnclTabView;
 pub use text_area::RnclTextArea;
 pub use text_field::RnclTextField;
@@ -114,6 +116,7 @@ pub fn register_all(registry: &mut ComponentRegistry) -> Result<(), RegistryErro
     registry.register(RnclCanvas::info())?;
     registry.register(RnclTreeView::info())?;
     registry.register(RnclCodeEditor::info())?;
+    registry.register(RnclSplitter::info())?;
     Ok(())
 }
 
@@ -129,8 +132,8 @@ pub mod prelude {
     pub use crate::{
         RnclButton, RnclCanvas, RnclCheckBox, RnclCodeEditor, RnclComboBox, RnclGroupBox,
         RnclLabel, RnclListBox, RnclPanel, RnclProgressBar, RnclRadioButton, RnclScrollView,
-        RnclSlider, RnclSpinBox, RnclTabView, RnclTextArea, RnclTextField, RnclTreeView,
-        RnclWindow,
+        RnclSlider, RnclSpinBox, RnclSplitter, RnclTabView, RnclTextArea, RnclTextField,
+        RnclTreeView, RnclWindow,
     };
     pub use ruf::prelude::*;
     pub use ruf::{

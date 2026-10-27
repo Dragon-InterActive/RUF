@@ -108,6 +108,11 @@ pub(crate) trait Backend {
     fn set_visible(native: &Self::Native, kind: WidgetKind, visible: bool);
     fn set_enabled(native: &Self::Native, kind: WidgetKind, enabled: bool);
     fn set_tool_tip(native: &Self::Native, kind: WidgetKind, text: &str);
+    /// Mauszeiger über dem Widget (CSS-Name wie `row-resize`; leer = Standard).
+    fn set_mouse_cursor(native: &Self::Native, name: &str);
+    /// Höhe (Pixel), die der Text eines Textbereichs bei `width` braucht
+    /// (ohne Innenabstand), und die Höhe einer Zeile; `None` bei anderen Widgets.
+    fn text_height(native: &Self::Native, width: i32) -> Option<(i32, i32)>;
     fn set_style(native: &Self::Native, kind: WidgetKind, style: &Style);
     fn screenshot(native: &Self::Native, kind: WidgetKind, path: &Path) -> bool;
     /// Tastenkürzel am Fenster; das Backend ruft [`crate::core::shortcut_fired`].

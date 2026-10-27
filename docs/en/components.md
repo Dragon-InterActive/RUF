@@ -23,7 +23,7 @@ entries and page titles).
 
 | Category | Components |
 |---|---|
-| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView`, `RnclScrollView` |
+| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView`, `RnclScrollView`, `RnclSplitter` |
 | Standard | `RnclButton`, `RnclLabel` |
 | Eingabe (input) | `RnclTextField`, `RnclTextArea`, `RnclCheckBox`, `RnclRadioButton`, `RnclComboBox`, `RnclListBox`, `RnclSpinBox`, `RnclSlider` |
 | Anzeige (display) | `RnclProgressBar` |
@@ -198,6 +198,7 @@ notes.set_text("line 1");
 notes.append_line("line 2");
 notes.on_text_changed(|t| println!("{} chars", t.len()));
 notes.set_word_wrap(true);                      // wrap long lines
+let (needed, line) = notes.widget().text_height(240).unwrap(); // height with wrapping, line height
 ```
 
 As a **code editor** (fixed-width font, syntax highlighting via regular expressions,
@@ -408,6 +409,19 @@ for fold in editor.folds() {                  // Fold { start, end, folded }
 }
 editor.set_folded(7, true);                   // fold the block starting on line 7
 editor.set_all_folded(false);                 // unfold everything
+```
+
+## `RnclSplitter` – movable divider
+
+Native: canvas with a resize mouse cursor · category *Container*
+
+The splitter lays out nothing itself: while dragged it reports the offset in
+pixels; the application resizes its areas (and moves the splitter).
+
+```rust
+let splitter = RnclSplitter::new(&window, true);   // horizontal: top/bottom
+let split = Rc::new(Cell::new(200));               // height of the top area
+splitter.on_dragged(move |delta| split.set(split.get() + delta)); // then lay out again
 ```
 
 ## `RnclTreeView` – tree view

@@ -23,7 +23,7 @@ Einträge und Seitentitel).
 
 | Kategorie | Komponenten |
 |---|---|
-| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView`, `RnclScrollView` |
+| Container | `RnclWindow`, `RnclPanel`, `RnclGroupBox`, `RnclTabView`, `RnclScrollView`, `RnclSplitter` |
 | Standard | `RnclButton`, `RnclLabel` |
 | Eingabe | `RnclTextField`, `RnclTextArea`, `RnclCheckBox`, `RnclRadioButton`, `RnclComboBox`, `RnclListBox`, `RnclSpinBox`, `RnclSlider` |
 | Anzeige | `RnclProgressBar` |
@@ -199,6 +199,7 @@ notes.set_text("Zeile 1");
 notes.append_line("Zeile 2");
 notes.on_text_changed(|t| println!("{} Zeichen", t.len()));
 notes.set_word_wrap(true);                      // lange Zeilen umbrechen
+let (needed, line) = notes.widget().text_height(240).unwrap(); // Höhe mit Umbruch, Zeilenhöhe
 ```
 
 Als **Code-Editor** (Schrift mit fester Breite, Syntax-Hervorhebung über reguläre
@@ -410,6 +411,19 @@ for fold in editor.folds() {                  // Fold { start, end, folded }
 }
 editor.set_folded(7, true);                   // Bereich ab Zeile 7 falten
 editor.set_all_folded(false);                 // alles aufklappen
+```
+
+## `RnclSplitter` – verschiebbarer Teiler
+
+Nativ: Zeichenfläche mit Größenänderungs-Mauszeiger · Kategorie *Container*
+
+Der Teiler legt nichts selbst um: Er meldet beim Ziehen die Verschiebung in
+Pixeln, die Anwendung passt ihre Bereiche an (und setzt den Teiler neu).
+
+```rust
+let splitter = RnclSplitter::new(&window, true);   // waagerecht: oben/unten
+let split = Rc::new(Cell::new(200));               // Höhe des oberen Bereichs
+splitter.on_dragged(move |delta| split.set(split.get() + delta)); // dann neu anordnen
 ```
 
 ## `RnclTreeView` – Baumansicht

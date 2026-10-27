@@ -40,6 +40,7 @@ fn main() {
         ("text_area_code_editor", text_area_code_editor),
         ("canvas_shapes_and_input", canvas_shapes_and_input),
         ("tree_view", tree_view),
+        ("splitter", splitter),
         ("menus", menus),
         ("window_position", window_position),
         ("adjust_size_is_stable", adjust_size_is_stable),
@@ -182,7 +183,7 @@ fn properties() {
 
 fn registry_create() {
     let registry = rncl::registry();
-    assert_eq!(registry.len(), 19);
+    assert_eq!(registry.len(), 20);
     assert!(registry.categories().contains(&"Container"));
 
     let window = registry.create("RnclWindow", None).unwrap();
@@ -673,6 +674,31 @@ fn canvas_shapes_and_input() {
         assert!(std::fs::metadata(&shot).unwrap().len() > 0);
         let _ = std::fs::remove_file(&shot);
     }
+}
+
+fn splitter() {
+    let window = RnclWindow::new("Teiler");
+    let splitter = RnclSplitter::new(&window, true);
+    assert!(splitter.is_horizontal());
+    let moves: Rc<RefCell<Vec<i32>>> = Rc::default();
+    let m = moves.clone();
+    splitter.on_dragged(move |delta| m.borrow_mut().push(delta));
+    let event = |action, y, button| MouseEvent {
+        action,
+        x: 50,
+        y,
+        button,
+        modifiers: ruf::Modifiers::default(),
+    };
+    let w = splitter.widget();
+    // Bewegen ohne Drücken meldet nichts; gezogen wird relativ zum Druckpunkt.
+    w.simulate_mouse(event(MouseAction::Moved, 10, 0));
+    w.simulate_mouse(event(MouseAction::Pressed, 3, 1));
+    w.simulate_mouse(event(MouseAction::Moved, 23, 0));
+    w.simulate_mouse(event(MouseAction::Moved, -2, 0));
+    w.simulate_mouse(event(MouseAction::Released, -2, 1));
+    w.simulate_mouse(event(MouseAction::Moved, 40, 0));
+    assert_eq!(moves.borrow().as_slice(), [20, -5]);
 }
 
 fn tree_view() {
