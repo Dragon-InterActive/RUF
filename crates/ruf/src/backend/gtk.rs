@@ -237,7 +237,13 @@ thread_local! {
     /// Tastenkürzel der Menüleiste je Fenster (werden beim Ersetzen entfernt).
     static MENU_SHORTCUTS: RefCell<HashMap<Id, gtk::ShortcutController>> = RefCell::new(HashMap::new());
     /// Offene Kontextmenüs – sie hängen an einem Widget und müssen vor ihm gehen.
-    static POPOVERS: RefCell<Vec<glib::WeakRef<gtk::PopoverMenu>>> = const { RefCell::new(Vec::new()) };
+    /// Kontextmenüs, eines je Anker-Widget. Sie werden wiederverwendet statt
+    /// nach dem Schließen freigegeben: Unter macOS hält GDK nach dem Schließen
+    /// noch den Mauszeiger „über“ dem Popover; ein freigegebenes Popover führt
+    /// dann zum Absturz in `gtk_synthesize_crossing_events` (vgl. GTK #5190).
+    static CONTEXT_MENUS: RefCell<Vec<(glib::WeakRef<gtk::Widget>, gtk::PopoverMenu)>> = const { RefCell::new(Vec::new()) };
+    /// Vorschlagslisten, eine je Code-Editor (aus demselben Grund wiederverwendet).
+    static COMPLETIONS: RefCell<Vec<(glib::WeakRef<sourceview5::View>, gtk::Popover)>> = const { RefCell::new(Vec::new()) };
     /// Hell/Dunkel folgt dem System, bis das Programm es festlegt.
     static FOLLOW_SYSTEM: Cell<bool> = const { Cell::new(true) };
     /// Vorgemerkte Fensterpositionen (angewendet, sobald das Fenster erscheint).
@@ -1017,19 +1023,27 @@ impl Backend for Gtk {
 
     fn destroy(native: &GtkNative, kind: WidgetKind) {
         STYLES.with(|s| s.borrow_mut().1.remove(&native.id));
-        // Kontextmenüs an diesem Widget oder seinen Kindern zuerst lösen.
-        POPOVERS.with(|p| {
-            p.borrow_mut().retain(|weak| {
-                let Some(popover) = weak.upgrade() else {
-                    return false;
-                };
-                let inside = popover
-                    .parent()
-                    .is_some_and(|a| a == native.outer || a.is_ancestor(&native.outer));
-                if inside {
+        // Kontextmenüs und Vorschlagslisten an diesem Widget oder seinen
+        // Kindern zuerst lösen.
+        let inside = |anchor: Option<gtk::Widget>| {
+            anchor.is_none_or(|a| a == native.outer || a.is_ancestor(&native.outer))
+        };
+        CONTEXT_MENUS.with(|m| {
+            m.borrow_mut().retain(|(anchor, popover)| {
+                let gone = inside(anchor.upgrade());
+                if gone && popover.parent().is_some() {
                     popover.unparent();
                 }
-                !inside
+                !gone
+            });
+        });
+        COMPLETIONS.with(|c| {
+            c.borrow_mut().retain(|(view, popover)| {
+                let gone = inside(view.upgrade().map(|v| v.upcast()));
+                if gone && popover.parent().is_some() {
+                    popover.unparent();
+                }
+                !gone
             });
         });
         if let Inner::Progress { state, .. } = &native.inner
@@ -1790,11 +1804,8 @@ impl Backend for Gtk {
         scroll.set_propagate_natural_width(true);
         scroll.set_max_content_height(260);
         scroll.set_min_content_width(260);
-        let popover = gtk::Popover::new();
+        let popover = completion_popover(view);
         popover.set_child(Some(&scroll));
-        popover.set_has_arrow(false);
-        popover.set_position(gtk::PositionType::Bottom);
-        popover.set_parent(view);
         // Am Cursor öffnen.
         let buffer = view.buffer();
         let cursor = buffer.iter_at_mark(&buffer.get_insert());
@@ -1813,16 +1824,6 @@ impl Backend for Gtk {
                 replace_word_before_cursor(&v, text);
             }
             p.popdown();
-            v.grab_focus();
-        });
-        let v = view.clone();
-        popover.connect_closed(move |p| {
-            let p = p.clone();
-            glib::idle_add_local_once(move || {
-                if p.parent().is_some() {
-                    p.unparent();
-                }
-            });
             v.grab_focus();
         });
         if let Some(first) = list.row_at_index(0) {
@@ -1975,20 +1976,26 @@ impl Backend for Gtk {
                 .unwrap_or(native.outer.clone()),
             _ => native.outer.clone(),
         };
-        let popover = gtk::PopoverMenu::from_model(Some(&model));
-        popover.set_parent(&anchor);
-        popover.set_has_arrow(false);
-        popover.set_pointing_to(Some(&gdk::Rectangle::new(x, y, 1, 1)));
-        popover.connect_closed(|p| {
-            let p = p.clone();
-            glib::idle_add_local_once(move || {
-                if p.parent().is_some() {
-                    p.unparent();
-                }
-            });
+        let popover = CONTEXT_MENUS.with(|m| {
+            let mut menus = m.borrow_mut();
+            if let Some((_, popover)) = menus
+                .iter()
+                .find(|(a, _)| a.upgrade().as_ref() == Some(&anchor))
+            {
+                return popover.clone();
+            }
+            let popover = gtk::PopoverMenu::from_model(None::<&gio::MenuModel>);
+            popover.set_parent(&anchor);
+            popover.set_has_arrow(false);
+            menus.push((anchor.downgrade(), popover.clone()));
+            popover
         });
-        POPOVERS.with(|p| p.borrow_mut().push(popover.downgrade()));
-        popover.popup();
+        popover.set_menu_model(Some(&model));
+        popover.set_pointing_to(Some(&gdk::Rectangle::new(x, y, 1, 1)));
+        // Erst nach dem laufenden Ereignis öffnen: Aus einem Mausdruck heraus
+        // (Rechtsklick) misst GTK das Popover sonst zu klein – der letzte
+        // Eintrag ist abgeschnitten.
+        glib::idle_add_local_once(move || popover.popup());
     }
 
     fn open_file(
@@ -3244,6 +3251,32 @@ fn set_folded(buffer: &sourceview5::Buffer, line: usize, folded: bool) {
 thread_local! {
     /// Die offene Vorschlagsliste (höchstens eine).
     static COMPLETION: RefCell<Option<glib::WeakRef<gtk::Popover>>> = const { RefCell::new(None) };
+}
+
+/// Die Vorschlagsliste eines Code-Editors (angelegt beim ersten Mal).
+fn completion_popover(view: &sourceview5::View) -> gtk::Popover {
+    COMPLETIONS.with(|c| {
+        let mut lists = c.borrow_mut();
+        lists.retain(|(v, _)| v.upgrade().is_some());
+        if let Some((_, popover)) = lists
+            .iter()
+            .find(|(v, _)| v.upgrade().as_ref() == Some(view))
+        {
+            return popover.clone();
+        }
+        let popover = gtk::Popover::new();
+        popover.set_has_arrow(false);
+        popover.set_position(gtk::PositionType::Bottom);
+        popover.set_parent(view);
+        let v = view.downgrade();
+        popover.connect_closed(move |_| {
+            if let Some(view) = v.upgrade() {
+                view.grab_focus();
+            }
+        });
+        lists.push((view.downgrade(), popover.clone()));
+        popover
+    })
 }
 
 fn close_completions() {
