@@ -36,6 +36,20 @@ pub enum Shape {
         to: Point,
         color: Color,
     },
+    /// Text in Festbreitenschrift (z. B. eine Zeile eines Terminals); mit
+    /// `background` wird die Fläche hinter dem Text gefüllt.
+    MonoText {
+        x: i32,
+        y: i32,
+        text: String,
+        color: Color,
+        background: Option<Color>,
+        /// Schriftgröße in Pixeln.
+        size: i32,
+        bold: bool,
+        italic: bool,
+        underline: bool,
+    },
 }
 
 /// Gedrückte Zusatztasten.
@@ -56,6 +70,9 @@ pub enum MouseAction {
     /// Bewegung (mit oder ohne gedrückte Taste).
     Moved,
     DoubleClicked,
+    /// Mausrad nach oben bzw. unten (eine Raste).
+    ScrollUp,
+    ScrollDown,
 }
 
 /// Ein Mausereignis auf der Zeichenfläche, Koordinaten relativ zu ihr.
@@ -74,4 +91,14 @@ pub struct MouseEvent {
 pub struct KeyEvent {
     pub key: Key,
     pub modifiers: Modifiers,
+    /// Das Zeichen, wie getippt (mit Umschalt, AltGr …; z. B. `A`, `ä`,
+    /// `@`); `None` bei Tasten ohne Zeichen wie Pfeilen.
+    pub text: Option<char>,
+}
+
+/// Größe eines einzeiligen Texts in Pixeln (`monospace`: Festbreitenschrift,
+/// wie [`Shape::MonoText`]) – z. B. für die Zellengröße eines Terminals.
+pub fn measure_text(text: &str, size: i32, bold: bool, monospace: bool) -> crate::Size {
+    use crate::backend::{Backend, Platform};
+    Platform::measure_text(text, size, bold, monospace)
 }

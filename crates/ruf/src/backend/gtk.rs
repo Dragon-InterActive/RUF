@@ -1122,6 +1122,50 @@ impl Backend for Gtk {
             .set_tooltip_text((!text.is_empty()).then_some(text));
     }
 
+    fn measure_text(text: &str, size: i32, bold: bool, monospace: bool) -> Size {
+        let context = pangocairo::FontMap::default().create_context();
+        let layout = pango::Layout::new(&context);
+        layout.set_font_description(Some(&text_font(None, size, bold, false, monospace)));
+        layout.set_text(text);
+        let (width, height) = layout.pixel_size();
+        Size::new(width, height)
+    }
+
+    fn clipboard_set(text: &str) {
+        if let Some(display) = gdk::Display::default() {
+            display.clipboard().set_text(text);
+        }
+    }
+
+    fn clipboard_read(f: Box<dyn FnOnce(Option<String>)>) {
+        let Some(display) = gdk::Display::default() else {
+            f(None);
+            return;
+        };
+        display
+            .clipboard()
+            .read_text_async(None::<&gio::Cancellable>, move |result| {
+                f(result.ok().flatten().map(|t| t.to_string()));
+            });
+    }
+
+    fn focus(native: &GtkNative) {
+        match &native.inner {
+            Inner::Canvas { area, .. } => {
+                area.grab_focus();
+            }
+            Inner::Text { view, .. } => {
+                view.grab_focus();
+            }
+            Inner::Code(view) => {
+                view.grab_focus();
+            }
+            _ => {
+                native.outer.grab_focus();
+            }
+        }
+    }
+
     fn set_mouse_cursor(native: &GtkNative, name: &str) {
         let target = match &native.inner {
             Inner::Canvas { area, .. } => area.clone().upcast(),
@@ -2022,6 +2066,30 @@ fn rounded_rect(cr: &gtk::cairo::Context, x: f64, y: f64, w: f64, h: f64, radius
     cr.close_path();
 }
 
+/// Schrift für Text auf der Zeichenfläche (`base` = Schrift des Widgets).
+fn text_font(
+    base: Option<&pango::FontDescription>,
+    size: i32,
+    bold: bool,
+    italic: bool,
+    monospace: bool,
+) -> pango::FontDescription {
+    let mut font = base.cloned().unwrap_or_default();
+    if monospace {
+        font.set_family("Monospace");
+    }
+    font.set_absolute_size(f64::from(size) * f64::from(pango::SCALE));
+    font.set_weight(if bold {
+        pango::Weight::Bold
+    } else {
+        pango::Weight::Normal
+    });
+    if italic {
+        font.set_style(pango::Style::Italic);
+    }
+    font
+}
+
 fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shape]) {
     let base = area.pango_context().font_description().unwrap_or_default();
     cr.set_line_width(1.0);
@@ -2079,6 +2147,41 @@ fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shap
                 });
                 layout.set_font_description(Some(&font));
                 layout.set_text(text);
+                set_color(cr, *color);
+                cr.move_to(f64::from(*x), f64::from(*y));
+                pangocairo::functions::show_layout(cr, &layout);
+            }
+            Shape::MonoText {
+                x,
+                y,
+                text,
+                color,
+                background,
+                size,
+                bold,
+                italic,
+                underline,
+            } => {
+                let layout = pangocairo::functions::create_layout(cr);
+                layout.set_font_description(Some(&text_font(
+                    Some(&base),
+                    *size,
+                    *bold,
+                    *italic,
+                    true,
+                )));
+                layout.set_text(text);
+                if *underline {
+                    let attrs = pango::AttrList::new();
+                    attrs.insert(pango::AttrInt::new_underline(pango::Underline::Single));
+                    layout.set_attributes(Some(&attrs));
+                }
+                if let Some(bg) = background {
+                    let (w, h) = layout.pixel_size();
+                    set_color(cr, *bg);
+                    cr.rectangle(f64::from(*x), f64::from(*y), f64::from(w), f64::from(h));
+                    let _ = cr.fill();
+                }
                 set_color(cr, *color);
                 cr.move_to(f64::from(*x), f64::from(*y));
                 pangocairo::functions::show_layout(cr, &layout);
@@ -2180,6 +2283,29 @@ fn connect_canvas_input(area: &gtk::DrawingArea, id: Id) {
     });
     area.add_controller(motion);
 
+    let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+    scroll.connect_scroll(move |c, _, dy| {
+        if dy == 0.0 {
+            return glib::Propagation::Proceed;
+        }
+        notify(
+            id,
+            Notify::Mouse(MouseEvent {
+                action: if dy < 0.0 {
+                    MouseAction::ScrollUp
+                } else {
+                    MouseAction::ScrollDown
+                },
+                x: 0,
+                y: 0,
+                button: 0,
+                modifiers: modifiers(c.current_event_state()),
+            }),
+        );
+        glib::Propagation::Stop
+    });
+    area.add_controller(scroll);
+
     let keys = gtk::EventControllerKey::new();
     keys.connect_key_pressed(move |_, keyval, _, state| match key_from(keyval) {
         Some(key) => {
@@ -2188,6 +2314,7 @@ fn connect_canvas_input(area: &gtk::DrawingArea, id: Id) {
                 Notify::Key(KeyEvent {
                     key,
                     modifiers: modifiers(state),
+                    text: keyval.to_unicode().filter(|c| !c.is_control()),
                 }),
             );
             glib::Propagation::Stop

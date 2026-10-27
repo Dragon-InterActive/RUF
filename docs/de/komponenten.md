@@ -372,8 +372,15 @@ canvas.on_mouse(|e| println!("{:?} {} {} Taste {}", e.action, e.x, e.y, e.button
 canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
 ```
 
-Ein Klick gibt der Zeichenfläche den Tastaturfokus. `MouseAction`: `Pressed`,
-`Released`, `Moved`, `DoubleClicked`; Taste 1 = links, 3 = rechts.
+Ein Klick (oder `canvas.widget().focus()`) gibt der Zeichenfläche den
+Tastaturfokus. `MouseAction`: `Pressed`, `Released`, `Moved`, `DoubleClicked`,
+`ScrollUp`, `ScrollDown` (Mausrad); Taste 1 = links, 3 = rechts. `KeyEvent::text`
+ist das Zeichen, wie getippt (`A`, `ä`, `@`), `key` die Taste.
+
+Festbreitentext (z. B. ein Terminal) mit `Shape::MonoText` (Hintergrund, fett,
+kursiv, unterstrichen); die Zellengröße liefert
+`ruf::measure_text("M", 13, false, true)`. Die Zwischenablage:
+`ruf::clipboard::set_text("…")` und `ruf::clipboard::read_text(|t| …)` (asynchron).
 Für Tests: `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
 
 ## `RnclCodeEditor` – Code-Editor

@@ -371,8 +371,15 @@ canvas.on_mouse(|e| println!("{:?} {} {} button {}", e.action, e.x, e.y, e.butto
 canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
 ```
 
-A click gives the canvas keyboard focus. `MouseAction`: `Pressed`, `Released`,
-`Moved`, `DoubleClicked`; button 1 = left, 3 = right. For tests:
+A click (or `canvas.widget().focus()`) gives the canvas keyboard focus.
+`MouseAction`: `Pressed`, `Released`, `Moved`, `DoubleClicked`, `ScrollUp`,
+`ScrollDown` (wheel); button 1 = left, 3 = right. `KeyEvent::text` is the
+character as typed (`A`, `ä`, `@`), `key` the key.
+
+Monospace text (e.g. a terminal) with `Shape::MonoText` (background, bold,
+italic, underline); the cell size comes from `ruf::measure_text("M", 13, false, true)`.
+Clipboard: `ruf::clipboard::set_text("…")` and `ruf::clipboard::read_text(|t| …)`
+(asynchronous). For tests:
 `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
 
 ## `RnclCodeEditor` – code editor

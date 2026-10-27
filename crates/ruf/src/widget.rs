@@ -221,6 +221,12 @@ impl Widget {
         self.native_call(|n, k| Platform::set_tool_tip(n, k, text));
     }
 
+    /// Gibt dem Widget den Tastaturfokus (z. B. einer Zeichenfläche, damit
+    /// sie Tasten bekommt).
+    pub fn focus(&self) {
+        self.native_call(|n, _| Platform::focus(n));
+    }
+
     /// Mauszeiger über dem Widget als CSS-Name, z. B. `row-resize`,
     /// `col-resize`, `pointer`; leer = Standard.
     pub fn set_mouse_cursor(&self, name: &str) {

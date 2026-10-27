@@ -662,6 +662,7 @@ fn canvas_shapes_and_input() {
     canvas.widget().simulate_key(KeyEvent {
         key: ruf::Key::Delete,
         modifiers: ruf::Modifiers::default(),
+        text: None,
     });
     assert_eq!(seen.borrow().as_slice(), &[click]);
     assert_eq!(keys.borrow()[0].key, ruf::Key::Delete);
