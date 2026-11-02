@@ -103,6 +103,10 @@ Native: GTK `GtkButton` · category *Standard*
 let button = RnclButton::new(&window, "Save");
 button.on_clicked(|| println!("saved"));
 button.click();                          // click programmatically
+
+// With a picture (left of the text; without text only the picture, e.g. a tool palette).
+let icon = ruf::Image::from_bytes(include_bytes!("save-48.png")).with_display_size(24, 24);
+button.widget().set_image(Some(&icon));
 ```
 
 | Property | Type | |

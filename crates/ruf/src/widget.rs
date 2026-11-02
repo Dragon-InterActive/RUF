@@ -711,6 +711,16 @@ impl Widget {
         core::get(self.id, |n| n.execution_line).flatten()
     }
 
+    /// Bild auf einem Knopf (links vom Text; ohne Text nur das Bild).
+    /// `None` entfernt es.
+    pub fn set_image(&self, image: Option<&crate::Image>) {
+        core::set_image(self.id, image.cloned());
+    }
+
+    pub fn image(&self) -> Option<crate::Image> {
+        core::get(self.id, |n| n.image.clone()).flatten()
+    }
+
     /// Klick in die Randleiste des Code-Editors: Zeile (ab 1), Maustaste
     /// (1 = links, 3 = rechts) und Position (für ein Kontextmenü).
     pub fn on_gutter_clicked(&self, f: impl FnMut(crate::code::GutterClick) + 'static) -> bool {

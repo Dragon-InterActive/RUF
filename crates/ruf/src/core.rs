@@ -259,6 +259,8 @@ pub(crate) struct Node {
     pub breakpoint_marks: Vec<crate::code::BreakpointMark>,
     /// Zeile (ab 1), an der der Debugger steht.
     pub execution_line: Option<usize>,
+    /// Bild eines Knopfs.
+    pub image: Option<crate::Image>,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -436,6 +438,7 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         diff_marks: Vec::new(),
         breakpoint_marks: Vec::new(),
         execution_line: None,
+        image: None,
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -1613,6 +1616,14 @@ pub(crate) fn set_breakpoint_marks(id: Id, marks: Vec<crate::code::BreakpointMar
     };
     setter(|| Platform::set_breakpoint_marks(&native, &marks));
     update(id, |n| n.breakpoint_marks = marks);
+}
+
+pub(crate) fn set_image(id: Id, image: Option<crate::Image>) {
+    let Some((native, WidgetKind::PushButton)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_button_image(&native, image.as_ref()));
+    update(id, |n| n.image = image);
 }
 
 pub(crate) fn set_execution_line(id: Id, line: Option<usize>) {

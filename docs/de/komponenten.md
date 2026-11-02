@@ -104,6 +104,10 @@ Nativ: GTK `GtkButton` · Kategorie *Standard*
 let button = RnclButton::new(&window, "Speichern");
 button.on_clicked(|| println!("gespeichert"));
 button.click();                          // programmatisch klicken
+
+// Mit Bild (links vom Text; ohne Text nur das Bild, z. B. eine Werkzeugpalette).
+let icon = ruf::Image::from_bytes(include_bytes!("save-48.png")).with_display_size(24, 24);
+button.widget().set_image(Some(&icon));
 ```
 
 | Eigenschaft | Typ | |

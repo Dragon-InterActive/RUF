@@ -61,6 +61,7 @@ pub enum Shape {
 pub struct Image {
     id: u64,
     bytes: std::sync::Arc<[u8]>,
+    display: Option<crate::Size>,
 }
 
 impl Image {
@@ -71,7 +72,19 @@ impl Image {
         Self {
             id: NEXT.fetch_add(1, Ordering::Relaxed),
             bytes: bytes.into(),
+            display: None,
         }
+    }
+
+    /// Anzeigegröße auf Knöpfen in logischen Pixeln, z. B. ein 48-px-Bild
+    /// als 24 × 24 (scharf auf HiDPI-Bildschirmen). Ohne Angabe: Pixelgröße.
+    pub fn with_display_size(mut self, width: i32, height: i32) -> Self {
+        self.display = Some(crate::Size::new(width, height));
+        self
+    }
+
+    pub fn display_size(&self) -> Option<crate::Size> {
+        self.display.or_else(|| self.size())
     }
 
     pub fn bytes(&self) -> &[u8] {

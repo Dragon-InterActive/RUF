@@ -222,6 +222,8 @@ pub(crate) trait Backend {
     /// Zeile (ab 1), an der der Debugger steht: Pfeil am Rand, Zeile
     /// hinterlegt. `None` entfernt sie.
     fn set_execution_line(native: &Self::Native, line: Option<usize>);
+    /// Bild eines Knopfs (links vom Text); `None` entfernt es.
+    fn set_button_image(native: &Self::Native, image: Option<&Image>);
     /// Faltbare Bereiche mit Zustand (siehe [`crate::code::fold_regions`]).
     fn folds(native: &Self::Native) -> Vec<Fold>;
     /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.

@@ -1352,7 +1352,13 @@ impl Backend for Gtk {
         match &native.inner {
             Inner::Window(w) => w.set_title(Some(text)),
             Inner::Group(f) => f.set_label((!text.is_empty()).then_some(text)),
-            Inner::Button(b) => b.set_label(text),
+            Inner::Button(b) => match button_parts(b) {
+                Some((_, label)) => {
+                    label.set_text(text);
+                    label.set_visible(!text.is_empty());
+                }
+                None => b.set_label(text),
+            },
             Inner::Check(c) => c.set_label(Some(text)),
             Inner::Label(l) => {
                 if looks_like_markup(text) {
@@ -1781,6 +1787,32 @@ impl Backend for Gtk {
             state.borrow_mut().breakpoints = marks.iter().map(|m| (m.line, m.kind)).collect();
         }
         redraw_gutter(view);
+    }
+
+    fn set_button_image(native: &GtkNative, image: Option<&Image>) {
+        let Inner::Button(button) = &native.inner else {
+            return;
+        };
+        let text = match button_parts(button) {
+            Some((_, label)) => label.text().to_string(),
+            None => button.label().map(|l| l.to_string()).unwrap_or_default(),
+        };
+        let Some(texture) = image.and_then(image_texture) else {
+            button.set_child(None::<&gtk::Widget>);
+            button.set_label(&text);
+            return;
+        };
+        let picture = gtk::Image::from_paintable(Some(&texture));
+        if let Some(size) = image.and_then(Image::display_size) {
+            picture.set_pixel_size(size.width.max(size.height));
+        }
+        let label = gtk::Label::new(Some(&text));
+        label.set_visible(!text.is_empty());
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        row.set_halign(gtk::Align::Center);
+        row.append(&picture);
+        row.append(&label);
+        button.set_child(Some(&row));
     }
 
     fn set_execution_line(native: &GtkNative, line: Option<usize>) {
@@ -2248,6 +2280,29 @@ fn set_app_icon(name: &str, icons: &[(u32, &[u8])]) -> Option<()> {
     }
     gtk::Window::set_default_icon_name(name);
     Some(())
+}
+
+/// Bild und Text eines Knopfs mit Bild (`None` = schlichter Knopf).
+fn button_parts(button: &gtk::Button) -> Option<(gtk::Image, gtk::Label)> {
+    let row = button.child()?.downcast::<gtk::Box>().ok()?;
+    let picture = row.first_child()?.downcast::<gtk::Image>().ok()?;
+    let label = row.last_child()?.downcast::<gtk::Label>().ok()?;
+    Some((picture, label))
+}
+
+thread_local! {
+    /// Bilder als GDK-Texturen (für Knöpfe) nach [`Image`]-Kennung.
+    static TEXTURES: RefCell<HashMap<u64, Option<gdk::Texture>>> = RefCell::new(HashMap::new());
+}
+
+fn image_texture(image: &Image) -> Option<gdk::Texture> {
+    TEXTURES.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(image.id())
+            .or_insert_with(|| gdk::Texture::from_bytes(&glib::Bytes::from(image.bytes())).ok())
+            .clone()
+    })
 }
 
 thread_local! {

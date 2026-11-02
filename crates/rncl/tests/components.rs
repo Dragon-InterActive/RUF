@@ -1009,6 +1009,16 @@ fn image_icon_and_splash_window() {
     }];
     canvas.set_shapes(shapes.clone());
     assert_eq!(canvas.shapes(), shapes);
+    // Knopf mit Bild: Text lässt sich weiter setzen und lesen.
+    let button = RnclButton::new(&window, "");
+    let icon = image.clone().with_display_size(16, 16);
+    assert_eq!(icon.display_size(), Some(Size::new(16, 16)));
+    button.widget().set_image(Some(&icon));
+    button.set_text("Rot");
+    assert_eq!(button.text(), "Rot");
+    assert_eq!(button.widget().image(), Some(icon));
+    button.widget().set_image(None);
+    assert_eq!(button.text(), "Rot");
     window.show();
     Application::process_events();
 
