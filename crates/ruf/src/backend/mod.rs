@@ -214,6 +214,8 @@ pub(crate) trait Backend {
     fn set_language(native: &Self::Native, language: &str);
     /// Marken am Rand (ersetzt die bisherigen).
     fn set_line_marks(native: &Self::Native, marks: &[LineMark]);
+    /// Änderungsbalken am Rand des Code-Editors (ersetzt die bisherigen).
+    fn set_diff_marks(native: &Self::Native, marks: &[crate::code::DiffMark]);
     /// Faltbare Bereiche mit Zustand (siehe [`crate::code::fold_regions`]).
     fn folds(native: &Self::Native) -> Vec<Fold>;
     /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.

@@ -691,6 +691,17 @@ impl Widget {
         core::get(self.id, |n| n.line_marks.clone()).unwrap_or_default()
     }
 
+    /// Änderungsbalken (z. B. aus Git) am Rand des Code-Editors: grün = neu,
+    /// blau = geändert, rotes Dreieck = hier fehlen Zeilen. Ersetzt die
+    /// bisherigen.
+    pub fn set_diff_marks(&self, marks: Vec<crate::code::DiffMark>) {
+        core::set_diff_marks(self.id, marks);
+    }
+
+    pub fn diff_marks(&self) -> Vec<crate::code::DiffMark> {
+        core::get(self.id, |n| n.diff_marks.clone()).unwrap_or_default()
+    }
+
     /// Faltbare Bereiche eines Code-Editors (Klammerpaare über mehr als
     /// zwei Zeilen) mit ihrem Zustand. Gefaltet wird per Klick auf den Pfeil
     /// am Rand oder mit [`Widget::set_folded`].

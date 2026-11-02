@@ -419,6 +419,8 @@ for fold in editor.folds() {                  // Fold { start, end, folded }
 }
 editor.set_folded(7, true);                   // fold the block starting on line 7
 editor.set_all_folded(false);                 // unfold everything
+// Change bars (e.g. Git): green new, blue modified, red triangle = lines removed
+editor.set_diff_marks(vec![DiffMark { kind: DiffKind::Added, line: 3, count: 2 }]);
 ```
 
 ## `RnclSplitter` – movable divider

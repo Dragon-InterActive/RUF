@@ -1,6 +1,6 @@
 use ruf::{
-    AsWidget, Completion, Component, ComponentInfo, Fold, LineMark, MouseEvent, PropertyDescriptor,
-    PropertyError, PropertyValue, Widget, WidgetKind, base,
+    AsWidget, Completion, Component, ComponentInfo, DiffMark, Fold, LineMark, MouseEvent,
+    PropertyDescriptor, PropertyError, PropertyValue, Widget, WidgetKind, base,
 };
 
 use crate::props::text;
@@ -58,6 +58,16 @@ impl RnclCodeEditor {
     /// Marken am Rand; ersetzt die bisherigen.
     pub fn set_line_marks(&self, marks: Vec<LineMark>) {
         self.widget.set_line_marks(marks);
+    }
+
+    /// Änderungsbalken am Rand (z. B. aus Git): grün = neu, blau = geändert,
+    /// rotes Dreieck = hier fehlen Zeilen. Ersetzt die bisherigen.
+    pub fn set_diff_marks(&self, marks: Vec<DiffMark>) {
+        self.widget.set_diff_marks(marks);
+    }
+
+    pub fn diff_marks(&self) -> Vec<DiffMark> {
+        self.widget.diff_marks()
     }
 
     pub fn line_marks(&self) -> Vec<LineMark> {

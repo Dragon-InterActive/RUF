@@ -246,6 +246,7 @@ pub(crate) struct Node {
     /// Sprache und Zeilenmarken eines Code-Editors.
     pub language: String,
     pub line_marks: Vec<LineMark>,
+    pub diff_marks: Vec<crate::code::DiffMark>,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -420,6 +421,7 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         menu_bar: Vec::new(),
         language: String::new(),
         line_marks: Vec::new(),
+        diff_marks: Vec::new(),
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -1546,6 +1548,14 @@ pub(crate) fn set_line_marks(id: Id, marks: Vec<LineMark>) {
     };
     setter(|| Platform::set_line_marks(&native, &marks));
     update(id, |n| n.line_marks = marks);
+}
+
+pub(crate) fn set_diff_marks(id: Id, marks: Vec<crate::code::DiffMark>) {
+    let Some((native, WidgetKind::CodeEditor)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_diff_marks(&native, &marks));
+    update(id, |n| n.diff_marks = marks);
 }
 
 /// Setzt die Bildschirmposition eines Fensters (`false`, wenn das System es

@@ -24,7 +24,9 @@ use sourceview5::prelude::*;
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
-use crate::code::{Completion, Fold, LineMark, MarkKind, fold_regions, folds_language};
+use crate::code::{
+    Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind, fold_regions, folds_language,
+};
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
 use crate::geometry::Point;
@@ -1736,6 +1738,36 @@ impl Backend for Gtk {
         buffer.set_highlight_syntax(language.is_some());
     }
 
+    fn set_diff_marks(native: &GtkNative, marks: &[DiffMark]) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        if let Some(state) = fold_state(&buffer) {
+            let mut lines = HashMap::new();
+            for mark in marks {
+                match mark.kind {
+                    // Gelöschte Zeilen: Dreieck an der Zeile danach (VS Code
+                    // zeigt es an der Grenze); andere Marken gehen vor.
+                    DiffKind::Deleted => {
+                        lines
+                            .entry((mark.line + 1).max(1))
+                            .or_insert(DiffKind::Deleted);
+                    }
+                    kind => {
+                        for line in mark.line..mark.line + mark.count.max(1) {
+                            lines.insert(line, kind);
+                        }
+                    }
+                }
+            }
+            state.borrow_mut().diff = lines;
+        }
+        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+    }
+
     fn set_line_marks(native: &GtkNative, marks: &[LineMark]) {
         let Inner::Code(view) = &native.inner else {
             return;
@@ -3033,6 +3065,8 @@ struct FoldState {
     line_marks: Vec<LineMark>,
     /// Anker der gefalteten Bereiche (Anfang der Startzeile).
     anchors: Vec<gtk::TextMark>,
+    /// Änderungsbalken je Zeile (ab 1).
+    diff: HashMap<usize, DiffKind>,
 }
 
 type FoldStates = Vec<(glib::WeakRef<sourceview5::Buffer>, Rc<RefCell<FoldState>>)>;
@@ -3136,6 +3170,45 @@ fn setup_folding(view: &sourceview5::View, buffer: &sourceview5::Buffer) {
     };
     fit(buffer);
     buffer.connect_changed(fit);
+    // Änderungsbalken (Git) zwischen Zeilennummern und Marken, wie VS Code.
+    let changes = sourceview5::GutterRendererText::new();
+    changes.set_xalign(0.0);
+    changes.set_xpad(0);
+    changes.set_width_request(6);
+    changes.set_alignment_mode(sourceview5::GutterRendererAlignmentMode::First);
+    let weak = buffer.downgrade();
+    changes.connect_query_data(move |renderer, _, line| {
+        let Some(buffer) = weak.upgrade() else {
+            return;
+        };
+        let number = line as usize + 1;
+        let kind = fold_state(&buffer).and_then(|state| {
+            let state = state.borrow();
+            let hidden = state
+                .regions
+                .iter()
+                .any(|r| r.folded && r.start < number && number < r.end);
+            (!hidden)
+                .then(|| state.diff.get(&number).copied())
+                .flatten()
+        });
+        match kind {
+            Some(DiffKind::Added) => renderer.set_markup("<span foreground=\"#2ea043\">▎</span>"),
+            Some(DiffKind::Modified) => {
+                renderer.set_markup("<span foreground=\"#1f7fd6\">▎</span>")
+            }
+            Some(DiffKind::Deleted) => renderer.set_markup("<span foreground=\"#e5534b\">▸</span>"),
+            None => renderer.set_text(""),
+        }
+    });
+    // SAFETY: wie bei den Zeilennummern – schwebende Referenz übernehmen.
+    unsafe {
+        let object = changes.as_ptr() as *mut glib::gobject_ffi::GObject;
+        if glib::gobject_ffi::g_object_is_floating(object as *mut _) != 0 {
+            glib::gobject_ffi::g_object_ref_sink(object as *mut _);
+        }
+    }
+    sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).insert(&changes, -25);
     view.connect_line_mark_activated(|view, iter, button, _, _| {
         if button != 1 {
             return;

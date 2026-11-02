@@ -28,6 +28,27 @@ impl LineMark {
     }
 }
 
+/// Art einer Änderungsmarke (Versionsverwaltung).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DiffKind {
+    /// Neue Zeilen (grüner Balken).
+    Added,
+    /// Geänderte Zeilen (blauer Balken).
+    Modified,
+    /// Hier fehlen Zeilen (rotes Dreieck).
+    Deleted,
+}
+
+/// Eine Änderungsmarke am Rand des Code-Editors, z. B. aus Git: `count`
+/// Zeilen ab `line` (ab 1). Bei [`DiffKind::Deleted`] ist `line` die Zeile,
+/// nach der Zeilen fehlen (0 = vor der ersten).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DiffMark {
+    pub kind: DiffKind,
+    pub line: usize,
+    pub count: usize,
+}
+
 /// Ein Vorschlag der Vervollständigung.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Completion {

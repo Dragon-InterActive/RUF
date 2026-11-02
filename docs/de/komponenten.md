@@ -422,6 +422,8 @@ for fold in editor.folds() {                  // Fold { start, end, folded }
 }
 editor.set_folded(7, true);                   // Bereich ab Zeile 7 falten
 editor.set_all_folded(false);                 // alles aufklappen
+// Änderungsbalken (z. B. Git): grün neu, blau geändert, rotes Dreieck = Zeilen fehlen
+editor.set_diff_marks(vec![DiffMark { kind: DiffKind::Added, line: 3, count: 2 }]);
 ```
 
 ## `RnclSplitter` – verschiebbarer Teiler

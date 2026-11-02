@@ -50,7 +50,7 @@ mod widget;
 
 pub use app::{Application, ColorScheme};
 pub use canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape, measure_text};
-pub use code::{Completion, Fold, LineMark, MarkKind, fold_regions};
+pub use code::{Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind, fold_regions};
 pub use component::{Component, base};
 pub use geometry::{Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};
