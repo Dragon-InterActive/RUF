@@ -1,6 +1,6 @@
 use ruf::{
-    AsWidget, Completion, Component, ComponentInfo, DiffMark, Fold, LineMark, MouseEvent,
-    PropertyDescriptor, PropertyError, PropertyValue, Widget, WidgetKind, base,
+    AsWidget, BreakpointMark, Completion, Component, ComponentInfo, DiffMark, Fold, LineMark,
+    MouseEvent, PropertyDescriptor, PropertyError, PropertyValue, Widget, WidgetKind, base,
 };
 
 use crate::props::text;
@@ -72,6 +72,29 @@ impl RnclCodeEditor {
 
     pub fn line_marks(&self) -> Vec<LineMark> {
         self.widget.line_marks()
+    }
+
+    /// Haltepunkte am Rand (links der Zeilennummern); ersetzt die bisherigen.
+    pub fn set_breakpoint_marks(&self, marks: Vec<BreakpointMark>) {
+        self.widget.set_breakpoint_marks(marks);
+    }
+
+    pub fn breakpoint_marks(&self) -> Vec<BreakpointMark> {
+        self.widget.breakpoint_marks()
+    }
+
+    /// Zeile (ab 1), an der der Debugger steht (gelber Pfeil, hinterlegt).
+    pub fn set_execution_line(&self, line: Option<usize>) {
+        self.widget.set_execution_line(line);
+    }
+
+    pub fn execution_line(&self) -> Option<usize> {
+        self.widget.execution_line()
+    }
+
+    /// Klick in die Haltepunkt-Spalte: Zeile (ab 1), Maustaste (1 links, 3 rechts).
+    pub fn on_gutter_clicked(&self, f: impl FnMut(usize, u8) + 'static) {
+        self.widget.on_gutter_clicked(f);
     }
 
     /// Setzt den Cursor an den Anfang der Zeile `line` (ab 1) und scrollt hin.

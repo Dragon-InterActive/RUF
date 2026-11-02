@@ -426,6 +426,17 @@ editor.set_all_folded(false);                 // alles aufklappen
 editor.set_diff_marks(vec![DiffMark { kind: DiffKind::Added, line: 3, count: 2 }]);
 ```
 
+**Debuggen:** Ganz links steht eine Spalte für Haltepunkte (roter Punkt, orange =
+bedingt, rote Raute = Logpoint, grau = abgeschaltet, grauer Kreis = nicht aufgelöst)
+und den gelben Pfeil der Zeile, an der der Debugger steht; diese Zeile ist
+hinterlegt. Ein Klick in die Randleiste meldet Zeile und Maustaste.
+
+```rust
+editor.set_breakpoint_marks(vec![BreakpointMark { line: 8, kind: BreakpointKind::Normal }]);
+editor.set_execution_line(Some(8));           // None entfernt den Pfeil
+editor.on_gutter_clicked(|line, button| println!("Zeile {line}, Taste {button}"));
+```
+
 ## `RnclSplitter` – verschiebbarer Teiler
 
 Nativ: Zeichenfläche mit Größenänderungs-Mauszeiger · Kategorie *Container*
@@ -453,6 +464,7 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("ausgewählt: {id}"));
 tree.on_item_activated(|id| println!("Doppelklick: {id}"));
 tree.toggle("services");                  // auf-/zuklappen
+tree.on_item_toggled(|id, open| { /* z. B. Kinder erst jetzt laden */ });
 // Farbe und Zusatz rechts (z. B. Git-Status):
 // TreeItem::new("src/main.rs", "main.rs").with_color(Color::rgb(0xd1, 0x9a, 0x3c)).with_badge("M")
 // Rechtsklick: der Knoten ist dann gewählt; die Wahl meldet `on_menu` des Fensters.

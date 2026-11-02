@@ -216,6 +216,12 @@ pub(crate) trait Backend {
     fn set_line_marks(native: &Self::Native, marks: &[LineMark]);
     /// Änderungsbalken am Rand des Code-Editors (ersetzt die bisherigen).
     fn set_diff_marks(native: &Self::Native, marks: &[crate::code::DiffMark]);
+    /// Haltepunkte am Rand des Code-Editors (ersetzt die bisherigen). Ein
+    /// Klick in ihre Spalte meldet `Notify::Gutter`.
+    fn set_breakpoint_marks(native: &Self::Native, marks: &[crate::code::BreakpointMark]);
+    /// Zeile (ab 1), an der der Debugger steht: Pfeil am Rand, Zeile
+    /// hinterlegt. `None` entfernt sie.
+    fn set_execution_line(native: &Self::Native, line: Option<usize>);
     /// Faltbare Bereiche mit Zustand (siehe [`crate::code::fold_regions`]).
     fn folds(native: &Self::Native) -> Vec<Fold>;
     /// Faltet den Bereich, der in `line` (ab 1) beginnt, bzw. klappt ihn auf.

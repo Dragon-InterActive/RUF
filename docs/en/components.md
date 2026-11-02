@@ -423,6 +423,17 @@ editor.set_all_folded(false);                 // unfold everything
 editor.set_diff_marks(vec![DiffMark { kind: DiffKind::Added, line: 3, count: 2 }]);
 ```
 
+**Debugging:** the leftmost column holds breakpoints (red dot, orange =
+conditional, red diamond = logpoint, gray = disabled, gray circle = unresolved)
+and the yellow arrow of the line the debugger stands on; that line is
+highlighted. A click into the gutter reports line and mouse button.
+
+```rust
+editor.set_breakpoint_marks(vec![BreakpointMark { line: 8, kind: BreakpointKind::Normal }]);
+editor.set_execution_line(Some(8));           // None removes the arrow
+editor.on_gutter_clicked(|line, button| println!("line {line}, button {button}"));
+```
+
 ## `RnclSplitter` – movable divider
 
 Native: canvas with a resize mouse cursor · category *Container*
@@ -450,6 +461,7 @@ tree.select(Some("main.ok"));
 tree.on_selection_changed(|id| println!("selected: {id}"));
 tree.on_item_activated(|id| println!("double click: {id}"));
 tree.toggle("services");                  // expand/collapse
+tree.on_item_toggled(|id, open| { /* e.g. load children only now */ });
 // Color and a badge on the right (e.g. a Git status):
 // TreeItem::new("src/main.rs", "main.rs").with_color(Color::rgb(0xd1, 0x9a, 0x3c)).with_badge("M")
 // Right click: the node is selected then; the choice reaches the window's `on_menu`.

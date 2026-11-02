@@ -45,6 +45,7 @@ fn main() {
         ("window_position", window_position),
         ("adjust_size_is_stable", adjust_size_is_stable),
         ("code_editor", code_editor),
+        ("code_editor_debugging", code_editor_debugging),
     ];
 
     for (name, test) in tests {
@@ -744,8 +745,12 @@ fn tree_view() {
     tree.widget().activate_tree_item();
     assert_eq!(activated.borrow().as_slice(), ["main.name"]);
 
-    // Aufklappen zeigt Kinder, die Auswahl bleibt.
+    // Aufklappen zeigt Kinder, die Auswahl bleibt; gemeldet wird es auch.
+    let toggled: Rc<RefCell<Vec<(String, bool)>>> = Rc::default();
+    let t = toggled.clone();
+    tree.on_item_toggled(move |id, open| t.borrow_mut().push((id, open)));
     assert!(tree.toggle("services"));
+    assert_eq!(toggled.borrow().as_slice(), [("services".to_owned(), true)]);
     assert_eq!(tree.visible_items().len(), 5);
     assert_eq!(tree.selected().as_deref(), Some("main.name"));
     // Zuklappen des Elternknotens verbirgt die Auswahl: keine Auswahl mehr.
@@ -947,4 +952,36 @@ fn code_editor() {
     editor.set_language("toml");
     assert_eq!(editor.language(), "toml");
     assert_eq!(editor.widget().kind(), WidgetKind::CodeEditor);
+}
+
+fn code_editor_debugging() {
+    let window = RnclWindow::new("Debug");
+    let code = RnclCodeEditor::new(&window);
+    code.set_language("rust");
+    code.set_text("fn main() {\n    let x = 1;\n    println!(\"{x}\");\n}\n");
+    let marks = vec![
+        BreakpointMark {
+            line: 2,
+            kind: BreakpointKind::Normal,
+        },
+        BreakpointMark {
+            line: 3,
+            kind: BreakpointKind::Log,
+        },
+    ];
+    code.set_breakpoint_marks(marks.clone());
+    assert_eq!(code.breakpoint_marks(), marks);
+    code.set_execution_line(Some(2));
+    assert_eq!(code.execution_line(), Some(2));
+    Application::process_events();
+    code.set_execution_line(None);
+    code.set_execution_line(Some(99)); // außerhalb: kein Absturz
+    assert_eq!(code.execution_line(), Some(99));
+
+    let clicks: Rc<RefCell<Vec<(usize, u8)>>> = Rc::default();
+    let c = clicks.clone();
+    code.on_gutter_clicked(move |line, button| c.borrow_mut().push((line, button)));
+    code.widget().simulate_gutter_click(3, 1);
+    code.widget().simulate_gutter_click(2, 3);
+    assert_eq!(clicks.borrow().as_slice(), [(3, 1), (2, 3)]);
 }

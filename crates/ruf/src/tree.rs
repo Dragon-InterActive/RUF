@@ -87,6 +87,17 @@ pub(crate) fn visible_rows(items: &[TreeItem]) -> Vec<TreeRow> {
     out
 }
 
+/// Ist der Knoten `id` aufgeklappt? (`None`: nicht gefunden.)
+pub(crate) fn is_expanded(items: &[TreeItem], id: &str) -> Option<bool> {
+    items.iter().find_map(|item| {
+        if item.id == id {
+            Some(item.expanded)
+        } else {
+            is_expanded(&item.children, id)
+        }
+    })
+}
+
 /// Klappt den Knoten `id` um; `true`, wenn er gefunden wurde.
 pub(crate) fn toggle(items: &mut [TreeItem], id: &str) -> bool {
     for item in items {

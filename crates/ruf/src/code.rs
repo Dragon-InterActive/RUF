@@ -28,6 +28,28 @@ impl LineMark {
     }
 }
 
+/// Art eines Haltepunkts am Rand des Code-Editors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BreakpointKind {
+    /// Roter Punkt.
+    Normal,
+    /// Mit Bedingung oder Trefferzahl (oranger Punkt).
+    Conditional,
+    /// Logpoint: schreibt statt anzuhalten (rote Raute).
+    Log,
+    /// Abgeschaltet (grauer Punkt).
+    Disabled,
+    /// Vom Debugger (noch) nicht aufgelöst (grauer Kreis).
+    Unverified,
+}
+
+/// Ein Haltepunkt am Rand des Code-Editors, Zeile ab 1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BreakpointMark {
+    pub line: usize,
+    pub kind: BreakpointKind,
+}
+
 /// Art einer Änderungsmarke (Versionsverwaltung).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiffKind {

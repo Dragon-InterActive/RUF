@@ -128,6 +128,8 @@ pub(crate) enum Notify {
     Text(String),
     /// Knoten in Zeile `n` der Baumansicht auf-/zuklappen.
     TreeToggled(usize),
+    /// Klick in die Randleiste des Code-Editors: Zeile (ab 1), Maustaste.
+    Gutter(usize, u8),
 }
 
 type Callback<F> = Rc<RefCell<F>>;
@@ -148,6 +150,8 @@ enum Handler {
     TextInput(Callback<dyn FnMut(String)>),
     TreeSelected(Callback<dyn FnMut(String)>),
     TreeActivated(Callback<dyn FnMut(String)>),
+    TreeToggled(Callback<dyn FnMut(String, bool)>),
+    Gutter(Callback<dyn FnMut(usize, u8)>),
 }
 
 /// Ein Signal, das ein Widget anbieten kann.
@@ -167,6 +171,8 @@ pub(crate) enum Signal {
     Menu,
     TreeSelected,
     TreeActivated,
+    TreeToggled,
+    Gutter,
 }
 
 impl Signal {
@@ -188,7 +194,10 @@ impl Signal {
             Signal::Mouse => matches!(kind, K::Canvas | K::CodeEditor | K::TreeView),
             Signal::Key | Signal::TextInput => kind == K::Canvas,
             Signal::Menu => kind == K::Window,
-            Signal::TreeSelected | Signal::TreeActivated => kind == K::TreeView,
+            Signal::TreeSelected | Signal::TreeActivated | Signal::TreeToggled => {
+                kind == K::TreeView
+            }
+            Signal::Gutter => kind == K::CodeEditor,
         }
     }
 }
@@ -247,6 +256,9 @@ pub(crate) struct Node {
     pub language: String,
     pub line_marks: Vec<LineMark>,
     pub diff_marks: Vec<crate::code::DiffMark>,
+    pub breakpoint_marks: Vec<crate::code::BreakpointMark>,
+    /// Zeile (ab 1), an der der Debugger steht.
+    pub execution_line: Option<usize>,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -422,6 +434,8 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         language: String::new(),
         line_marks: Vec::new(),
         diff_marks: Vec::new(),
+        breakpoint_marks: Vec::new(),
+        execution_line: None,
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -940,6 +954,13 @@ pub(crate) fn notify(id: Id, event: Notify) {
                 toggle_tree_item(id, &item);
             }
         }
+        Notify::Gutter(line, button) => fire(
+            handlers(id, |h| match h {
+                Handler::Gutter(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(line, button),
+        ),
     }
 }
 
@@ -1423,6 +1444,22 @@ pub(crate) fn connect_tree_activated(id: Id, f: impl FnMut(String) + 'static) ->
     )
 }
 
+pub(crate) fn connect_tree_toggled(id: Id, f: impl FnMut(String, bool) + 'static) -> bool {
+    add_handler(
+        id,
+        Signal::TreeToggled,
+        Handler::TreeToggled(Rc::new(RefCell::new(f))),
+    )
+}
+
+pub(crate) fn connect_gutter(id: Id, f: impl FnMut(usize, u8) + 'static) -> bool {
+    add_handler(
+        id,
+        Signal::Gutter,
+        Handler::Gutter(Rc::new(RefCell::new(f))),
+    )
+}
+
 /// Ersetzt, was eine Zeichenfläche malt.
 pub(crate) fn set_shapes(id: Id, shapes: Vec<Shape>) {
     let Some((native, WidgetKind::Canvas)) = native(id) else {
@@ -1462,11 +1499,23 @@ pub(crate) fn set_tree(id: Id, items: Vec<TreeItem>) {
 }
 
 pub(crate) fn toggle_tree_item(id: Id, item: &str) -> bool {
-    let found = update(id, |n| crate::tree::toggle(&mut n.tree, item)).unwrap_or(false);
-    if found {
+    let expanded = update(id, |n| {
+        crate::tree::toggle(&mut n.tree, item)
+            .then(|| crate::tree::is_expanded(&n.tree, item))
+            .flatten()
+    })
+    .flatten();
+    if let Some(expanded) = expanded {
         refresh_tree(id);
+        fire(
+            handlers(id, |h| match h {
+                Handler::TreeToggled(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(item.to_owned(), expanded),
+        );
     }
-    found
+    expanded.is_some()
 }
 
 /// Wählt einen Knoten aus (`None` = keine Auswahl); feuert die Auswahl.
@@ -1556,6 +1605,22 @@ pub(crate) fn set_diff_marks(id: Id, marks: Vec<crate::code::DiffMark>) {
     };
     setter(|| Platform::set_diff_marks(&native, &marks));
     update(id, |n| n.diff_marks = marks);
+}
+
+pub(crate) fn set_breakpoint_marks(id: Id, marks: Vec<crate::code::BreakpointMark>) {
+    let Some((native, WidgetKind::CodeEditor)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_breakpoint_marks(&native, &marks));
+    update(id, |n| n.breakpoint_marks = marks);
+}
+
+pub(crate) fn set_execution_line(id: Id, line: Option<usize>) {
+    let Some((native, WidgetKind::CodeEditor)) = native(id) else {
+        return;
+    };
+    setter(|| Platform::set_execution_line(&native, line));
+    update(id, |n| n.execution_line = line);
 }
 
 /// Setzt die Bildschirmposition eines Fensters (`false`, wenn das System es

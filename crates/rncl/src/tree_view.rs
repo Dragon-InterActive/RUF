@@ -55,6 +55,11 @@ impl RnclTreeView {
         self.widget.on_tree_selection_changed(f);
     }
 
+    /// Ein Knoten wurde auf- (`true`) oder zugeklappt.
+    pub fn on_item_toggled(&self, f: impl FnMut(String, bool) + 'static) {
+        self.widget.on_tree_item_toggled(f);
+    }
+
     /// Doppelklick bzw. Enter auf einem Knoten.
     pub fn on_item_activated(&self, f: impl FnMut(String) + 'static) {
         self.widget.on_tree_item_activated(f);

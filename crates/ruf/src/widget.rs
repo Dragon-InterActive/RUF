@@ -691,6 +691,37 @@ impl Widget {
         core::get(self.id, |n| n.line_marks.clone()).unwrap_or_default()
     }
 
+    /// Haltepunkte am Rand des Code-Editors (links der Zeilennummern);
+    /// ersetzt die bisherigen.
+    pub fn set_breakpoint_marks(&self, marks: Vec<crate::code::BreakpointMark>) {
+        core::set_breakpoint_marks(self.id, marks);
+    }
+
+    pub fn breakpoint_marks(&self) -> Vec<crate::code::BreakpointMark> {
+        core::get(self.id, |n| n.breakpoint_marks.clone()).unwrap_or_default()
+    }
+
+    /// Zeile (ab 1), an der der Debugger steht: gelber Pfeil am Rand, Zeile
+    /// hinterlegt. `None` entfernt die Markierung.
+    pub fn set_execution_line(&self, line: Option<usize>) {
+        core::set_execution_line(self.id, line);
+    }
+
+    pub fn execution_line(&self) -> Option<usize> {
+        core::get(self.id, |n| n.execution_line).flatten()
+    }
+
+    /// Klick in die Haltepunkt-Spalte des Code-Editors: Zeile (ab 1) und
+    /// Maustaste (1 = links, 3 = rechts).
+    pub fn on_gutter_clicked(&self, f: impl FnMut(usize, u8) + 'static) -> bool {
+        core::connect_gutter(self.id, f)
+    }
+
+    /// Simuliert einen Klick in die Haltepunkt-Spalte (Tests, Automatisierung).
+    pub fn simulate_gutter_click(&self, line: usize, button: u8) {
+        core::notify(self.id, core::Notify::Gutter(line, button));
+    }
+
     /// Änderungsbalken (z. B. aus Git) am Rand des Code-Editors: grün = neu,
     /// blau = geändert, rotes Dreieck = hier fehlen Zeilen. Ersetzt die
     /// bisherigen.
@@ -792,6 +823,12 @@ impl Widget {
     /// Auswahlwechsel (Kennung, leer = keine Auswahl).
     pub fn on_tree_selection_changed(&self, f: impl FnMut(String) + 'static) -> bool {
         core::connect_tree_selected(self.id, f)
+    }
+
+    /// Ein Knoten wurde auf- (`true`) oder zugeklappt – z. B. um Kinder erst
+    /// dann zu laden.
+    pub fn on_tree_item_toggled(&self, f: impl FnMut(String, bool) + 'static) -> bool {
+        core::connect_tree_toggled(self.id, f)
     }
 
     /// Doppelklick bzw. Enter auf einem Knoten.

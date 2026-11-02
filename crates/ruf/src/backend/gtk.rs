@@ -25,7 +25,8 @@ use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
 use crate::code::{
-    Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind, fold_regions, folds_language,
+    BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind,
+    fold_regions, folds_language,
 };
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
@@ -871,6 +872,7 @@ impl Backend for Gtk {
             }
             WidgetKind::CodeEditor => {
                 let view = new_code_view();
+                setup_breakpoints(&view, id);
                 view.buffer()
                     .connect_changed(move |_| notify(id, Notify::Changed));
                 // Maus melden (z. B. Strg+Klick = Gehe zu Definition). Beim
@@ -1764,6 +1766,43 @@ impl Backend for Gtk {
                 }
             }
             state.borrow_mut().diff = lines;
+        }
+        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+    }
+
+    fn set_breakpoint_marks(native: &GtkNative, marks: &[BreakpointMark]) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        if let Some(state) = fold_state(&buffer) {
+            state.borrow_mut().breakpoints = marks.iter().map(|m| (m.line, m.kind)).collect();
+        }
+        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+    }
+
+    fn set_execution_line(native: &GtkNative, line: Option<usize>) {
+        let Inner::Code(view) = &native.inner else {
+            return;
+        };
+        let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+            return;
+        };
+        if let Some(state) = fold_state(&buffer) {
+            state.borrow_mut().execution = line;
+        }
+        let tag = set_tag(buffer.upcast_ref(), EXECUTION_TAG, |tag| {
+            tag.set_paragraph_background(Some("rgba(255, 200, 0, 0.28)"));
+        });
+        buffer.remove_tag(&tag, &buffer.start_iter(), &buffer.end_iter());
+        if let Some(line) = line
+            && let Some(from) = buffer.iter_at_line(line.saturating_sub(1) as i32)
+        {
+            let mut to = from;
+            to.forward_line();
+            buffer.apply_tag(&tag, &from, &to);
         }
         sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
     }
@@ -3067,6 +3106,10 @@ struct FoldState {
     anchors: Vec<gtk::TextMark>,
     /// Änderungsbalken je Zeile (ab 1).
     diff: HashMap<usize, DiffKind>,
+    /// Haltepunkte je Zeile (ab 1).
+    breakpoints: HashMap<usize, BreakpointKind>,
+    /// Zeile des Debuggers (ab 1).
+    execution: Option<usize>,
 }
 
 type FoldStates = Vec<(glib::WeakRef<sourceview5::Buffer>, Rc<RefCell<FoldState>>)>;
@@ -3229,6 +3272,108 @@ fn setup_folding(view: &sourceview5::View, buffer: &sourceview5::Buffer) {
             set_folded(&buffer, line, !folded);
         }
     });
+}
+
+// --- Haltepunkte ----------------------------------------------------------------------
+//
+// Eigene Spalte ganz links (wie VS Code): Punkte für Haltepunkte, gelber
+// Pfeil für die Zeile des Debuggers. Ein Klick meldet Zeile und Maustaste.
+
+const EXECUTION_TAG: &str = "ruf-execution";
+
+fn setup_breakpoints(view: &sourceview5::View, id: Id) {
+    let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
+        return;
+    };
+    let renderer = sourceview5::GutterRendererText::new();
+    renderer.set_xalign(0.5);
+    renderer.set_xpad(2);
+    renderer.set_alignment_mode(sourceview5::GutterRendererAlignmentMode::First);
+    let (width, _) = renderer.measure_markup("<b>➜</b>");
+    renderer.set_width_request(width.max(12) + 6);
+    let weak = buffer.downgrade();
+    renderer.connect_query_data(move |renderer, _, line| {
+        let Some(buffer) = weak.upgrade() else {
+            return;
+        };
+        let number = line as usize + 1;
+        let (kind, here, hidden) = fold_state(&buffer)
+            .map(|state| {
+                let state = state.borrow();
+                let hidden = state
+                    .regions
+                    .iter()
+                    .any(|r| r.folded && r.start < number && number < r.end);
+                (
+                    state.breakpoints.get(&number).copied(),
+                    state.execution == Some(number),
+                    hidden,
+                )
+            })
+            .unwrap_or((None, false, false));
+        if hidden {
+            renderer.set_text("");
+        } else if here {
+            // Pfeil über dem Punkt (wie VS Code): rot umrandet, wenn auch ein
+            // Haltepunkt dort steht.
+            let color = if kind.is_some() { "#e5484d" } else { "#e0a800" };
+            renderer.set_markup(&format!("<span foreground=\"{color}\"><b>➜</b></span>"));
+        } else {
+            let (glyph, color) = match kind {
+                Some(BreakpointKind::Normal) => ("●", "#e5484d"),
+                Some(BreakpointKind::Conditional) => ("●", "#e8930c"),
+                Some(BreakpointKind::Log) => ("◆", "#e5484d"),
+                Some(BreakpointKind::Disabled) => ("●", "#8b8b8b"),
+                Some(BreakpointKind::Unverified) => ("○", "#8b8b8b"),
+                None => ("", ""),
+            };
+            if glyph.is_empty() {
+                renderer.set_text("");
+            } else {
+                renderer.set_markup(&format!(
+                    "<span foreground=\"{color}\" size=\"large\">{glyph}</span>"
+                ));
+            }
+        }
+    });
+    renderer.connect_query_activatable(|_, _, _| true);
+    renderer.connect_activate(move |_, iter, _, button, _, _| {
+        notify(id, Notify::Gutter(iter.line() as usize + 1, button as u8));
+    });
+    // Die Randleiste aktiviert nur mit der linken Taste; Rechtsklick (z. B.
+    // für ein Kontextmenü) selbst abfangen und die Zeile bestimmen.
+    let gutter = sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left);
+    let secondary = gtk::GestureClick::new();
+    secondary.set_button(3);
+    let weak_view = view.downgrade();
+    let weak_gutter = gutter.downgrade();
+    secondary.connect_pressed(move |gesture, _, x, y| {
+        let (Some(view), Some(gutter)) = (weak_view.upgrade(), weak_gutter.upgrade()) else {
+            return;
+        };
+        let Some(point) =
+            gutter.compute_point(&view, &gtk::graphene::Point::new(x as f32, y as f32))
+        else {
+            return;
+        };
+        let (_, by) = view.window_to_buffer_coords(
+            gtk::TextWindowType::Widget,
+            point.x() as i32,
+            point.y() as i32,
+        );
+        let (iter, _) = view.line_at_y(by);
+        gesture.set_state(gtk::EventSequenceState::Claimed);
+        notify(id, Notify::Gutter(iter.line() as usize + 1, 3));
+    });
+    gutter.add_controller(secondary);
+    // SAFETY: wie bei den Zeilennummern – schwebende Referenz übernehmen.
+    unsafe {
+        let object = renderer.as_ptr() as *mut glib::gobject_ffi::GObject;
+        if glib::gobject_ffi::g_object_is_floating(object as *mut _) != 0 {
+            glib::gobject_ffi::g_object_ref_sink(object as *mut _);
+        }
+    }
+    sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).insert(&renderer, -40);
 }
 
 /// Bereiche neu bestimmen, Pfeile und verborgene Zeilen neu setzen.
