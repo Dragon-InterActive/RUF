@@ -711,15 +711,15 @@ impl Widget {
         core::get(self.id, |n| n.execution_line).flatten()
     }
 
-    /// Klick in die Haltepunkt-Spalte des Code-Editors: Zeile (ab 1) und
-    /// Maustaste (1 = links, 3 = rechts).
-    pub fn on_gutter_clicked(&self, f: impl FnMut(usize, u8) + 'static) -> bool {
+    /// Klick in die Randleiste des Code-Editors: Zeile (ab 1), Maustaste
+    /// (1 = links, 3 = rechts) und Position (für ein Kontextmenü).
+    pub fn on_gutter_clicked(&self, f: impl FnMut(crate::code::GutterClick) + 'static) -> bool {
         core::connect_gutter(self.id, f)
     }
 
-    /// Simuliert einen Klick in die Haltepunkt-Spalte (Tests, Automatisierung).
-    pub fn simulate_gutter_click(&self, line: usize, button: u8) {
-        core::notify(self.id, core::Notify::Gutter(line, button));
+    /// Simuliert einen Klick in die Randleiste (Tests, Automatisierung).
+    pub fn simulate_gutter_click(&self, click: crate::code::GutterClick) {
+        core::notify(self.id, core::Notify::Gutter(click));
     }
 
     /// Änderungsbalken (z. B. aus Git) am Rand des Code-Editors: grün = neu,

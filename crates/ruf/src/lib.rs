@@ -51,8 +51,8 @@ mod widget;
 pub use app::{Application, ColorScheme};
 pub use canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape, measure_text};
 pub use code::{
-    BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind,
-    fold_regions,
+    BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,
+    MarkKind, fold_regions,
 };
 pub use component::{Component, base};
 pub use geometry::{Point, Rect, Size};

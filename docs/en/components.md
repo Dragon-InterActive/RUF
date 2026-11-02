@@ -431,7 +431,7 @@ highlighted. A click into the gutter reports line and mouse button.
 ```rust
 editor.set_breakpoint_marks(vec![BreakpointMark { line: 8, kind: BreakpointKind::Normal }]);
 editor.set_execution_line(Some(8));           // None removes the arrow
-editor.on_gutter_clicked(|line, button| println!("line {line}, button {button}"));
+editor.on_gutter_clicked(|c| println!("line {}, button {} at {}, {}", c.line, c.button, c.x, c.y));
 ```
 
 ## `RnclSplitter` – movable divider

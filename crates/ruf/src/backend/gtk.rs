@@ -25,8 +25,8 @@ use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
 use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
 use crate::code::{
-    BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, LineMark, MarkKind,
-    fold_regions, folds_language,
+    BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,
+    MarkKind, fold_regions, folds_language,
 };
 use crate::core::{self, Id, Notify, WidgetKind};
 use crate::dialog::FileFilter;
@@ -1767,7 +1767,7 @@ impl Backend for Gtk {
             }
             state.borrow_mut().diff = lines;
         }
-        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+        redraw_gutter(view);
     }
 
     fn set_breakpoint_marks(native: &GtkNative, marks: &[BreakpointMark]) {
@@ -1780,7 +1780,7 @@ impl Backend for Gtk {
         if let Some(state) = fold_state(&buffer) {
             state.borrow_mut().breakpoints = marks.iter().map(|m| (m.line, m.kind)).collect();
         }
-        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+        redraw_gutter(view);
     }
 
     fn set_execution_line(native: &GtkNative, line: Option<usize>) {
@@ -1804,7 +1804,7 @@ impl Backend for Gtk {
             to.forward_line();
             buffer.apply_tag(&tag, &from, &to);
         }
-        sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left).queue_draw();
+        redraw_gutter(view);
     }
 
     fn set_line_marks(native: &GtkNative, marks: &[LineMark]) {
@@ -3281,6 +3281,30 @@ fn setup_folding(view: &sourceview5::View, buffer: &sourceview5::Buffer) {
 
 const EXECUTION_TAG: &str = "ruf-execution";
 
+/// Zeichnet die Spalten der linken Randleiste neu. Jede Spalte ist ein
+/// eigenes Widget mit eigenem Zwischenspeicher – die Randleiste allein neu
+/// zu zeichnen, fragt ihre Daten nicht neu ab.
+fn redraw_gutter(view: &sourceview5::View) {
+    let gutter = sourceview5::prelude::ViewExt::gutter(view, gtk::TextWindowType::Left);
+    gutter.queue_draw();
+    let mut child = gutter.first_child();
+    while let Some(c) = child {
+        c.queue_draw();
+        child = c.next_sibling();
+    }
+}
+
+/// Punkt in `widget` umgerechnet auf den Bildlaufbereich um die Textansicht
+/// (das äußere Widget des Code-Editors, an dem Kontextmenüs hängen).
+fn to_editor(widget: &gtk::Widget, x: f64, y: f64) -> (i32, i32) {
+    let outer = widget
+        .ancestor(gtk::ScrolledWindow::static_type())
+        .unwrap_or_else(|| widget.clone());
+    widget
+        .compute_point(&outer, &gtk::graphene::Point::new(x as f32, y as f32))
+        .map_or((x as i32, y as i32), |p| (p.x() as i32, p.y() as i32))
+}
+
 fn setup_breakpoints(view: &sourceview5::View, id: Id) {
     let Ok(buffer) = view.buffer().downcast::<sourceview5::Buffer>() else {
         return;
@@ -3289,7 +3313,7 @@ fn setup_breakpoints(view: &sourceview5::View, id: Id) {
     renderer.set_xalign(0.5);
     renderer.set_xpad(2);
     renderer.set_alignment_mode(sourceview5::GutterRendererAlignmentMode::First);
-    let (width, _) = renderer.measure_markup("<b>➜</b>");
+    let (width, _) = renderer.measure_markup("<b>▶</b>");
     renderer.set_width_request(width.max(12) + 6);
     let weak = buffer.downgrade();
     renderer.connect_query_data(move |renderer, _, line| {
@@ -3317,7 +3341,7 @@ fn setup_breakpoints(view: &sourceview5::View, id: Id) {
             // Pfeil über dem Punkt (wie VS Code): rot umrandet, wenn auch ein
             // Haltepunkt dort steht.
             let color = if kind.is_some() { "#e5484d" } else { "#e0a800" };
-            renderer.set_markup(&format!("<span foreground=\"{color}\"><b>➜</b></span>"));
+            renderer.set_markup(&format!("<span foreground=\"{color}\"><b>▶</b></span>"));
         } else {
             let (glyph, color) = match kind {
                 Some(BreakpointKind::Normal) => ("●", "#e5484d"),
@@ -3337,8 +3361,22 @@ fn setup_breakpoints(view: &sourceview5::View, id: Id) {
         }
     });
     renderer.connect_query_activatable(|_, _, _| true);
-    renderer.connect_activate(move |_, iter, _, button, _, _| {
-        notify(id, Notify::Gutter(iter.line() as usize + 1, button as u8));
+    renderer.connect_activate(move |renderer, iter, area, button, _, _| {
+        // Mitte der Zelle, umgerechnet auf den Code-Editor (Bildlaufbereich).
+        let (x, y) = to_editor(
+            renderer.upcast_ref(),
+            area.x() as f64 + area.width() as f64 / 2.0,
+            area.y() as f64 + area.height() as f64 / 2.0,
+        );
+        notify(
+            id,
+            Notify::Gutter(GutterClick {
+                line: iter.line() as usize + 1,
+                button: button as u8,
+                x,
+                y,
+            }),
+        );
     });
     // Die Randleiste aktiviert nur mit der linken Taste; Rechtsklick (z. B.
     // für ein Kontextmenü) selbst abfangen und die Zeile bestimmen.
@@ -3363,7 +3401,16 @@ fn setup_breakpoints(view: &sourceview5::View, id: Id) {
         );
         let (iter, _) = view.line_at_y(by);
         gesture.set_state(gtk::EventSequenceState::Claimed);
-        notify(id, Notify::Gutter(iter.line() as usize + 1, 3));
+        let (ex, ey) = to_editor(gutter.upcast_ref(), x, y);
+        notify(
+            id,
+            Notify::Gutter(GutterClick {
+                line: iter.line() as usize + 1,
+                button: 3,
+                x: ex,
+                y: ey,
+            }),
+        );
     });
     gutter.add_controller(secondary);
     // SAFETY: wie bei den Zeilennummern – schwebende Referenz übernehmen.

@@ -42,7 +42,7 @@ fn main() {
         ),
         LineMark::new(8, MarkKind::Warning, "unused variable"),
     ]);
-    // Haltepunkte: Linksklick setzt/entfernt, Rechtsklick schaltet ab/an.
+    // Haltepunkte: Linksklick setzt/entfernt, Rechtsklick öffnet ein Menü.
     let breakpoints: Rc<RefCell<BTreeMap<usize, BreakpointKind>>> = Rc::new(RefCell::new(
         [
             (8, BreakpointKind::Normal),
@@ -53,7 +53,7 @@ fn main() {
     let show = {
         let editor = editor.clone();
         let breakpoints = breakpoints.clone();
-        move || {
+        Rc::new(move || {
             editor.set_breakpoint_marks(
                 breakpoints
                     .borrow()
@@ -61,27 +61,56 @@ fn main() {
                     .map(|(&line, &kind)| BreakpointMark { line, kind })
                     .collect(),
             );
-        }
+        })
     };
     show();
     editor.set_execution_line(Some(8));
-    editor.on_gutter_clicked(move |line, button| {
-        println!("Randleiste: Zeile {line}, Taste {button}");
+    // Zeile, für die das Menü offen ist.
+    let menu_line = Rc::new(std::cell::Cell::new(0));
+    {
+        let (breakpoints, show, menu_line, e) = (
+            breakpoints.clone(),
+            show.clone(),
+            menu_line.clone(),
+            editor.clone(),
+        );
+        editor.on_gutter_clicked(move |click| {
+            println!(
+                "Randleiste: Zeile {}, Taste {} bei {}, {}",
+                click.line, click.button, click.x, click.y
+            );
+            if click.button == 3 {
+                menu_line.set(click.line);
+                let menu = Menu::new()
+                    .item("bp.disable", "Aktivieren/Deaktivieren", None)
+                    .item("bp.remove", "Entfernen", None);
+                e.widget().popup_menu(&menu, click.x, click.y);
+                return;
+            }
+            {
+                let mut b = breakpoints.borrow_mut();
+                if b.remove(&click.line).is_none() {
+                    b.insert(click.line, BreakpointKind::Normal);
+                }
+            }
+            show();
+        });
+    }
+    window.on_menu(move |id| {
+        let line = menu_line.get();
         {
             let mut b = breakpoints.borrow_mut();
-            match (button, b.get(&line).copied()) {
-                (3, Some(BreakpointKind::Disabled)) => {
+            match (id.as_str(), b.get(&line).copied()) {
+                ("bp.disable", Some(BreakpointKind::Disabled)) => {
                     b.insert(line, BreakpointKind::Normal);
                 }
-                (3, Some(_)) => {
+                ("bp.disable", _) => {
                     b.insert(line, BreakpointKind::Disabled);
                 }
-                (_, Some(_)) => {
+                ("bp.remove", _) => {
                     b.remove(&line);
                 }
-                (_, None) => {
-                    b.insert(line, BreakpointKind::Normal);
-                }
+                _ => {}
             }
         }
         show();

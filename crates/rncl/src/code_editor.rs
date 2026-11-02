@@ -1,6 +1,7 @@
 use ruf::{
-    AsWidget, BreakpointMark, Completion, Component, ComponentInfo, DiffMark, Fold, LineMark,
-    MouseEvent, PropertyDescriptor, PropertyError, PropertyValue, Widget, WidgetKind, base,
+    AsWidget, BreakpointMark, Completion, Component, ComponentInfo, DiffMark, Fold, GutterClick,
+    LineMark, MouseEvent, PropertyDescriptor, PropertyError, PropertyValue, Widget, WidgetKind,
+    base,
 };
 
 use crate::props::text;
@@ -92,8 +93,9 @@ impl RnclCodeEditor {
         self.widget.execution_line()
     }
 
-    /// Klick in die Haltepunkt-Spalte: Zeile (ab 1), Maustaste (1 links, 3 rechts).
-    pub fn on_gutter_clicked(&self, f: impl FnMut(usize, u8) + 'static) {
+    /// Klick in die Randleiste: Zeile (ab 1), Maustaste (1 links, 3 rechts)
+    /// und Position für ein Kontextmenü (`widget().popup_menu`).
+    pub fn on_gutter_clicked(&self, f: impl FnMut(GutterClick) + 'static) {
         self.widget.on_gutter_clicked(f);
     }
 

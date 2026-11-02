@@ -50,6 +50,18 @@ pub struct BreakpointMark {
     pub kind: BreakpointKind,
 }
 
+/// Ein Klick in die Randleiste des Code-Editors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GutterClick {
+    /// Zeile ab 1.
+    pub line: usize,
+    /// 1 = links, 2 = Mitte, 3 = rechts.
+    pub button: u8,
+    /// Position relativ zum Code-Editor – passend für `popup_menu`.
+    pub x: i32,
+    pub y: i32,
+}
+
 /// Art einer Änderungsmarke (Versionsverwaltung).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiffKind {

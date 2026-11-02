@@ -434,7 +434,7 @@ hinterlegt. Ein Klick in die Randleiste meldet Zeile und Maustaste.
 ```rust
 editor.set_breakpoint_marks(vec![BreakpointMark { line: 8, kind: BreakpointKind::Normal }]);
 editor.set_execution_line(Some(8));           // None entfernt den Pfeil
-editor.on_gutter_clicked(|line, button| println!("Zeile {line}, Taste {button}"));
+editor.on_gutter_clicked(|c| println!("Zeile {}, Taste {} bei {}, {}", c.line, c.button, c.x, c.y));
 ```
 
 ## `RnclSplitter` – verschiebbarer Teiler

@@ -980,8 +980,14 @@ fn code_editor_debugging() {
 
     let clicks: Rc<RefCell<Vec<(usize, u8)>>> = Rc::default();
     let c = clicks.clone();
-    code.on_gutter_clicked(move |line, button| c.borrow_mut().push((line, button)));
-    code.widget().simulate_gutter_click(3, 1);
-    code.widget().simulate_gutter_click(2, 3);
+    code.on_gutter_clicked(move |click| c.borrow_mut().push((click.line, click.button)));
+    let click = |line, button| GutterClick {
+        line,
+        button,
+        x: 5,
+        y: 20,
+    };
+    code.widget().simulate_gutter_click(click(3, 1));
+    code.widget().simulate_gutter_click(click(2, 3));
     assert_eq!(clicks.borrow().as_slice(), [(3, 1), (2, 3)]);
 }

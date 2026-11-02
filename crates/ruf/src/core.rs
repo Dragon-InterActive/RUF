@@ -128,8 +128,8 @@ pub(crate) enum Notify {
     Text(String),
     /// Knoten in Zeile `n` der Baumansicht auf-/zuklappen.
     TreeToggled(usize),
-    /// Klick in die Randleiste des Code-Editors: Zeile (ab 1), Maustaste.
-    Gutter(usize, u8),
+    /// Klick in die Randleiste des Code-Editors.
+    Gutter(crate::code::GutterClick),
 }
 
 type Callback<F> = Rc<RefCell<F>>;
@@ -151,7 +151,7 @@ enum Handler {
     TreeSelected(Callback<dyn FnMut(String)>),
     TreeActivated(Callback<dyn FnMut(String)>),
     TreeToggled(Callback<dyn FnMut(String, bool)>),
-    Gutter(Callback<dyn FnMut(usize, u8)>),
+    Gutter(Callback<dyn FnMut(crate::code::GutterClick)>),
 }
 
 /// Ein Signal, das ein Widget anbieten kann.
@@ -954,12 +954,12 @@ pub(crate) fn notify(id: Id, event: Notify) {
                 toggle_tree_item(id, &item);
             }
         }
-        Notify::Gutter(line, button) => fire(
+        Notify::Gutter(click) => fire(
             handlers(id, |h| match h {
                 Handler::Gutter(f) => Some(f.clone()),
                 _ => None,
             }),
-            |f| f(line, button),
+            |f| f(click),
         ),
     }
 }
@@ -1452,7 +1452,7 @@ pub(crate) fn connect_tree_toggled(id: Id, f: impl FnMut(String, bool) + 'static
     )
 }
 
-pub(crate) fn connect_gutter(id: Id, f: impl FnMut(usize, u8) + 'static) -> bool {
+pub(crate) fn connect_gutter(id: Id, f: impl FnMut(crate::code::GutterClick) + 'static) -> bool {
     add_handler(
         id,
         Signal::Gutter,
