@@ -124,6 +124,8 @@ pub(crate) enum Notify {
     Key(KeyEvent),
     /// Menüeintrag mit dieser Kennung gewählt (gemeldet für das Fenster).
     Menu(String),
+    /// Text von der Eingabemethode (getippt, auch zusammengesetzt wie `ê`).
+    Text(String),
     /// Knoten in Zeile `n` der Baumansicht auf-/zuklappen.
     TreeToggled(usize),
 }
@@ -143,6 +145,7 @@ enum Handler {
     Mouse(Callback<dyn FnMut(MouseEvent)>),
     Key(Callback<dyn FnMut(KeyEvent)>),
     Menu(Callback<dyn FnMut(String)>),
+    TextInput(Callback<dyn FnMut(String)>),
     TreeSelected(Callback<dyn FnMut(String)>),
     TreeActivated(Callback<dyn FnMut(String)>),
 }
@@ -160,6 +163,7 @@ pub(crate) enum Signal {
     CloseRequested,
     Mouse,
     Key,
+    TextInput,
     Menu,
     TreeSelected,
     TreeActivated,
@@ -182,7 +186,7 @@ impl Signal {
             Signal::IndexChanged => matches!(kind, K::ComboBox | K::ListBox | K::TabView),
             Signal::Resized | Signal::CloseRequested => true,
             Signal::Mouse => matches!(kind, K::Canvas | K::CodeEditor | K::TreeView),
-            Signal::Key => kind == K::Canvas,
+            Signal::Key | Signal::TextInput => kind == K::Canvas,
             Signal::Menu => kind == K::Window,
             Signal::TreeSelected | Signal::TreeActivated => kind == K::TreeView,
         }
@@ -921,6 +925,10 @@ pub(crate) fn notify(id: Id, event: Notify) {
             }),
             |f| f(event),
         ),
+        Notify::Text(text) => fire_string(id, text, |h| match h {
+            Handler::TextInput(f) => Some(f.clone()),
+            _ => None,
+        }),
         Notify::Menu(item) => fire_string(id, item, |h| match h {
             Handler::Menu(f) => Some(f.clone()),
             _ => None,
@@ -1378,6 +1386,19 @@ pub(crate) fn connect_mouse(id: Id, f: impl FnMut(MouseEvent) + 'static) -> bool
 
 pub(crate) fn connect_key(id: Id, f: impl FnMut(KeyEvent) + 'static) -> bool {
     add_handler(id, Signal::Key, Handler::Key(Rc::new(RefCell::new(f))))
+}
+
+/// Texteingabe über die Eingabemethode; schaltet sie für das Widget ein.
+pub(crate) fn connect_text_input(id: Id, f: impl FnMut(String) + 'static) -> bool {
+    let added = add_handler(
+        id,
+        Signal::TextInput,
+        Handler::TextInput(Rc::new(RefCell::new(f))),
+    );
+    if added && let Some((native, _)) = native(id) {
+        setter(|| Platform::enable_text_input(&native));
+    }
+    added
 }
 
 pub(crate) fn connect_menu(id: Id, f: impl FnMut(String) + 'static) -> bool {

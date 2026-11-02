@@ -374,7 +374,10 @@ canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
 A click (or `canvas.widget().focus()`) gives the canvas keyboard focus.
 `MouseAction`: `Pressed`, `Released`, `Moved`, `DoubleClicked`, `ScrollUp`,
 `ScrollDown` (wheel); button 1 = left, 3 = right. `KeyEvent::text` is the
-character as typed (`A`, `ä`, `@`), `key` the key.
+character as typed (`A`, `ä`, `@`), `key` the key. For text input with dead keys
+(`^` + `e` = `ê`), accents and input methods (IME): `canvas.on_text_input(|text| …)` –
+characters without Ctrl/Alt then arrive there, arrows, Enter, Ctrl+C etc. still via
+`on_key`; `widget().set_input_cursor(rect)` places candidate windows.
 
 Monospace text (e.g. a terminal) with `Shape::MonoText` (background, bold,
 italic, underline); the cell size comes from `ruf::measure_text("M", 13, false, true)`.

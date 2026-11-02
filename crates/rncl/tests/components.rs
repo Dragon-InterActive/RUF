@@ -667,6 +667,19 @@ fn canvas_shapes_and_input() {
     assert_eq!(seen.borrow().as_slice(), &[click]);
     assert_eq!(keys.borrow()[0].key, ruf::Key::Delete);
 
+    // Texteingabe über die Eingabemethode (z. B. ^ + e = ê) – nur auf der
+    // Zeichenfläche, nicht auf anderen Widgets.
+    let typed: Rc<RefCell<String>> = Rc::default();
+    let t = typed.clone();
+    canvas.on_text_input(move |text| t.borrow_mut().push_str(&text));
+    canvas.widget().simulate_text_input("ê");
+    canvas.widget().simulate_text_input("@");
+    assert_eq!(typed.borrow().as_str(), "ê@");
+    canvas
+        .widget()
+        .set_input_cursor(ruf::Rect::new(10, 10, 8, 16));
+    assert!(!RnclButton::new(&window, "x").widget().on_text_input(|_| {}));
+
     // Gemalt wird wirklich (Screenshot ist nicht leer).
     window.show();
     Application::process_events();

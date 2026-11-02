@@ -114,6 +114,11 @@ pub(crate) trait Backend {
     fn clipboard_read(f: Box<dyn FnOnce(Option<String>)>);
     /// Mauszeiger über dem Widget (CSS-Name wie `row-resize`; leer = Standard).
     fn set_mouse_cursor(native: &Self::Native, name: &str);
+    /// Texteingabe über die Eingabemethode des Systems (tote Tasten, Akzente,
+    /// IME); das Backend meldet `Notify::Text`.
+    fn enable_text_input(native: &Self::Native);
+    /// Wo der Text-Cursor steht (für Kandidatenfenster der Eingabemethode).
+    fn set_input_cursor(native: &Self::Native, rect: crate::Rect);
     /// Gibt dem Widget den Tastaturfokus.
     fn focus(native: &Self::Native);
     /// Höhe (Pixel), die der Text eines Textbereichs bei `width` braucht

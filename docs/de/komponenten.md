@@ -375,7 +375,11 @@ canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
 Ein Klick (oder `canvas.widget().focus()`) gibt der Zeichenfläche den
 Tastaturfokus. `MouseAction`: `Pressed`, `Released`, `Moved`, `DoubleClicked`,
 `ScrollUp`, `ScrollDown` (Mausrad); Taste 1 = links, 3 = rechts. `KeyEvent::text`
-ist das Zeichen, wie getippt (`A`, `ä`, `@`), `key` die Taste.
+ist das Zeichen, wie getippt (`A`, `ä`, `@`), `key` die Taste. Für Texteingabe mit
+toten Tasten (`^` + `e` = `ê`), Akzenten und Eingabemethoden (IME):
+`canvas.on_text_input(|text| …)` – Zeichen ohne Strg/Alt kommen dann dort an, Pfeile,
+Enter, Strg+C usw. weiter über `on_key`; `widget().set_input_cursor(rect)` setzt die
+Stelle für Kandidatenfenster.
 
 Festbreitentext (z. B. ein Terminal) mit `Shape::MonoText` (Hintergrund, fett,
 kursiv, unterstrichen); die Zellengröße liefert

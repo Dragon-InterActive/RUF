@@ -204,6 +204,8 @@ pub enum Inner {
     Canvas {
         area: gtk::DrawingArea,
         shapes: Rc<RefCell<Vec<Shape>>>,
+        keys: gtk::EventControllerKey,
+        input: gtk::IMMulticontext,
     },
     Tree(gtk::ListBox),
     Code(sourceview5::View),
@@ -925,8 +927,17 @@ impl Backend for Gtk {
                 area.set_draw_func(move |area, cr, _, _| draw_shapes(area, cr, &s.borrow()));
                 area.set_focusable(true);
                 area.set_can_focus(true);
-                connect_canvas_input(&area, id);
-                (area.clone().upcast(), None, Inner::Canvas { area, shapes })
+                let (keys, input) = connect_canvas_input(&area, id);
+                (
+                    area.clone().upcast(),
+                    None,
+                    Inner::Canvas {
+                        area,
+                        shapes,
+                        keys,
+                        input,
+                    },
+                )
             }
             WidgetKind::TreeView => {
                 let list = gtk::ListBox::new();
@@ -1161,6 +1172,23 @@ impl Backend for Gtk {
             .read_text_async(None::<&gio::Cancellable>, move |result| {
                 f(result.ok().flatten().map(|t| t.to_string()));
             });
+    }
+
+    fn enable_text_input(native: &GtkNative) {
+        if let Inner::Canvas { keys, input, .. } = &native.inner {
+            keys.set_im_context(Some(input));
+        }
+    }
+
+    fn set_input_cursor(native: &GtkNative, rect: Rect) {
+        if let Inner::Canvas { input, .. } = &native.inner {
+            input.set_cursor_location(&gdk::Rectangle::new(
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height,
+            ));
+        }
     }
 
     fn focus(native: &GtkNative) {
@@ -1838,6 +1866,7 @@ impl Backend for Gtk {
         if let Inner::Canvas {
             area,
             shapes: store,
+            ..
         } = &native.inner
         {
             *store.borrow_mut() = shapes.to_vec();
@@ -2252,7 +2281,12 @@ fn key_from(keyval: gdk::Key) -> Option<Key> {
     })
 }
 
-fn connect_canvas_input(area: &gtk::DrawingArea, id: Id) {
+/// Maus, Rad und Tasten der Zeichenfläche; liefert den Tasten-Controller und
+/// die Eingabemethode (eingeschaltet erst mit `enable_text_input`).
+fn connect_canvas_input(
+    area: &gtk::DrawingArea,
+    id: Id,
+) -> (gtk::EventControllerKey, gtk::IMMulticontext) {
     let click = gtk::GestureClick::new();
     click.set_button(0);
     click.connect_pressed(move |g, n, x, y| {
@@ -2326,6 +2360,19 @@ fn connect_canvas_input(area: &gtk::DrawingArea, id: Id) {
     });
     area.add_controller(scroll);
 
+    // Eingabemethode: setzt tote Tasten (^ + e = ê), AltGr-Zeichen und IME-
+    // Eingaben zusammen und liefert fertigen Text.
+    let input = gtk::IMMulticontext::new();
+    input.set_client_widget(Some(area));
+    input.connect_commit(move |_, text| notify(id, Notify::Text(text.to_owned())));
+    let focus = gtk::EventControllerFocus::new();
+    {
+        let (i, o) = (input.clone(), input.clone());
+        focus.connect_enter(move |_| i.focus_in());
+        focus.connect_leave(move |_| o.focus_out());
+    }
+    area.add_controller(focus);
+
     let keys = gtk::EventControllerKey::new();
     keys.connect_key_pressed(move |_, keyval, _, state| match key_from(keyval) {
         Some(key) => {
@@ -2341,7 +2388,8 @@ fn connect_canvas_input(area: &gtk::DrawingArea, id: Id) {
         }
         None => glib::Propagation::Proceed,
     });
-    area.add_controller(keys);
+    area.add_controller(keys.clone());
+    (keys, input)
 }
 
 // --- Menüs -------------------------------------------------------------------------------

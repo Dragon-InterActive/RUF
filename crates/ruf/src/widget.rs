@@ -652,6 +652,25 @@ impl Widget {
         core::connect_key(self.id, f)
     }
 
+    /// Getippter Text über die Eingabemethode des Systems: tote Tasten
+    /// (`^` + `e` = `ê`), AltGr-Zeichen, Akzente, IME. Mit diesem Handler
+    /// kommen Zeichen ohne Strg/Alt nicht mehr als `on_key`, sondern hier an;
+    /// Tasten wie Pfeile, Enter oder Strg+C weiter über `on_key`.
+    pub fn on_text_input(&self, f: impl FnMut(String) + 'static) -> bool {
+        core::connect_text_input(self.id, f)
+    }
+
+    /// Wo der Text-Cursor auf der Zeichenfläche steht – dort erscheinen
+    /// Kandidatenfenster der Eingabemethode.
+    pub fn set_input_cursor(&self, rect: Rect) {
+        self.native_call(|n, _| Platform::set_input_cursor(n, rect));
+    }
+
+    /// Simuliert Texteingabe (Tests, Automatisierung).
+    pub fn simulate_text_input(&self, text: &str) {
+        core::notify(self.id, core::Notify::Text(text.to_owned()));
+    }
+
     // --- Code-Editor ([`WidgetKind::CodeEditor`]) ----------------------------
 
     /// Sprache für die Hervorhebung, z. B. `"rust"` oder `"toml"`.

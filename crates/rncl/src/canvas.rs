@@ -43,6 +43,12 @@ impl RnclCanvas {
         self.widget.on_key(f);
     }
 
+    /// Getippter Text über die Eingabemethode (tote Tasten, Akzente, IME);
+    /// siehe [`ruf::Widget::on_text_input`].
+    pub fn on_text_input(&self, f: impl FnMut(String) + 'static) {
+        self.widget.on_text_input(f);
+    }
+
     pub fn info() -> ComponentInfo {
         ComponentInfo::new(Self::TYPE_NAME, |parent| {
             Box::new(Self::with_parent(parent))
