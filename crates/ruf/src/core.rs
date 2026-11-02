@@ -1638,6 +1638,12 @@ pub(crate) fn set_window_position(id: Id, x: i32, y: i32) -> bool {
     }
 }
 
+pub(crate) fn set_window_decorated(id: Id, decorated: bool) {
+    if let Some((native, WidgetKind::Window)) = native(id) {
+        setter(|| Platform::set_window_decorated(&native, decorated));
+    }
+}
+
 pub(crate) fn window_position(id: Id) -> Option<Point> {
     match native(id)? {
         (native, WidgetKind::Window) => Platform::window_position(&native),

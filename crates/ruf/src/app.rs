@@ -92,6 +92,23 @@ impl Application {
         self.name.borrow().clone()
     }
 
+    /// Setzt das Programmsymbol aller Fenster (Titelleiste, Taskleiste,
+    /// Alt+Tab) aus PNG-Dateien verschiedener Größen, z. B.
+    /// `&[(32, include_bytes!("icon-32.png")), (256, …)]`. `name` ist der
+    /// Symbolname (wie der Programmname, z. B. `"meine-app"`). Liefert
+    /// `false`, wenn das System es nicht übernimmt.
+    ///
+    /// Unter macOS zeigt das Dock das Symbol des App-Bundles.
+    pub fn set_icon(name: &str, icons: &[(u32, &[u8])]) -> bool {
+        Platform::set_app_icon(name, icons)
+    }
+
+    /// Bereich des Hauptbildschirms in Pixeln, z. B. zum Zentrieren eines
+    /// Fensters.
+    pub fn screen_rect() -> Option<crate::Rect> {
+        Platform::screen_rect()
+    }
+
     /// Das aktuelle Farbschema des Systems bzw. der Anwendung.
     pub fn color_scheme() -> ColorScheme {
         Platform::color_scheme()

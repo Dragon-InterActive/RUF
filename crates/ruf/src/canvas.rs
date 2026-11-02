@@ -3,7 +3,7 @@
 //!
 //! Die Zeichenfläche ([`crate::WidgetKind::Canvas`]) malt eine Liste von
 //! [`Shape`]s – mehr nicht. Was gezeichnet wird, entscheidet das Programm
-//! (z. B. der Formular-Designer von Freya TD aus seiner Zeichenliste).
+//! (z. B. der Formular-Designer von Freya TDE aus seiner Zeichenliste).
 
 use crate::geometry::{Point, Rect};
 use crate::style::Color;
@@ -50,6 +50,56 @@ pub enum Shape {
         italic: bool,
         underline: bool,
     },
+    /// Ein Bild, auf `rect` skaliert (Seitenverhältnis bleibt, zentriert).
+    Image { rect: Rect, image: Image },
+}
+
+/// Ein Bild für [`Shape::Image`]: PNG oder JPEG (SVG nur, wenn das System
+/// einen Lader dafür hat). Klone teilen die Daten; das Backend dekodiert
+/// jedes Bild nur einmal.
+#[derive(Clone)]
+pub struct Image {
+    id: u64,
+    bytes: std::sync::Arc<[u8]>,
+}
+
+impl Image {
+    /// Ein Bild aus Dateidaten, z. B. `include_bytes!("logo.png")`.
+    pub fn from_bytes(bytes: impl Into<std::sync::Arc<[u8]>>) -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(1);
+        Self {
+            id: NEXT.fetch_add(1, Ordering::Relaxed),
+            bytes: bytes.into(),
+        }
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Kennung für den Zwischenspeicher des Backends.
+    pub(crate) fn id(&self) -> u64 {
+        self.id
+    }
+
+    /// Größe in Pixeln (`None`, wenn sich das Bild nicht lesen lässt).
+    pub fn size(&self) -> Option<crate::Size> {
+        use crate::backend::{Backend, Platform};
+        Platform::image_size(self)
+    }
+}
+
+impl std::fmt::Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Image(#{}, {} Bytes)", self.id, self.bytes.len())
+    }
+}
+
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id || self.bytes == other.bytes
+    }
 }
 
 /// Gedrückte Zusatztasten.

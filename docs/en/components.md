@@ -65,7 +65,18 @@ label.widget().popup_menu(&Menu::new().item("copy", "Copy", None), 10, 10); // c
 // Screen position (save/restore the window arrangement).
 window.set_screen_position(100, 80);     // remembered before show(); false on Wayland
 let pos = window.screen_position();      // Some(Point) while shown
+
+// Splash screen: no frame, centred on the main screen.
+window.widget().set_window_decorated(false);
+if let Some(screen) = Application::screen_rect() { /* centre */ }
+
+// Program icon of all windows (title bar, task bar, Alt+Tab) from PNGs.
+Application::set_icon("my-app", &[(32, include_bytes!("icon-32.png")), (256, …)]);
 ```
+
+`Application::set_icon` puts the pictures into the cache folder as an icon theme and sets
+them for all windows; GTK hands the icon to X11 (`_NET_WM_ICON`) and Windows. On macOS the
+Dock shows the icon of the app bundle.
 
 GTK 4 cannot position windows itself; RUF sets the position natively (X11, Win32,
 macOS). The Wayland protocol forbids it – there `set_screen_position` returns `false`.
@@ -357,7 +368,7 @@ Native: GTK `GtkDrawingArea` · category *Display*
 
 Paints a list of shapes (`ruf::Shape`: rectangle with fill, border, radius, dashed;
 text; line) and reports mouse and keyboard – the basis of custom views such as the
-design surface of Freya TD.
+design surface of Freya TDE.
 
 ```rust
 let canvas = RnclCanvas::new(&window);
@@ -381,6 +392,9 @@ characters without Ctrl/Alt then arrive there, arrows, Enter, Ctrl+C etc. still 
 
 Monospace text (e.g. a terminal) with `Shape::MonoText` (background, bold,
 italic, underline); the cell size comes from `ruf::measure_text("M", 13, false, true)`.
+Pictures (PNG, JPEG) with `Shape::Image { rect, image }`:
+`ruf::Image::from_bytes(include_bytes!("logo.png"))` is decoded once and scaled into
+`rect` (aspect ratio kept, centred); `image.size()` gives the pixel size.
 Clipboard: `ruf::clipboard::set_text("…")` and `ruf::clipboard::read_text(|t| …)`
 (asynchronous). For tests:
 `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.

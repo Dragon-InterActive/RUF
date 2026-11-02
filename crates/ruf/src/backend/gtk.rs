@@ -23,7 +23,7 @@ use sourceview5::prelude::*;
 
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
-use crate::canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
+use crate::canvas::{Image, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
 use crate::code::{
     BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,
     MarkKind, fold_regions, folds_language,
@@ -2162,6 +2162,145 @@ impl Backend for Gtk {
             _ => None,
         }
     }
+
+    fn set_window_decorated(window: &GtkNative, decorated: bool) {
+        if let Inner::Window(w) = &window.inner {
+            w.set_decorated(decorated);
+        }
+    }
+
+    fn screen_rect() -> Option<Rect> {
+        let display = gdk::Display::default()?;
+        let monitor = primary_monitor(&display)?;
+        let g = monitor.geometry();
+        Some(Rect::new(g.x(), g.y(), g.width(), g.height()))
+    }
+
+    fn image_size(image: &Image) -> Option<Size> {
+        let surface = image_surface(image)?;
+        Some(Size::new(surface.width(), surface.height()))
+    }
+
+    fn set_app_icon(name: &str, icons: &[(u32, &[u8])]) -> bool {
+        set_app_icon(name, icons).is_some()
+    }
+}
+
+/// Der Hauptbildschirm (unter X11 der primäre, sonst der erste).
+fn primary_monitor(display: &gdk::Display) -> Option<gdk::Monitor> {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    if let Some(x11) = display.downcast_ref::<gdk4_x11::X11Display>()
+        && let Some(monitor) = x11.primary_monitor().downcast::<gdk::Monitor>().ok()
+    {
+        return Some(monitor);
+    }
+    display.monitors().item(0)?.downcast::<gdk::Monitor>().ok()
+}
+
+/// Legt die Symbole als `hicolor`-Thema in den Cache-Ordner, nimmt ihn in
+/// den Suchpfad des Symbolthemas auf und setzt `name` als Symbol aller
+/// Fenster (GTK reicht es unter X11 und Windows an das System weiter).
+fn set_app_icon(name: &str, icons: &[(u32, &[u8])]) -> Option<()> {
+    if icons.is_empty() || name.contains(['/', '\\']) {
+        return None;
+    }
+    let root = glib::user_cache_dir().join("ruf-icons").join(name);
+    let theme_dir = root.join("hicolor");
+    let mut dirs = Vec::new();
+    for (size, data) in icons {
+        let dir = format!("{size}x{size}/apps");
+        let path = theme_dir.join(&dir);
+        std::fs::create_dir_all(&path).ok()?;
+        let file = path.join(format!("{name}.png"));
+        if std::fs::read(&file).ok().as_deref() != Some(*data) {
+            std::fs::write(&file, data).ok()?;
+        }
+        dirs.push((dir, *size));
+    }
+    // Ohne index.theme findet GTK die Größenordner nicht.
+    let mut index = String::from("[Icon Theme]\nName=Hicolor\nComment=RUF\nDirectories=");
+    index.push_str(
+        &dirs
+            .iter()
+            .map(|(d, _)| d.as_str())
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    index.push('\n');
+    for (dir, size) in &dirs {
+        index.push_str(&format!(
+            "\n[{dir}]\nSize={size}\nContext=Applications\nType=Fixed\n"
+        ));
+    }
+    let index_file = theme_dir.join("index.theme");
+    if std::fs::read_to_string(&index_file).ok().as_deref() != Some(index.as_str()) {
+        std::fs::write(&index_file, index).ok()?;
+    }
+    let display = gdk::Display::default()?;
+    let theme = gtk::IconTheme::for_display(&display);
+    let root = root.to_string_lossy().into_owned();
+    if !theme
+        .search_path()
+        .iter()
+        .any(|p| p.to_string_lossy() == root)
+    {
+        theme.add_search_path(&root);
+    }
+    gtk::Window::set_default_icon_name(name);
+    Some(())
+}
+
+thread_local! {
+    /// Dekodierte Bilder nach [`Image`]-Kennung.
+    static IMAGES: RefCell<HashMap<u64, Option<gtk::cairo::ImageSurface>>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Das Bild als Cairo-Fläche (einmal dekodiert, dann aus dem Speicher).
+fn image_surface(image: &Image) -> Option<gtk::cairo::ImageSurface> {
+    IMAGES.with(|cache| {
+        cache
+            .borrow_mut()
+            .entry(image.id())
+            .or_insert_with(|| decode_image(image.bytes()))
+            .clone()
+    })
+}
+
+fn decode_image(bytes: &[u8]) -> Option<gtk::cairo::ImageSurface> {
+    let texture = gdk::Texture::from_bytes(&glib::Bytes::from(bytes)).ok()?;
+    let (w, h) = (texture.width(), texture.height());
+    let mut surface = gtk::cairo::ImageSurface::create(gtk::cairo::Format::ARgb32, w, h).ok()?;
+    let stride = surface.stride() as usize;
+    {
+        let mut data = surface.data().ok()?;
+        // Cairo ARGB32 = vormultipliziert, in Speicherreihenfolge BGRA auf
+        // Little-Endian – genau das liefert `download`.
+        texture.download(&mut data, stride);
+    }
+    surface.mark_dirty();
+    Some(surface)
+}
+
+fn draw_image(cr: &gtk::cairo::Context, rect: Rect, image: &Image) {
+    let Some(surface) = image_surface(image) else {
+        return;
+    };
+    let (iw, ih) = (f64::from(surface.width()), f64::from(surface.height()));
+    if iw <= 0.0 || ih <= 0.0 || rect.width <= 0 || rect.height <= 0 {
+        return;
+    }
+    let scale = (f64::from(rect.width) / iw).min(f64::from(rect.height) / ih);
+    let x = f64::from(rect.x) + (f64::from(rect.width) - iw * scale) / 2.0;
+    let y = f64::from(rect.y) + (f64::from(rect.height) - ih * scale) / 2.0;
+    let _ = cr.save();
+    cr.translate(x, y);
+    cr.scale(scale, scale);
+    if cr.set_source_surface(&surface, 0.0, 0.0).is_ok() {
+        cr.source().set_filter(gtk::cairo::Filter::Best);
+        let _ = cr.paint();
+    }
+    let _ = cr.restore();
 }
 
 // --- Zeichenfläche ---------------------------------------------------------------------
@@ -2306,6 +2445,7 @@ fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shap
                 cr.move_to(f64::from(*x), f64::from(*y));
                 pangocairo::functions::show_layout(cr, &layout);
             }
+            Shape::Image { rect, image } => draw_image(cr, *rect, image),
         }
     }
 }

@@ -1,4 +1,4 @@
-# Designer integration (Freya TD)
+# Designer integration (Freya TDE)
 
 The form designer talks to **only** three abstractions – never to concrete Rust types.
 That way, third-party components automatically show up in the palette.
@@ -58,7 +58,7 @@ combo.set_property("items", ["Berlin", "Hamburg"].into())?;
 ## Loading a form from a description
 
 `crates/rncl/examples/designer.rs` builds a form from a text description – a preview of
-the future Freya TD file format:
+the future Freya TDE file format:
 
 ```text
 RnclWindow    frmMain   title="Designer-Demo" width=360 height=200

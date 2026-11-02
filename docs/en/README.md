@@ -6,7 +6,7 @@
 interfaces in Rust using **GTK 4** – on Linux, Windows and macOS. **RNCL** (Rust native Component Library)
 provides the UI elements on top of it – windows, buttons, text fields, check boxes … –
 as self-contained, interchangeable components. Together they form the basis of the
-RAD tool **Freya TD**.
+RAD tool **Freya TDE**.
 
 ```toml
 [dependencies]
@@ -22,7 +22,7 @@ rncl = { version = "0.2.0" } # the native system widgets
 | [Architecture](architecture.md) | Layers, backends, core, ownership model, threads |
 | [Components](components.md) | Reference of all RNCL components |
 | [Custom components](custom-components.md) | Writing and registering your own RNCL components |
-| [Designer integration](designer.md) | Registry and property model for Freya TD |
+| [Designer integration](designer.md) | Registry and property model for Freya TDE |
 | [AI assistance](ai-assistance.md) | Skills and working with AI assistants |
 | [Release](release.md) | Shipping for Windows and macOS with the GTK runtime |
 | [Troubleshooting](troubleshooting.md) | Common build and runtime problems |

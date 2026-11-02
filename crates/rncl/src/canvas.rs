@@ -4,7 +4,7 @@ use ruf::{
 };
 
 /// Eine Zeichenfläche: malt [`Shape`]s und meldet Maus und Tastatur –
-/// die Grundlage eigener Ansichten wie der Designfläche von Freya TD.
+/// die Grundlage eigener Ansichten wie der Designfläche von Freya TDE.
 #[derive(Debug, Clone)]
 pub struct RnclCanvas {
     widget: Widget,

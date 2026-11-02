@@ -4,7 +4,7 @@ RUF has four layers. Only the lowest one knows the toolkit (GTK 4).
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
- │ 4  Designer / Freya TD     ComponentRegistry · property model         │
+ │ 4  Designer / Freya TDE     ComponentRegistry · property model         │
  ├──────────────────────────────────────────────────────────────────────┤
  │ 3  Logic (rncl + ruf)      RnclButton … · Component · Widget          │
  ├──────────────────────────────────────────────────────────────────────┤
@@ -92,7 +92,7 @@ sender is `Send` and forwards values to a handler on the GUI thread (GTK idle so
 
 ## 4. Designer layer
 
-Freya TD creates components only through the `ComponentRegistry` (by type name) and
+Freya TDE creates components only through the `ComponentRegistry` (by type name) and
 edits them via the property model. See [Designer integration](designer.md).
 
 ## Toolkit version at runtime

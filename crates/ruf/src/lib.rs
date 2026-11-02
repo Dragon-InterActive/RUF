@@ -1,7 +1,7 @@
 //! # RUF – Rust native UI Framework
 //!
 //! Das native Fundament für [RNCL](https://docs.rs/rncl)-Komponenten und das
-//! RAD-Tool *Freya TD*. RUF steuert **GTK-4-Steuerelemente** über eine
+//! RAD-Tool *Freya TDE*. RUF steuert **GTK-4-Steuerelemente** über eine
 //! sichere, pure Rust-API – auf Linux, Windows und macOS (`gtk4-rs`).
 //! Anwendungen und Komponenten schreiben denselben Code für alle Systeme;
 //! Releases für Windows und macOS liefern die GTK-Laufzeit mit.
@@ -49,7 +49,7 @@ mod tree;
 mod widget;
 
 pub use app::{Application, ColorScheme};
-pub use canvas::{KeyEvent, Modifiers, MouseAction, MouseEvent, Shape, measure_text};
+pub use canvas::{Image, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape, measure_text};
 pub use code::{
     BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,
     MarkKind, fold_regions,

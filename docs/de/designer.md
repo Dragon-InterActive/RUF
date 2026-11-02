@@ -1,4 +1,4 @@
-# Designer-Anbindung (Freya TD)
+# Designer-Anbindung (Freya TDE)
 
 Der Form-Designer spricht **ausschließlich** drei Abstraktionen an – nie konkrete
 Rust-Typen. Dadurch erscheinen Komponenten von Drittentwicklern automatisch in der
@@ -59,7 +59,7 @@ combo.set_property("items", ["Berlin", "Hamburg"].into())?;
 ## Formular aus einer Beschreibung laden
 
 `crates/rncl/examples/designer.rs` baut ein Formular aus einer Textbeschreibung auf –
-ein Vorgeschmack auf das spätere Freya-TD-Dateiformat:
+ein Vorgeschmack auf das spätere Freya-TDE-Dateiformat:
 
 ```text
 RnclWindow    frmMain   title="Designer-Demo" width=360 height=200

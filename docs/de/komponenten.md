@@ -65,7 +65,18 @@ label.widget().popup_menu(&Menu::new().item("copy", "Kopieren", None), 10, 10); 
 // Bildschirmposition (Fensteranordnung speichern/wiederherstellen).
 window.set_screen_position(100, 80);     // vor show() vorgemerkt; false unter Wayland
 let pos = window.screen_position();      // Some(Point) solange angezeigt
+
+// Startbildschirm: ohne Rahmen, mittig auf dem Hauptbildschirm.
+window.widget().set_window_decorated(false);
+if let Some(screen) = Application::screen_rect() { /* zentrieren */ }
+
+// Programmsymbol aller Fenster (Titelleiste, Taskleiste, Alt+Tab) aus PNGs.
+Application::set_icon("meine-app", &[(32, include_bytes!("icon-32.png")), (256, …)]);
 ```
+
+`Application::set_icon` legt die Bilder als Symbolthema in den Cache-Ordner und setzt sie
+für alle Fenster; GTK gibt das Symbol unter X11 (`_NET_WM_ICON`) und Windows weiter.
+Unter macOS zeigt das Dock das Symbol des App-Bundles.
 
 GTK 4 kann Fenster nicht selbst positionieren; RUF setzt die Position nativ
 (X11, Win32, macOS). Unter Wayland verbietet das Protokoll das – dort liefert
@@ -358,7 +369,7 @@ Nativ: GTK `GtkDrawingArea` · Kategorie *Anzeige*
 
 Malt eine Liste von Formen (`ruf::Shape`: Rechteck mit Füllung, Rahmen, Radius,
 gestrichelt; Text; Linie) und meldet Maus und Tastatur – die Grundlage eigener
-Ansichten wie der Designfläche von Freya TD.
+Ansichten wie der Designfläche von Freya TDE.
 
 ```rust
 let canvas = RnclCanvas::new(&window);
@@ -383,7 +394,10 @@ Stelle für Kandidatenfenster.
 
 Festbreitentext (z. B. ein Terminal) mit `Shape::MonoText` (Hintergrund, fett,
 kursiv, unterstrichen); die Zellengröße liefert
-`ruf::measure_text("M", 13, false, true)`. Die Zwischenablage:
+`ruf::measure_text("M", 13, false, true)`. Bilder (PNG, JPEG) mit
+`Shape::Image { rect, image }`: `ruf::Image::from_bytes(include_bytes!("logo.png"))`
+wird einmal dekodiert und auf `rect` skaliert (Seitenverhältnis bleibt, mittig);
+`image.size()` nennt die Pixelgröße. Die Zwischenablage:
 `ruf::clipboard::set_text("…")` und `ruf::clipboard::read_text(|t| …)` (asynchron).
 Für Tests: `canvas.widget().simulate_mouse(…)` / `simulate_key(…)`.
 

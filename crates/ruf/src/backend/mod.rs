@@ -20,7 +20,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::app::ColorScheme;
-use crate::canvas::Shape;
+use crate::canvas::{Image, Shape};
 use crate::code::{Completion, Fold, LineMark};
 use crate::core::{Id, WidgetKind};
 use crate::dialog::FileFilter;
@@ -257,4 +257,16 @@ pub(crate) trait Backend {
     fn set_window_position(window: &Self::Native, x: i32, y: i32) -> bool;
     /// Aktuelle Position eines angezeigten Fensters, falls das System sie nennt.
     fn window_position(window: &Self::Native) -> Option<Point>;
+    /// Fenster mit oder ohne Rahmen und Titelleiste (z. B. Startbildschirm).
+    fn set_window_decorated(window: &Self::Native, decorated: bool);
+    /// Arbeitsbereich des Hauptbildschirms (für das Zentrieren).
+    fn screen_rect() -> Option<Rect>;
+
+    // --- Bilder und Programmsymbol -------------------------------------------------
+
+    /// Größe eines Bilds in Pixeln.
+    fn image_size(image: &Image) -> Option<Size>;
+    /// Programmsymbol `name` aus PNG-Dateien (`(Kantenlänge, Daten)`) für alle
+    /// Fenster; `false`, wenn es nicht gesetzt werden konnte.
+    fn set_app_icon(name: &str, icons: &[(u32, &[u8])]) -> bool;
 }

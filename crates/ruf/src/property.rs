@@ -1,5 +1,5 @@
 //! Das Eigenschaftsmodell – die Sprache zwischen Komponenten und dem
-//! Form-Designer von Freya TD.
+//! Form-Designer von Freya TDE.
 //!
 //! Jede Komponente beschreibt ihre Eigenschaften mit [`PropertyDescriptor`]s.
 //! Der Designer kann sie so auflisten, anzeigen und per Name setzen, ohne den

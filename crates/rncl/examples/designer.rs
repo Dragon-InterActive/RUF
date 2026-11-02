@@ -1,4 +1,4 @@
-//! So spricht ein Form-Designer (Freya TD) mit RNCL: nur über Typnamen,
+//! So spricht ein Form-Designer (Freya TDE) mit RNCL: nur über Typnamen,
 //! die `ComponentRegistry` und das Eigenschaftsmodell – ohne die konkreten
 //! Rust-Typen zu kennen.
 //!

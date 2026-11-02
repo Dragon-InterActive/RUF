@@ -46,6 +46,7 @@ fn main() {
         ("adjust_size_is_stable", adjust_size_is_stable),
         ("code_editor", code_editor),
         ("code_editor_debugging", code_editor_debugging),
+        ("image_icon_and_splash_window", image_icon_and_splash_window),
     ];
 
     for (name, test) in tests {
@@ -990,4 +991,29 @@ fn code_editor_debugging() {
     code.widget().simulate_gutter_click(click(3, 1));
     code.widget().simulate_gutter_click(click(2, 3));
     assert_eq!(clicks.borrow().as_slice(), [(3, 1), (2, 3)]);
+}
+
+fn image_icon_and_splash_window() {
+    let png: &[u8] = include_bytes!("red-4x2.png");
+    let image = ruf::Image::from_bytes(png);
+    assert_eq!(image.size(), Some(Size::new(4, 2)));
+    assert_eq!(ruf::Image::from_bytes(&b"kein Bild"[..]).size(), None);
+
+    let window = RnclWindow::new("Start");
+    window.widget().set_window_decorated(false);
+    let canvas = RnclCanvas::new(&window);
+    canvas.set_geometry(0, 0, 40, 20);
+    let shapes = vec![Shape::Image {
+        rect: Rect::new(0, 0, 40, 20),
+        image: image.clone(),
+    }];
+    canvas.set_shapes(shapes.clone());
+    assert_eq!(canvas.shapes(), shapes);
+    window.show();
+    Application::process_events();
+
+    // Programmsymbol: liegt danach als Thema im Cache-Ordner.
+    assert!(Application::set_icon("ruf-test-icon", &[(4, png)]));
+    assert!(!Application::set_icon("ruf-test-icon", &[]));
+    assert!(Application::screen_rect().is_some_and(|r| r.width > 0 && r.height > 0));
 }

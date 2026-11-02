@@ -5,7 +5,7 @@
 Die einzelenen UI-Elemente wie Buttons, Textfelder oder Checkboxen etc. sind einzelene Componenten und heißen `RNCL` (Rust native Component Library).
 Diese Festlegung soll es anderen Entwicklern ermöglichen, eigene UI-Elemente zu entwickeln und an das Framework zuübergeben und zu nutzen.
 
-Ruf wird die Bais des RAD-Tools (Rapid Application Development) "Freya TD" werden.
+Ruf wird die Bais des RAD-Tools (Rapid Application Development) "Freya TDE" werden.
 
 Qt wird nicht mehr verwendet (Entscheidung vom 22.10.2026). Win32 und Cocoa wurden entfernt, alles läuft über GTK 4 (Entscheidung vom 23.10.2026, um doppelte Arbeit zu sparen). Anwendungen schreiben denselben Code für alle Systeme.
 

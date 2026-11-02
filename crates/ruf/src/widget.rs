@@ -932,6 +932,12 @@ impl Widget {
         core::window_position(self.id)
     }
 
+    /// Fenster ohne Rahmen und Titelleiste (`false`), z. B. ein
+    /// Startbildschirm. Vor dem Anzeigen setzen.
+    pub fn set_window_decorated(&self, decorated: bool) {
+        core::set_window_decorated(self.id, decorated);
+    }
+
     // --- Signale ----------------------------------------------------------
     //
     // Jede Methode liefert `false`, wenn das Widget das Signal nicht besitzt.

@@ -4,7 +4,7 @@ RUF ist in vier Ebenen aufgebaut. Nur die unterste kennt das Toolkit (GTK 4).
 
 ```
  ┌──────────────────────────────────────────────────────────────────────┐
- │ 4  Designer / Freya TD     ComponentRegistry · Eigenschaftsmodell     │
+ │ 4  Designer / Freya TDE     ComponentRegistry · Eigenschaftsmodell     │
  ├──────────────────────────────────────────────────────────────────────┤
  │ 3  Logik (rncl + ruf)      RnclButton … · Component · Widget          │
  ├──────────────────────────────────────────────────────────────────────┤
@@ -95,7 +95,7 @@ GUI-Thread weiter (GTK-Idle-Quelle). Siehe [Komponenten → Dienste](komponenten
 
 ## 4. Designer-Ebene
 
-Freya TD erzeugt Komponenten nur über die `ComponentRegistry` (per Typname) und
+Freya TDE erzeugt Komponenten nur über die `ComponentRegistry` (per Typname) und
 bearbeitet sie über das Eigenschaftsmodell. Siehe [Designer-Anbindung](designer.md).
 
 ## Toolkit-Version zur Laufzeit

@@ -2,10 +2,10 @@
 
 Desktop-UI-Framework für Rust auf Basis von **GTK 4** – auf Linux, Windows und macOS
 (Releases für Windows/macOS liefern die GTK-Laufzeit mit, siehe `tools/` und
-`docs/de/release.md`) – Fundament des RAD-Tools **Freya TD**.
+`docs/de/release.md`) – Fundament des RAD-Tools **Freya TDE**.
 *Desktop UI framework for Rust based on **GTK 4** – on Linux, Windows and macOS
 (Windows/macOS releases ship the GTK runtime, see `tools/` and `docs/en/release.md`) –
-the foundation of the RAD tool **Freya TD**.*
+the foundation of the RAD tool **Freya TDE**.*
 
 | Crate | Rolle / Role |
 | --- | --- |

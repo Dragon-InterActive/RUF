@@ -1,6 +1,6 @@
 ---
 name: rncl-component
-description: Neue RNCL-Komponente (UI-Element wie Button, Slider, Liste) für das RUF-Framework erstellen oder eine bestehende um Eigenschaften/Signale erweitern. Verwenden, wenn ein neues Widget, eine zusammengesetzte Komponente oder eine Drittanbieter-Komponente für RUF/RNCL/Freya TD gebaut werden soll.
+description: Neue RNCL-Komponente (UI-Element wie Button, Slider, Liste) für das RUF-Framework erstellen oder eine bestehende um Eigenschaften/Signale erweitern. Verwenden, wenn ein neues Widget, eine zusammengesetzte Komponente oder eine Drittanbieter-Komponente für RUF/RNCL/Freya TDE gebaut werden soll.
 ---
 
 # RNCL-Komponente erstellen

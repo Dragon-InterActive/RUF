@@ -1,6 +1,6 @@
 [package]
 name = "ruf"
-description = "RUF – Rust native UI Framework: Oberflächen mit GTK 4 auf Linux, Windows und macOS – Fundament für RNCL-Komponenten und Freya TD"
+description = "RUF – Rust native UI Framework: Oberflächen mit GTK 4 auf Linux, Windows und macOS – Fundament für RNCL-Komponenten und Freya TDE"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
