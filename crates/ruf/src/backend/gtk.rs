@@ -23,7 +23,7 @@ use sourceview5::prelude::*;
 
 use super::{Backend, MessageKind};
 use crate::app::ColorScheme;
-use crate::canvas::{Image, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
+use crate::canvas::{Image, ImageFit, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape};
 use crate::code::{
     BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,
     MarkKind, fold_regions, folds_language,
@@ -2337,7 +2337,7 @@ fn decode_image(bytes: &[u8]) -> Option<gtk::cairo::ImageSurface> {
     Some(surface)
 }
 
-fn draw_image(cr: &gtk::cairo::Context, rect: Rect, image: &Image) {
+fn draw_image(cr: &gtk::cairo::Context, rect: Rect, image: &Image, fit: ImageFit) {
     let Some(surface) = image_surface(image) else {
         return;
     };
@@ -2345,12 +2345,27 @@ fn draw_image(cr: &gtk::cairo::Context, rect: Rect, image: &Image) {
     if iw <= 0.0 || ih <= 0.0 || rect.width <= 0 || rect.height <= 0 {
         return;
     }
-    let scale = (f64::from(rect.width) / iw).min(f64::from(rect.height) / ih);
-    let x = f64::from(rect.x) + (f64::from(rect.width) - iw * scale) / 2.0;
-    let y = f64::from(rect.y) + (f64::from(rect.height) - ih * scale) / 2.0;
+    let (rw, rh) = (f64::from(rect.width), f64::from(rect.height));
+    let (sx, sy) = match fit {
+        ImageFit::Contain => {
+            let s = (rw / iw).min(rh / ih);
+            (s, s)
+        }
+        ImageFit::Cover => {
+            let s = (rw / iw).max(rh / ih);
+            (s, s)
+        }
+        ImageFit::Stretch => (rw / iw, rh / ih),
+        ImageFit::Center => (1.0, 1.0),
+    };
+    let x = f64::from(rect.x) + (rw - iw * sx) / 2.0;
+    let y = f64::from(rect.y) + (rh - ih * sy) / 2.0;
     let _ = cr.save();
+    // Überstand (Cover, Center) abschneiden.
+    cr.rectangle(f64::from(rect.x), f64::from(rect.y), rw, rh);
+    cr.clip();
     cr.translate(x, y);
-    cr.scale(scale, scale);
+    cr.scale(sx, sy);
     if cr.set_source_surface(&surface, 0.0, 0.0).is_ok() {
         cr.source().set_filter(gtk::cairo::Filter::Best);
         let _ = cr.paint();
@@ -2450,6 +2465,8 @@ fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shap
                 color,
                 size,
                 bold,
+                italic,
+                family,
             } => {
                 let layout = pangocairo::functions::create_layout(cr);
                 let mut font = base.clone();
@@ -2459,6 +2476,12 @@ fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shap
                 } else {
                     pango::Weight::Normal
                 });
+                if *italic {
+                    font.set_style(pango::Style::Italic);
+                }
+                if let Some(family) = family {
+                    font.set_family(family);
+                }
                 layout.set_font_description(Some(&font));
                 layout.set_text(text);
                 set_color(cr, *color);
@@ -2500,7 +2523,7 @@ fn draw_shapes(area: &gtk::DrawingArea, cr: &gtk::cairo::Context, shapes: &[Shap
                 cr.move_to(f64::from(*x), f64::from(*y));
                 pangocairo::functions::show_layout(cr, &layout);
             }
-            Shape::Image { rect, image } => draw_image(cr, *rect, image),
+            Shape::Image { rect, image, fit } => draw_image(cr, *rect, image, *fit),
         }
     }
 }

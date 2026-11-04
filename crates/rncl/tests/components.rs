@@ -641,6 +641,8 @@ fn canvas_shapes_and_input() {
             color: Color::rgb(0, 0, 0),
             size: 13,
             bold: false,
+            italic: false,
+            family: None,
         },
     ];
     canvas.set_shapes(shapes.clone());
@@ -1006,6 +1008,7 @@ fn image_icon_and_splash_window() {
     let shapes = vec![Shape::Image {
         rect: Rect::new(0, 0, 40, 20),
         image: image.clone(),
+        fit: ruf::ImageFit::Contain,
     }];
     canvas.set_shapes(shapes.clone());
     assert_eq!(canvas.shapes(), shapes);

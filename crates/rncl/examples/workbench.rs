@@ -36,6 +36,8 @@ fn draw(boxes: &[Rect], drag: Option<Rect>) -> Vec<Shape> {
             color: Color::rgb(40, 40, 40),
             size: 13,
             bold: i == boxes.len() - 1,
+            italic: false,
+            family: None,
         });
     }
     if let Some(r) = drag {

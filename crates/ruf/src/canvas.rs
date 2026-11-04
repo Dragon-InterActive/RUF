@@ -30,6 +30,9 @@ pub enum Shape {
         /// Schriftgröße in Pixeln.
         size: i32,
         bold: bool,
+        italic: bool,
+        /// Schriftfamilie (`None` = die des Widgets).
+        family: Option<String>,
     },
     Line {
         from: Point,
@@ -50,8 +53,26 @@ pub enum Shape {
         italic: bool,
         underline: bool,
     },
-    /// Ein Bild, auf `rect` skaliert (Seitenverhältnis bleibt, zentriert).
-    Image { rect: Rect, image: Image },
+    /// Ein Bild in `rect`, eingepasst nach `fit`.
+    Image {
+        rect: Rect,
+        image: Image,
+        fit: ImageFit,
+    },
+}
+
+/// Wie ein Bild in sein Rechteck kommt.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum ImageFit {
+    /// Ganz sichtbar, Seitenverhältnis bleibt, mittig.
+    #[default]
+    Contain,
+    /// Füllt das Rechteck, Seitenverhältnis bleibt, Überstand abgeschnitten.
+    Cover,
+    /// Füllt das Rechteck, verzerrt.
+    Stretch,
+    /// In Originalgröße mittig, Überstand abgeschnitten.
+    Center,
 }
 
 /// Ein Bild für [`Shape::Image`]: PNG oder JPEG (SVG nur, wenn das System
