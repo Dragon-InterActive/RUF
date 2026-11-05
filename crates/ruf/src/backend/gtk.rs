@@ -1212,6 +1212,35 @@ impl Backend for Gtk {
         }
     }
 
+    fn set_drag_text(native: &GtkNative, _kind: WidgetKind, text: &str) {
+        let widget = native.outer.clone();
+        // Eine vorhandene Quelle ersetzen.
+        let controllers = widget.observe_controllers();
+        let old: Vec<gtk::DragSource> = (0..controllers.n_items())
+            .filter_map(|i| controllers.item(i).and_downcast::<gtk::DragSource>())
+            .collect();
+        for source in old {
+            widget.remove_controller(&source);
+        }
+        if text.is_empty() {
+            return;
+        }
+        let source = gtk::DragSource::new();
+        source.set_actions(gdk::DragAction::COPY);
+        let text = text.to_owned();
+        source.connect_prepare(move |_, _, _| {
+            Some(gdk::ContentProvider::for_value(&text.to_value()))
+        });
+        // Das Widget selbst als Bild unter der Maus.
+        source.connect_drag_begin(|source, _| {
+            if let Some(w) = source.widget() {
+                let paintable = gtk::WidgetPaintable::new(Some(&w));
+                source.set_icon(Some(&paintable), w.width() / 2, w.height() / 2);
+            }
+        });
+        widget.add_controller(source);
+    }
+
     fn set_mouse_cursor(native: &GtkNative, name: &str) {
         let target = match &native.inner {
             Inner::Canvas { area, .. } => area.clone().upcast(),
@@ -2625,6 +2654,37 @@ fn connect_canvas_input(
         );
     });
     area.add_controller(motion);
+
+    // Ziehen und Ablegen (Text, z. B. aus einem Paletten-Knopf).
+    let target = gtk::DropTarget::new(glib::Type::STRING, gdk::DragAction::COPY);
+    target.set_preload(true);
+    let dropped = move |action, x: f64, y: f64, text: Option<String>| {
+        notify(
+            id,
+            Notify::Drop(crate::canvas::DropEvent {
+                action,
+                x: x as i32,
+                y: y as i32,
+                text,
+            }),
+        );
+    };
+    target.connect_motion(move |t, x, y| {
+        let text = t.value().and_then(|v| v.get::<String>().ok());
+        dropped(crate::canvas::DropAction::Motion, x, y, text);
+        gdk::DragAction::COPY
+    });
+    target.connect_leave(move |_| dropped(crate::canvas::DropAction::Leave, 0.0, 0.0, None));
+    target.connect_drop(move |_, value, x, y| {
+        dropped(
+            crate::canvas::DropAction::Drop,
+            x,
+            y,
+            value.get::<String>().ok(),
+        );
+        true
+    });
+    area.add_controller(target);
 
     let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
     scroll.connect_scroll(move |c, _, dy| {

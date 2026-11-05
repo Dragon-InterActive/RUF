@@ -227,6 +227,13 @@ impl Widget {
         self.native_call(|n, _| Platform::focus(n));
     }
 
+    /// Macht das Widget zur Quelle für Ziehen und Ablegen: es trägt `text`
+    /// (leer = nicht mehr ziehbar). Abgelegt wird z. B. auf einer
+    /// Zeichenfläche ([`Widget::on_drop`]), auch in einem anderen Fenster.
+    pub fn set_drag_text(&self, text: &str) {
+        self.native_call(|n, k| Platform::set_drag_text(n, k, text));
+    }
+
     /// Mauszeiger über dem Widget als CSS-Name, z. B. `row-resize`,
     /// `col-resize`, `pointer`; leer = Standard.
     pub fn set_mouse_cursor(&self, name: &str) {
@@ -914,6 +921,11 @@ impl Widget {
         core::notify(self.id, core::Notify::Mouse(event));
     }
 
+    /// Simuliert Ziehen und Ablegen auf einer Zeichenfläche.
+    pub fn simulate_drop(&self, event: crate::canvas::DropEvent) {
+        core::notify(self.id, core::Notify::Drop(event));
+    }
+
     /// Simuliert einen Tastendruck auf einer Zeichenfläche.
     pub fn simulate_key(&self, event: KeyEvent) {
         core::notify(self.id, core::Notify::Key(event));
@@ -957,6 +969,12 @@ impl Widget {
     /// Klick auf einen Button, eine Checkbox oder ein Optionsfeld.
     pub fn on_clicked(&self, f: impl FnMut() + 'static) -> bool {
         core::connect_clicked(self.id, f)
+    }
+
+    /// Ziehen und Ablegen über einer Zeichenfläche (Text aus
+    /// [`Widget::set_drag_text`] oder einem anderen Programm).
+    pub fn on_drop(&self, f: impl FnMut(crate::canvas::DropEvent) + 'static) -> bool {
+        core::connect_drop(self.id, f)
     }
 
     /// Umschalten einer Checkbox oder eines Optionsfelds.

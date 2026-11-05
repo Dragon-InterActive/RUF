@@ -159,6 +159,27 @@ pub enum MouseAction {
     ScrollDown,
 }
 
+/// Was beim Ziehen und Ablegen (Drag and drop) über der Zeichenfläche geschah.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DropAction {
+    /// Etwas wird über die Fläche gezogen.
+    Motion,
+    /// Die Maus hat die Fläche wieder verlassen (ohne Ablegen).
+    Leave,
+    /// Abgelegt.
+    Drop,
+}
+
+/// Ziehen und Ablegen über der Zeichenfläche; `text` ist der gezogene Text
+/// (siehe [`crate::Widget::set_drag_text`]), bei `Motion` sobald bekannt.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DropEvent {
+    pub action: DropAction,
+    pub x: i32,
+    pub y: i32,
+    pub text: Option<String>,
+}
+
 /// Ein Mausereignis auf der Zeichenfläche, Koordinaten relativ zu ihr.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MouseEvent {

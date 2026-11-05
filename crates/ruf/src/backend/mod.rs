@@ -114,6 +114,9 @@ pub(crate) trait Backend {
     fn clipboard_read(f: Box<dyn FnOnce(Option<String>)>);
     /// Mauszeiger über dem Widget (CSS-Name wie `row-resize`; leer = Standard).
     fn set_mouse_cursor(native: &Self::Native, name: &str);
+    /// Das Widget lässt sich ziehen und trägt `text` (leer = nicht mehr).
+    /// Zeichenflächen melden Ziehen und Ablegen als `Notify::Drop`.
+    fn set_drag_text(native: &Self::Native, kind: WidgetKind, text: &str);
     /// Texteingabe über die Eingabemethode des Systems (tote Tasten, Akzente,
     /// IME); das Backend meldet `Notify::Text`.
     fn enable_text_input(native: &Self::Native);

@@ -385,6 +385,13 @@ canvas.set_shapes(vec![
 ]);
 canvas.on_mouse(|e| println!("{:?} {} {} Taste {}", e.action, e.x, e.y, e.button));
 canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
+// Ziehen und Ablegen: jedes Widget kann Text tragen, auch in ein anderes Fenster.
+button.widget().set_drag_text("core/Button");
+canvas.widget().on_drop(|e| match e.action {
+    ruf::DropAction::Motion => { /* Einfügemarke bei e.x, e.y; e.text sobald bekannt */ }
+    ruf::DropAction::Leave => { /* Marke entfernen */ }
+    ruf::DropAction::Drop => println!("abgelegt: {:?} bei {} {}", e.text, e.x, e.y),
+});
 ```
 
 Ein Klick (oder `canvas.widget().focus()`) gibt der Zeichenfläche den

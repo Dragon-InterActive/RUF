@@ -384,6 +384,13 @@ canvas.set_shapes(vec![
 ]);
 canvas.on_mouse(|e| println!("{:?} {} {} button {}", e.action, e.x, e.y, e.button));
 canvas.on_key(|e| if e.key == ruf::Key::Delete { /* … */ });
+// Drag and drop: any widget can carry text, also into another window.
+button.widget().set_drag_text("core/Button");
+canvas.widget().on_drop(|e| match e.action {
+    ruf::DropAction::Motion => { /* insertion mark at e.x, e.y; e.text once known */ }
+    ruf::DropAction::Leave => { /* remove the mark */ }
+    ruf::DropAction::Drop => println!("dropped: {:?} at {} {}", e.text, e.x, e.y),
+});
 ```
 
 A click (or `canvas.widget().focus()`) gives the canvas keyboard focus.

@@ -50,7 +50,8 @@ mod widget;
 
 pub use app::{Application, ColorScheme};
 pub use canvas::{
-    Image, ImageFit, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape, measure_text,
+    DropAction, DropEvent, Image, ImageFit, KeyEvent, Modifiers, MouseAction, MouseEvent, Shape,
+    measure_text,
 };
 pub use code::{
     BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick, LineMark,

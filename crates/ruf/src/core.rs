@@ -130,6 +130,8 @@ pub(crate) enum Notify {
     TreeToggled(usize),
     /// Klick in die Randleiste des Code-Editors.
     Gutter(crate::code::GutterClick),
+    /// Ziehen und Ablegen über einer Zeichenfläche.
+    Drop(crate::canvas::DropEvent),
 }
 
 type Callback<F> = Rc<RefCell<F>>;
@@ -152,6 +154,7 @@ enum Handler {
     TreeActivated(Callback<dyn FnMut(String)>),
     TreeToggled(Callback<dyn FnMut(String, bool)>),
     Gutter(Callback<dyn FnMut(crate::code::GutterClick)>),
+    Drop(Callback<dyn FnMut(crate::canvas::DropEvent)>),
 }
 
 /// Ein Signal, das ein Widget anbieten kann.
@@ -173,6 +176,7 @@ pub(crate) enum Signal {
     TreeActivated,
     TreeToggled,
     Gutter,
+    Drop,
 }
 
 impl Signal {
@@ -198,6 +202,7 @@ impl Signal {
                 kind == K::TreeView
             }
             Signal::Gutter => kind == K::CodeEditor,
+            Signal::Drop => kind == K::Canvas,
         }
     }
 }
@@ -964,6 +969,13 @@ pub(crate) fn notify(id: Id, event: Notify) {
             }),
             |f| f(click),
         ),
+        Notify::Drop(event) => fire(
+            handlers(id, |h| match h {
+                Handler::Drop(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(event.clone()),
+        ),
     }
 }
 
@@ -1408,6 +1420,10 @@ fn fire_string(
 
 pub(crate) fn connect_mouse(id: Id, f: impl FnMut(MouseEvent) + 'static) -> bool {
     add_handler(id, Signal::Mouse, Handler::Mouse(Rc::new(RefCell::new(f))))
+}
+
+pub(crate) fn connect_drop(id: Id, f: impl FnMut(crate::canvas::DropEvent) + 'static) -> bool {
+    add_handler(id, Signal::Drop, Handler::Drop(Rc::new(RefCell::new(f))))
 }
 
 pub(crate) fn connect_key(id: Id, f: impl FnMut(KeyEvent) + 'static) -> bool {
