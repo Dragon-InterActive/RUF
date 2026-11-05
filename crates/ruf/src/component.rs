@@ -64,6 +64,11 @@ pub trait Component {
         self.widget().geometry()
     }
 
+    /// Verankerung an den Kanten des Elternelements, siehe [`Widget::set_anchors`].
+    fn set_anchors(&self, anchors: crate::Anchors) {
+        self.widget().set_anchors(anchors);
+    }
+
     fn show(&self) {
         self.widget().set_visible(true);
     }

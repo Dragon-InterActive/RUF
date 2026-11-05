@@ -7,6 +7,7 @@ All components implement `ruf::Component` and therefore provide:
 | `set_position(x, y)` / `position()` | position relative to the parent |
 | `set_size(w, h)` / `size()` | size in pixels |
 | `set_geometry(x, y, w, h)` / `geometry()` | both at once |
+| `set_anchors(a)` | anchoring to the parent's edges (like Delphi's `Anchors`), see below |
 | `show()` / `hide()` / `is_visible()` | visibility |
 | `set_enabled(b)` / `is_enabled()` | interactivity |
 | `set_tool_tip(text)` | tooltip |
@@ -30,6 +31,27 @@ entries and page titles).
 
 Every component has two constructors: `new(&parent, …)` and
 `with_parent(Option<&Widget>, …)` (for registry factories and composite components).
+
+**Anchors:** instead of recomputing everything in `on_resized`, attach components to
+edges of their parent. When the parent's size changes, they keep their distance to
+those edges: anchored left and right, the width grows; anchored only right, the
+component moves with the right edge; without left and right it stays centred. The
+reference is the geometry when the anchors are set (or at the next `set_geometry`);
+the parent should already have its size then. Nested containers pass the change on to
+their children.
+
+```rust
+window.set_size(600, 400);
+let memo = RnclTextArea::new(&window);
+memo.set_geometry(16, 16, 568, 320);
+memo.set_anchors(Anchors::ALL);            // grows in width and height
+let ok = RnclButton::new(&window, "OK");
+ok.set_geometry(474, 352, 110, 32);
+ok.set_anchors(Anchors::BOTTOM_RIGHT);     // stays at the bottom right
+```
+
+Presets: `TOP_LEFT` (default), `ALL`, `TOP_STRETCH`, `BOTTOM_STRETCH`, `TOP_RIGHT`,
+`BOTTOM_RIGHT`, `BOTTOM_LEFT`, or any `Anchors::new(left, top, right, bottom)`.
 
 ---
 

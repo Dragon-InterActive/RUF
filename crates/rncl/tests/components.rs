@@ -35,6 +35,7 @@ fn main() {
         ("scroll_view", scroll_view),
         ("dynamic_children", dynamic_children),
         ("resize_and_shortcut", resize_and_shortcut),
+        ("anchors", anchors),
         ("timer", timer),
         ("gui_sender", gui_sender),
         ("text_area_code_editor", text_area_code_editor),
@@ -1029,4 +1030,39 @@ fn image_icon_and_splash_window() {
     assert!(Application::set_icon("ruf-test-icon", &[(4, png)]));
     assert!(!Application::set_icon("ruf-test-icon", &[]));
     assert!(Application::screen_rect().is_some_and(|r| r.width > 0 && r.height > 0));
+}
+
+fn anchors() {
+    let window = RnclWindow::new("Anker");
+    window.set_size(400, 300);
+    let panel = RnclPanel::new(&window);
+    panel.set_geometry(10, 10, 380, 240);
+    panel.set_anchors(Anchors::ALL);
+    let field = RnclTextField::new(&panel);
+    field.set_geometry(0, 0, 380, 30);
+    field.set_anchors(Anchors::TOP_STRETCH);
+    let ok = RnclButton::new(&window, "OK");
+    ok.set_geometry(290, 260, 100, 30);
+    ok.set_anchors(Anchors::BOTTOM_RIGHT);
+    let fixed = RnclLabel::new(&window, "fest");
+    fixed.set_geometry(10, 260, 100, 30);
+
+    window.set_size(600, 500);
+    assert_eq!(panel.geometry(), Rect::new(10, 10, 580, 440));
+    assert_eq!(
+        field.geometry(),
+        Rect::new(0, 0, 580, 30),
+        "Kind des Panels folgt mit"
+    );
+    assert_eq!(ok.geometry(), Rect::new(490, 460, 100, 30));
+    assert_eq!(fixed.geometry(), Rect::new(10, 260, 100, 30));
+    // Zurück auf die Ausgangsgröße: alles wie entworfen.
+    window.set_size(400, 300);
+    assert_eq!(ok.geometry(), Rect::new(290, 260, 100, 30));
+    assert_eq!(field.geometry(), Rect::new(0, 0, 380, 30));
+    // Neue Geometrie per Code wird der neue Bezug.
+    ok.set_geometry(250, 250, 140, 40);
+    window.set_size(500, 300);
+    assert_eq!(ok.geometry(), Rect::new(350, 250, 140, 40));
+    assert_eq!(ok.widget().anchors(), Anchors::BOTTOM_RIGHT);
 }

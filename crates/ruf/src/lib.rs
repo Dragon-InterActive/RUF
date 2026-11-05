@@ -58,7 +58,7 @@ pub use code::{
     MarkKind, fold_regions,
 };
 pub use component::{Component, base};
-pub use geometry::{Point, Rect, Size};
+pub use geometry::{Anchors, Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};
 pub use menu::{Menu, MenuBar, MenuEntry};
 pub use property::{PropertyDescriptor, PropertyError, PropertyType, PropertyValue};
@@ -74,7 +74,7 @@ pub use widget::{AsWidget, Widget, WidgetKind};
 /// [`Component`]-Trait (für `.set_position()` & Co.) in den Scope.
 pub mod prelude {
     pub use crate::{
-        Application, AsWidget, Component, ComponentInfo, ComponentRegistry, GuiSender, Point,
-        PropertyValue, Rect, Size, Timer, Widget, WidgetKind,
+        Anchors, Application, AsWidget, Component, ComponentInfo, ComponentRegistry, GuiSender,
+        Point, PropertyValue, Rect, Size, Timer, Widget, WidgetKind,
     };
 }

@@ -7,6 +7,7 @@ Alle Komponenten implementieren `ruf::Component` und besitzen damit:
 | `set_position(x, y)` / `position()` | Position relativ zum Elternteil |
 | `set_size(w, h)` / `size()` | Größe in Pixeln |
 | `set_geometry(x, y, w, h)` / `geometry()` | beides zusammen |
+| `set_anchors(a)` | Verankerung an den Kanten des Elternteils (wie Delphis `Anchors`), siehe unten |
 | `show()` / `hide()` / `is_visible()` | Sichtbarkeit |
 | `set_enabled(b)` / `is_enabled()` | Bedienbarkeit |
 | `set_tool_tip(text)` | Hinweistext |
@@ -30,6 +31,27 @@ Einträge und Seitentitel).
 
 Jede Komponente hat zwei Konstruktoren: `new(&eltern, …)` und
 `with_parent(Option<&Widget>, …)` (für Registry-Fabriken und zusammengesetzte Komponenten).
+
+**Anchors (Verankerung):** Statt in `on_resized` alles neu zu rechnen, hängt man
+Komponenten an Kanten des Elternteils. Ändert sich dessen Größe, behalten sie den
+Abstand zu diesen Kanten: links und rechts verankert wächst die Breite mit, nur rechts
+verankert wandert die Komponente mit dem rechten Rand, ohne linke und rechte Kante
+bleibt sie mittig. Bezug ist die Lage beim Setzen (bzw. beim nächsten `set_geometry`),
+das Elternteil sollte dann schon seine Größe haben. Verschachtelte Container geben die
+Änderung an ihre Kinder weiter.
+
+```rust
+window.set_size(600, 400);
+let memo = RnclTextArea::new(&window);
+memo.set_geometry(16, 16, 568, 320);
+memo.set_anchors(Anchors::ALL);            // wächst in Breite und Höhe
+let ok = RnclButton::new(&window, "OK");
+ok.set_geometry(474, 352, 110, 32);
+ok.set_anchors(Anchors::BOTTOM_RIGHT);     // bleibt unten rechts
+```
+
+Vorgaben: `TOP_LEFT` (Standard), `ALL`, `TOP_STRETCH`, `BOTTOM_STRETCH`, `TOP_RIGHT`,
+`BOTTOM_RIGHT`, `BOTTOM_LEFT` oder frei `Anchors::new(links, oben, rechts, unten)`.
 
 ---
 

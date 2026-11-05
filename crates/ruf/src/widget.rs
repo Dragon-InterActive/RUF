@@ -139,6 +139,19 @@ impl Widget {
         core::set_geometry(self.id, rect);
     }
 
+    /// Verankerung an den Kanten des Elternelements (wie Delphis `Anchors`):
+    /// Ändert sich dessen Größe, behält das Widget den Abstand zu den
+    /// verankerten Kanten. Bezug ist die Lage beim Aufruf bzw. beim nächsten
+    /// [`Widget::set_geometry`]; das Elternelement sollte dann schon seine
+    /// Größe haben.
+    pub fn set_anchors(&self, anchors: crate::Anchors) {
+        core::set_anchors(self.id, anchors);
+    }
+
+    pub fn anchors(&self) -> crate::Anchors {
+        core::get(self.id, |n| n.anchors).unwrap_or_default()
+    }
+
     pub fn geometry(&self) -> Rect {
         core::get(self.id, |n| n.geometry).unwrap_or_default()
     }

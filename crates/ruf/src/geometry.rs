@@ -86,3 +86,101 @@ mod tests {
         assert!(!r.contains(Point::new(10, 5)));
     }
 }
+
+/// An welchen Kanten des Elternelements ein Widget hängt (wie Delphis
+/// `Anchors`). Ändert sich die Größe des Elternelements, behält das Widget
+/// den Abstand zu den verankerten Kanten: links und rechts verankert wächst
+/// es in der Breite mit, nur rechts verankert wandert es mit dem rechten Rand,
+/// ohne linke und rechte Kante bleibt es mittig. Standard ist links oben.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Anchors {
+    pub left: bool,
+    pub top: bool,
+    pub right: bool,
+    pub bottom: bool,
+}
+
+impl Default for Anchors {
+    fn default() -> Self {
+        Self::TOP_LEFT
+    }
+}
+
+impl Anchors {
+    /// Links oben (Standard): Position und Größe bleiben.
+    pub const TOP_LEFT: Self = Self::new(true, true, false, false);
+    /// Alle Kanten: wächst in Breite und Höhe mit.
+    pub const ALL: Self = Self::new(true, true, true, true);
+    /// Links, oben und rechts: wächst in der Breite mit.
+    pub const TOP_STRETCH: Self = Self::new(true, true, true, false);
+    /// Links, unten und rechts: wächst in der Breite mit, bleibt unten.
+    pub const BOTTOM_STRETCH: Self = Self::new(true, false, true, true);
+    /// Rechts oben: wandert mit dem rechten Rand.
+    pub const TOP_RIGHT: Self = Self::new(false, true, true, false);
+    /// Rechts unten: wandert mit der rechten unteren Ecke.
+    pub const BOTTOM_RIGHT: Self = Self::new(false, false, true, true);
+    /// Links unten: wandert mit dem unteren Rand.
+    pub const BOTTOM_LEFT: Self = Self::new(true, false, false, true);
+
+    pub const fn new(left: bool, top: bool, right: bool, bottom: bool) -> Self {
+        Self {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    /// Lage in einem Elternelement der Größe `parent`, wenn `rect` für die
+    /// Größe `base` entworfen wurde.
+    pub fn apply(self, rect: Rect, base: Size, parent: Size) -> Rect {
+        let axis = |start: bool, end: bool, pos: i32, len: i32, delta: i32| match (start, end) {
+            (true, true) => (pos, (len + delta).max(0)),
+            (false, true) => (pos + delta, len),
+            (false, false) => (pos + delta / 2, len),
+            (true, false) => (pos, len),
+        };
+        let (x, width) = axis(
+            self.left,
+            self.right,
+            rect.x,
+            rect.width,
+            parent.width - base.width,
+        );
+        let (y, height) = axis(
+            self.top,
+            self.bottom,
+            rect.y,
+            rect.height,
+            parent.height - base.height,
+        );
+        Rect::new(x, y, width, height)
+    }
+}
+
+#[cfg(test)]
+mod anchor_tests {
+    use super::*;
+
+    #[test]
+    fn anchors_follow_the_parent() {
+        let r = Rect::new(10, 20, 100, 30);
+        let base = Size::new(400, 300);
+        let parent = Size::new(500, 360);
+        assert_eq!(Anchors::TOP_LEFT.apply(r, base, parent), r);
+        assert_eq!(
+            Anchors::ALL.apply(r, base, parent),
+            Rect::new(10, 20, 200, 90)
+        );
+        assert_eq!(
+            Anchors::BOTTOM_RIGHT.apply(r, base, parent),
+            Rect::new(110, 80, 100, 30)
+        );
+        assert_eq!(
+            Anchors::new(false, false, false, false).apply(r, base, parent),
+            Rect::new(60, 50, 100, 30)
+        );
+        // Kleiner als entworfen: nie negative Größe.
+        assert_eq!(Anchors::ALL.apply(r, base, Size::new(100, 100)).width, 0);
+    }
+}

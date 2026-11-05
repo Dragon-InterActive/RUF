@@ -266,6 +266,10 @@ pub(crate) struct Node {
     pub execution_line: Option<usize>,
     /// Bild eines Knopfs.
     pub image: Option<crate::Image>,
+    /// Verankerung und die Lage, für die sie gilt (eigenes Rechteck und
+    /// Größe des Elternelements beim Setzen).
+    pub anchors: crate::Anchors,
+    pub anchor_base: Option<(Rect, Size)>,
     last: Snapshot,
     handlers: Vec<Handler>,
 }
@@ -444,6 +448,8 @@ fn new_node(kind: WidgetKind, native: Native, parent: Option<Id>, geometry: Rect
         breakpoint_marks: Vec::new(),
         execution_line: None,
         image: None,
+        anchors: crate::Anchors::TOP_LEFT,
+        anchor_base: None,
         last: Snapshot {
             index: -1,
             ..Default::default()
@@ -774,6 +780,7 @@ fn fire_index(id: Id, index: i32) {
 }
 
 fn fire_resized(id: Id, size: Size) {
+    follow_anchors(id, size);
     fire(
         handlers(id, |h| match h {
             Handler::Resized(f) => Some(f.clone()),
@@ -993,7 +1000,46 @@ fn resized(id: Id, size: Size) {
 
 // --- Setter mit Kern-Semantik -----------------------------------------------------------
 
+/// Setzt die Verankerung; sie gilt für die jetzige Lage im Elternelement.
+pub(crate) fn set_anchors(id: Id, anchors: crate::Anchors) {
+    update(id, |n| n.anchors = anchors);
+    rebase_anchors(id);
+}
+
+/// Merkt sich Lage und Elterngröße als Bezug der Verankerung.
+fn rebase_anchors(id: Id) {
+    let Some((anchors, rect, parent)) = get(id, |n| (n.anchors, n.geometry, n.parent)) else {
+        return;
+    };
+    let base = if anchors == crate::Anchors::TOP_LEFT {
+        None
+    } else {
+        parent
+            .and_then(|p| get(p, |n| n.geometry.size()))
+            .map(|size| (rect, size))
+    };
+    update(id, |n| n.anchor_base = base);
+}
+
+/// Ordnet die verankerten Kinder von `id` für die neue Größe an.
+fn follow_anchors(id: Id, size: Size) {
+    let children = get(id, |n| n.children.clone()).unwrap_or_default();
+    for child in children {
+        let Some((anchors, Some((rect, base)))) = get(child, |n| (n.anchors, n.anchor_base)) else {
+            continue;
+        };
+        place(child, anchors.apply(rect, base, size));
+    }
+}
+
+/// Geometrie setzen, wie sie der Anwender wünscht (neuer Bezug für die Verankerung).
 pub(crate) fn set_geometry(id: Id, rect: Rect) {
+    place(id, rect);
+    rebase_anchors(id);
+}
+
+/// Geometrie setzen, ohne den Bezug der Verankerung zu ändern.
+fn place(id: Id, rect: Rect) {
     let Some((native, kind)) = native(id) else {
         return;
     };
