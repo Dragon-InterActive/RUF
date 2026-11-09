@@ -25,11 +25,11 @@ rustup target add x86_64-pc-windows-gnu
 `rustup`/`cargo` of the Windows installation must be in the `PATH` of the UCRT64
 shell (`MSYS2_PATH_TYPE=inherit`); alternatively `pacman -S mingw-w64-ucrt-x86_64-rust`.
 
-Build and bundle (example CT-Editor):
+Build and bundle (example CT-Editor; `$RUF` = a checkout of RUF, `../RUF` inside Freya TDE):
 
 ```bash
 cargo build --release --target x86_64-pc-windows-gnu
-../RUF/tools/bundle-windows.sh target/x86_64-pc-windows-gnu/release/ct-editor.exe \
+$RUF/tools/bundle-windows.sh target/x86_64-pc-windows-gnu/release/ct-editor.exe \
     dist/ct-editor-windows-x86_64 docs LICENSE-MIT LICENSE-APACHE README.md
 ```
 
@@ -50,7 +50,7 @@ Build and bundle:
 
 ```bash
 cargo build --release
-../RUF/tools/bundle-macos.sh target/release/ct-editor dist/CT-Editor.app \
+$RUF/tools/bundle-macos.sh target/release/ct-editor dist/CT-Editor.app \
     net.dragon-software.ct-editor docs LICENSE-MIT LICENSE-APACHE
 ```
 

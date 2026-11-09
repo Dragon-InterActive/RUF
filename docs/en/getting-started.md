@@ -80,9 +80,9 @@ cargo new my_program && cd my_program
 [dependencies]
 ruf  = { version = "0.2.0" }   # the native foundation
 rncl = { version = "0.2.0" }   # the native system widgets
-# As long as the crates are unpublished, use paths:
-# ruf  = { path = "../RUF/crates/ruf" }
-# rncl = { path = "../RUF/crates/rncl" }
+# As long as the crates are unpublished, from the repository:
+# ruf  = { git = "https://github.com/Dragon-InterActive/RUF" }
+# rncl = { git = "https://github.com/Dragon-InterActive/RUF" }
 ```
 
 `src/main.rs`:

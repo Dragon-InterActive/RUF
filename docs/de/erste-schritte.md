@@ -81,9 +81,9 @@ cargo new mein_programm && cd mein_programm
 [dependencies]
 ruf  = { version = "0.2.0" }   # das native Fundament
 rncl = { version = "0.2.0" }   # die nativen System-Widgets
-# Solange die Crates nicht veröffentlicht sind, per Pfad:
-# ruf  = { path = "../RUF/crates/ruf" }
-# rncl = { path = "../RUF/crates/rncl" }
+# Solange die Crates nicht veröffentlicht sind, aus dem Repository:
+# ruf  = { git = "https://github.com/Dragon-InterActive/RUF" }
+# rncl = { git = "https://github.com/Dragon-InterActive/RUF" }
 ```
 
 `src/main.rs`:
