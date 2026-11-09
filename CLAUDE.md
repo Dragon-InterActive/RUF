@@ -1,37 +1,53 @@
-# Projekt Bezeichnung und Funktion
+# RUF – Hinweise für KI-Assistenten und Mitwirkende
 
-`RUF` ist die kurzform für Rust native UI Framework. Es ist ein Framework auf Basis von GTK 4 (gtk4-rs) – auf Linux, Windows und macOS. Releases für Windows und macOS liefern die GTK-Laufzeit mit (`tools/bundle-windows.sh`, `tools/bundle-macos.sh`, `docs/de/release.md`).
+*Notes for AI assistants and contributors: what RUF is, its decisions and conventions.
+Details on structure and commands: `AGENTS.md`; developer docs: `docs/de`, `docs/en`.*
 
-Die einzelenen UI-Elemente wie Buttons, Textfelder oder Checkboxen etc. sind einzelene Componenten und heißen `RNCL` (Rust native Component Library).
-Diese Festlegung soll es anderen Entwicklern ermöglichen, eigene UI-Elemente zu entwickeln und an das Framework zuübergeben und zu nutzen.
+## Was RUF ist
 
-Ruf wird die Bais des RAD-Tools (Rapid Application Development) "Freya TDE" werden.
+**RUF** (Rust native UI Framework) ist ein UI-Framework auf Basis von GTK 4 (gtk4-rs)
+für Linux, Windows und macOS. Anwendungen schreiben denselben Code für alle Systeme;
+Releases für Windows und macOS liefern die GTK-Laufzeit mit (`tools/bundle-windows.sh`,
+`tools/bundle-macos.sh`, `docs/de/release.md`).
 
-Qt wird nicht mehr verwendet (Entscheidung vom 22.10.2026). Win32 und Cocoa wurden entfernt, alles läuft über GTK 4 (Entscheidung vom 23.10.2026, um doppelte Arbeit zu sparen). Anwendungen schreiben denselben Code für alle Systeme.
+Die UI-Elemente (Buttons, Textfelder, Checkboxen …) sind einzelne Komponenten der
+**RNCL** (Rust native Component Library). Andere Entwickler können eigene Komponenten
+nach demselben Muster schreiben und im Framework registrieren.
 
-Die spätere Verwendung in Rust-Projekten bzw. in den toml-Dateien sollte diesem Muster folgen:
+RUF ist die Grundlage der Editor-Oberfläche des RAD-Tools
+[Freya TDE](https://github.com/Dragon-InterActive/Freya-TD) und des
+[CT-Editors](https://github.com/Dragon-InterActive/CT-E).
 
-```toml
-[dependencies]
-ruf = { version = "0.2.0" }  # Das native Fundament (Backend automatisch)
-rncl = { version = "0.2.0" } # Die nativen System-Widgets
+## Entscheidungen
 
-```
+- Nur GTK 4 auf allen Systemen (seit 23.10.2026): Win32 und Cocoa wurden entfernt,
+  Qt wird seit 22.10.2026 nicht mehr verwendet. Das Backend bleibt hinter einem
+  Rust-Trait, damit ein anderes Toolkit später möglich wäre.
+- Abhängigkeiten: `gtk4` (Backend), `regex` (Syntax-Hervorhebung im Code-Editor).
+  Weitere Crates nur in aktuellen, stabilen Versionen und mit freier Lizenz.
+- Einbindung in Projekte, solange RUF nicht auf crates.io veröffentlicht ist:
 
-## Crates
+  ```toml
+  [dependencies]
+  ruf  = { git = "https://github.com/Dragon-InterActive/RUF" }   # das Fundament
+  rncl = { git = "https://github.com/Dragon-InterActive/RUF" }   # die Komponenten
+  ```
 
-- `gtk4` (gtk4-rs) – Backend für Linux, Windows und macOS
-- `regex` – Syntax-Hervorhebung im Code-Editor
-
-Weitere crates, wenn sie sinnvoll erscheinen, können selbstverständlich mitgenutzt und installiert werden. Die Entscheidung hierfür liegt bei dir.
+  Zielbild nach einer Veröffentlichung: `ruf = "0.2"`, `rncl = "0.2"`.
 
 ## Architektur
 
-1. Die System-Ebene (Das Backend): GTK 4 hinter einem Rust-Trait (bleibt, damit ein anderes Toolkit später möglich wäre); darüber ein plattformunabhängiger Kern (Signale, Lebensdauer, Semantik)
-2. Logik-Ebene (Die RNCL-Komponenten): Der Entwickler definiert in sauberen, puren Rust, was ein Fenster oder ein Button tun kann (z.B. ein `struct RnclButton` mit Methoden wie `.set_psoition(x, y)`)
-3. Der visuelle Form-Designer (Das Front-End): Die geplante Oberfläche spricht am Ende nur die RNCL-Rust-Strukturen an.
+1. **System-Ebene (Backend):** GTK 4 hinter dem Trait `Backend`; darüber ein
+   plattformunabhängiger Kern (Signale, Lebensdauer, Semantik).
+2. **Logik-Ebene (RNCL-Komponenten):** reines Rust beschreibt, was ein Fenster oder
+   Button kann (`RnclButton` mit Methoden wie `set_position(x, y)`).
+3. **Designer (Front-End):** ein visueller Form-Designer spricht nur die
+   RNCL-Strukturen an.
 
-## Entwickler und AI
+## Konventionen
 
-- Denke immer die Möglichkeit mit, eine AI zu nutzen. Erstelle dafür Skills.
-- Erstelle auch eine Entwickler-Dokumentation mit Beispielen in deutsch und in englisch.
+- Rust ≥ 1.99, Edition 2024; `cargo clippy` warnungsfrei.
+- Entwickler-Dokumentation mit Beispielen auf Deutsch und Englisch, bei
+  API-Änderungen beide pflegen.
+- Die Nutzung durch KI-Assistenten mitdenken: Skills in `.claude/skills/`.
+- Lizenz: MIT OR Apache-2.0 (nach Wahl des Nutzers).
