@@ -8,6 +8,8 @@
 #
 # Aufruf / usage:
 #   tools/bundle-macos.sh <programm> <Name.app> [bundle-id] [weitere Dateien …]
+#   Eine .icns unter den weiteren Dateien wird das Symbol des Programms (Finder, Dock).
+#   A .icns among the extra files becomes the program icon (Finder, Dock).
 #
 # Ergebnis / result:
 #   Name.app/Contents/MacOS/<programm>      Startskript (setzt GTK-Umgebung)
@@ -49,6 +51,14 @@ exec "\$here/$name-bin" "\$@"
 LAUNCH
 chmod +x "$contents/MacOS/$name"
 
+# Symbol: die erste .icns unter den weiteren Dateien.
+icon=""
+for extra in "$@"; do
+    case "$extra" in *.icns) icon=$(basename "$extra"); break ;; esac
+done
+icon_entry=""
+[ -n "$icon" ] && icon_entry="<key>CFBundleIconFile</key><string>$icon</string>"
+
 cat > "$contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -59,6 +69,7 @@ cat > "$contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>$(basename "$app" .app)</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>NSHighResolutionCapable</key><true/>
+    $icon_entry
 </dict>
 </plist>
 PLIST

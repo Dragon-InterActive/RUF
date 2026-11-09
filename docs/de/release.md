@@ -51,8 +51,12 @@ Bauen und bündeln:
 ```bash
 cargo build --release
 $RUF/tools/bundle-macos.sh target/release/ct-editor dist/CT-Editor.app \
-    net.dragon-software.ct-editor docs LICENSE-MIT LICENSE-APACHE
+    net.dragon-software.ct-editor assets/ct-editor.icns docs LICENSE-MIT LICENSE-APACHE
 ```
+
+Eine `.icns` unter den weiteren Dateien wird das Programmsymbol (Finder, Dock);
+ein Windows-Programm bettet seine `.ico` selbst ein (z. B. `build.rs` mit `embed-resource`,
+siehe CT-Editor).
 
 Das Skript kopiert alle dylibs nach `Contents/libs/` und schreibt die Pfade um,
 legt Schemata und Symbole nach `Contents/Resources/share/` und startet das Programm

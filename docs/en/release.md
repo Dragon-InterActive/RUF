@@ -51,8 +51,12 @@ Build and bundle:
 ```bash
 cargo build --release
 $RUF/tools/bundle-macos.sh target/release/ct-editor dist/CT-Editor.app \
-    net.dragon-software.ct-editor docs LICENSE-MIT LICENSE-APACHE
+    net.dragon-software.ct-editor assets/ct-editor.icns docs LICENSE-MIT LICENSE-APACHE
 ```
+
+A `.icns` among the extra files becomes the program icon (Finder, Dock); a Windows
+program embeds its `.ico` itself (e.g. `build.rs` with `embed-resource`, see the
+CT-Editor).
 
 The script copies all dylibs to `Contents/libs/` and rewrites their paths, puts
 schemas and icons into `Contents/Resources/share/` and starts the program through a
