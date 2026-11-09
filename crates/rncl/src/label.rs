@@ -46,6 +46,11 @@ impl RnclLabel {
         self.widget.is_word_wrap()
     }
 
+    /// Zu lange Texte mit `…` kürzen (`Elide::Middle` für Pfade).
+    pub fn set_elide(&self, elide: ruf::Elide) {
+        self.widget.set_elide(elide);
+    }
+
     pub fn info() -> ComponentInfo {
         ComponentInfo::new(Self::TYPE_NAME, |parent| {
             Box::new(Self::with_parent(parent, Self::TYPE_NAME))

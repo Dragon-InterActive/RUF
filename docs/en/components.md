@@ -143,7 +143,11 @@ Native: GTK `GtkLabel` · category *Standard*
 let label = RnclLabel::new(&window, "Status: <b>ready</b>"); // simple HTML¹
 label.set_text("Done");
 label.set_word_wrap(true);                  // wrap long texts
+label.set_elide(Elide::Middle);             // or shorten one line with "…" (paths)
 ```
+
+`set_elide(Elide::Start | Middle | End)` shortens a too long single-line text to the
+set width instead of letting it run over the edge; `Elide::None` (default) turns it off.
 
 | Property | Type | |
 |---|---|---|

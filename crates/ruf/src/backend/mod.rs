@@ -143,6 +143,7 @@ pub(crate) trait Backend {
     fn set_password(native: &Self::Native, enabled: bool);
     fn set_read_only(native: &Self::Native, kind: WidgetKind, read_only: bool);
     fn set_word_wrap(native: &Self::Native, wrap: bool);
+    fn set_elide(native: &Self::Native, elide: crate::Elide);
 
     // --- Schalter -------------------------------------------------------------
 

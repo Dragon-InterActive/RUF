@@ -1471,6 +1471,20 @@ impl Backend for Gtk {
         }
     }
 
+    fn set_elide(native: &GtkNative, elide: crate::Elide) {
+        if let Inner::Label(l) = &native.inner {
+            l.set_ellipsize(match elide {
+                crate::Elide::None => gtk::pango::EllipsizeMode::None,
+                crate::Elide::Start => gtk::pango::EllipsizeMode::Start,
+                crate::Elide::Middle => gtk::pango::EllipsizeMode::Middle,
+                crate::Elide::End => gtk::pango::EllipsizeMode::End,
+            });
+            // Sonst ist die natürliche Breite der ganze Text, und die feste
+            // Anordnung gibt sie dem Label; die gesetzte Breite bleibt Minimum.
+            l.set_max_width_chars(if elide == crate::Elide::None { -1 } else { 1 });
+        }
+    }
+
     fn set_checked(native: &GtkNative, _kind: WidgetKind, checked: bool) {
         if let Inner::Check(c) = &native.inner {
             c.set_active(checked);

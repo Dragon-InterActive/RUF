@@ -137,7 +137,7 @@ pub mod prelude {
     };
     pub use ruf::prelude::*;
     pub use ruf::{
-        BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Fold, GutterClick,
+        BreakpointKind, BreakpointMark, Completion, DiffKind, DiffMark, Elide, Fold, GutterClick,
         KeyEvent, LineMark, MarkKind, Menu, MenuBar, Modifiers, MouseAction, MouseEvent, Shape,
         TreeItem,
     };

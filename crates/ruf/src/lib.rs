@@ -58,7 +58,7 @@ pub use code::{
     MarkKind, fold_regions,
 };
 pub use component::{Component, base};
-pub use geometry::{Anchors, Point, Rect, Size};
+pub use geometry::{Anchors, Elide, Point, Rect, Size};
 pub use gui_sender::{GuiSender, post_to_gui};
 pub use menu::{Menu, MenuBar, MenuEntry};
 pub use property::{PropertyDescriptor, PropertyError, PropertyType, PropertyValue};

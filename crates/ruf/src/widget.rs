@@ -447,6 +447,19 @@ impl Widget {
         core::get(self.id, |n| n.word_wrap).unwrap_or(false)
     }
 
+    /// Kürzt einen zu langen Text eines Labels mit `…` statt ihn über den
+    /// Rand laufen zu lassen (z. B. [`crate::Elide::Middle`] für Pfade).
+    pub fn set_elide(&self, elide: crate::Elide) {
+        if self.kind() == WidgetKind::Label {
+            core::update(self.id, |n| n.elide = elide);
+            self.native_call(|n, _| Platform::set_elide(n, elide));
+        }
+    }
+
+    pub fn elide(&self) -> crate::Elide {
+        core::get(self.id, |n| n.elide).unwrap_or_default()
+    }
+
     /// Häkchen bzw. gedrückter Zustand.
     pub fn set_checked(&self, checked: bool) {
         core::set_checked(self.id, checked);

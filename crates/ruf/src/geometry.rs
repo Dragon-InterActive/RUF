@@ -1,6 +1,20 @@
 //! Reine Rust-Geometrietypen – unabhängig vom Backend, damit Logik und
 //! Designer ohne FFI damit rechnen können.
 
+/// Wo ein zu langer einzeiliger Text gekürzt wird (`…`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub enum Elide {
+    /// Nicht kürzen (der Text darf über den Rand laufen).
+    #[default]
+    None,
+    /// Am Anfang: `…/projekt/Cargo.toml`.
+    Start,
+    /// In der Mitte: `/home/…/Cargo.toml` (gut für Pfade).
+    Middle,
+    /// Am Ende: `Ein langer Te…`.
+    End,
+}
+
 /// Ein Punkt in Pixeln, relativ zum Elternelement.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Point {

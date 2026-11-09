@@ -36,6 +36,7 @@ fn main() {
         ("dynamic_children", dynamic_children),
         ("resize_and_shortcut", resize_and_shortcut),
         ("anchors", anchors),
+        ("label_elide", label_elide),
         ("timer", timer),
         ("gui_sender", gui_sender),
         ("text_area_code_editor", text_area_code_editor),
@@ -1065,4 +1066,14 @@ fn anchors() {
     window.set_size(500, 300);
     assert_eq!(ok.geometry(), Rect::new(350, 250, 140, 40));
     assert_eq!(ok.widget().anchors(), Anchors::BOTTOM_RIGHT);
+}
+
+fn label_elide() {
+    let window = RnclWindow::new("Kürzen");
+    let label = RnclLabel::new(&window, &"sehr/langer/pfad/".repeat(20));
+    assert_eq!(label.widget().elide(), Elide::None);
+    label.set_elide(Elide::Middle);
+    assert_eq!(label.widget().elide(), Elide::Middle);
+    label.set_geometry(0, 0, 120, 24);
+    assert_eq!(label.geometry().width, 120);
 }

@@ -144,7 +144,12 @@ Nativ: GTK `GtkLabel` · Kategorie *Standard*
 let label = RnclLabel::new(&window, "Status: <b>bereit</b>"); // einfaches HTML¹
 label.set_text("Fertig");
 label.set_word_wrap(true);                  // lange Texte umbrechen
+label.set_elide(Elide::Middle);             // oder einzeilig mit „…“ kürzen (Pfade)
 ```
+
+`set_elide(Elide::Start | Middle | End)` kürzt einen zu langen einzeiligen Text auf
+die gesetzte Breite, statt ihn über den Rand laufen zu lassen; `Elide::None` (Standard)
+schaltet das ab.
 
 | Eigenschaft | Typ | |
 |---|---|---|
