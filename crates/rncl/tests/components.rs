@@ -37,6 +37,7 @@ fn main() {
         ("resize_and_shortcut", resize_and_shortcut),
         ("anchors", anchors),
         ("label_elide", label_elide),
+        ("dialog_default_folder", dialog_default_folder),
         ("timer", timer),
         ("gui_sender", gui_sender),
         ("text_area_code_editor", text_area_code_editor),
@@ -1076,4 +1077,15 @@ fn label_elide() {
     assert_eq!(label.widget().elide(), Elide::Middle);
     label.set_geometry(0, 0, 120, 24);
     assert_eq!(label.geometry().width, 120);
+}
+
+fn dialog_default_folder() {
+    assert_eq!(ruf::dialog::default_folder(), None);
+    let dir = std::env::temp_dir();
+    ruf::dialog::set_default_folder(Some(&dir));
+    assert_eq!(ruf::dialog::default_folder(), Some(dir));
+    // Ein fehlender Ordner zählt nicht.
+    ruf::dialog::set_default_folder(Some(std::path::Path::new("/gibt/es/nicht")));
+    assert_eq!(ruf::dialog::default_folder(), None);
+    ruf::dialog::set_default_folder(None);
 }

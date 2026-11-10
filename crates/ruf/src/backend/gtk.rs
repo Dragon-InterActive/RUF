@@ -325,7 +325,15 @@ fn accelerator(key: &KeySpec) -> String {
         });
     }
     accel.push_str(&match &key.key {
-        Key::Char(c) => c.to_string(),
+        // Satzzeichen brauchen ihren Keysym-Namen (`,` → `comma`).
+        // SAFETY: jeder Wert von `unicode_to_keyval` ist ein gültiger Keyval.
+        Key::Char(c) => unsafe {
+            <gdk::Key as glib::translate::FromGlib<u32>>::from_glib(gdk::unicode_to_keyval(
+                u32::from(*c),
+            ))
+        }
+        .name()
+        .map_or_else(|| c.to_string(), |n| n.to_string()),
         Key::F(n) => format!("F{n}"),
         Key::Enter => "Return".into(),
         Key::Escape => "Escape".into(),
@@ -2822,6 +2830,9 @@ fn build_menu(
 
 fn file_dialog(title: &str, filters: &[FileFilter]) -> gtk::FileDialog {
     let dialog = gtk::FileDialog::builder().title(title).modal(true).build();
+    if let Some(folder) = crate::dialog::default_folder() {
+        dialog.set_initial_folder(Some(&gio::File::for_path(folder)));
+    }
     if !filters.is_empty() {
         let store = gio::ListStore::new::<gtk::FileFilter>();
         for filter in filters {

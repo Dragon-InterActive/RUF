@@ -3,9 +3,29 @@
 //!
 //! Alle Funktionen blockieren, bis der Anwender den Dialog schließt, und
 //! laufen nur im GUI-Thread. `parent` richtet den Dialog an diesem Fenster aus.
-//! Die Beschriftung der Knöpfe folgt der Systemsprache.
+//! Die Beschriftung der Knöpfe folgt der Systemsprache. Datei- und
+//! Ordnerdialoge beginnen im Standardordner ([`set_default_folder`]).
 
-use std::path::PathBuf;
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+
+thread_local! {
+    static DEFAULT_FOLDER: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
+
+/// Ordner, in dem Datei- und Ordnerdialoge beginnen (z. B. das
+/// Arbeitsverzeichnis aus den Einstellungen); `None` = Vorgabe des Systems.
+/// Ein nicht vorhandener Ordner wird übergangen.
+pub fn set_default_folder(folder: Option<&Path>) {
+    DEFAULT_FOLDER.with(|f| *f.borrow_mut() = folder.map(Path::to_path_buf));
+}
+
+/// Der Standardordner der Dateidialoge, falls gesetzt und vorhanden.
+pub fn default_folder() -> Option<PathBuf> {
+    DEFAULT_FOLDER
+        .with(|f| f.borrow().clone())
+        .filter(|f| f.is_dir())
+}
 
 use crate::Widget;
 use crate::backend::{Backend, MessageKind, Platform};

@@ -67,6 +67,7 @@ window.close();                          // last window closed → exec() return
 
 window.on_resized(|w, h| println!("{w}×{h}"));          // re-arrange children
 window.add_shortcut("Ctrl+S", || println!("save"));
+window.add_shortcut("Ctrl+,", || println!("settings")); // punctuation works too
 window.on_close_requested(|| {                           // false = keep open
     ruf::dialog::confirm(None, "Quit", "Really close?")
 });
@@ -606,6 +607,9 @@ let rust = [FileFilter::new("Rust", &["*.rs"])];
 let file = ruf::dialog::open_file(Some(window.widget()), "Open", &rust);
 let target = ruf::dialog::save_file(None, "Save as", "main.rs", &rust);
 let folder = ruf::dialog::choose_folder(None, "Project folder");
+// Start folder of all file dialogs (e.g. a working directory from the settings);
+// None = GTK's default.
+ruf::dialog::set_default_folder(Some(std::path::Path::new("/home/me/projects")));
 ```
 
 The dialogs are modal and block until answered – do not call them in automated

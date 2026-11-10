@@ -1,2 +1,4 @@
 /target
 *.png
+# Testbild der Komponententests (einkompiliert)
+!crates/rncl/tests/*.png

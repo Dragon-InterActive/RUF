@@ -67,6 +67,7 @@ window.close();                          // letztes Fenster zu → exec() endet
 
 window.on_resized(|w, h| println!("{w}×{h}"));          // Kinder neu anordnen
 window.add_shortcut("Ctrl+S", || println!("Speichern"));
+window.add_shortcut("Ctrl+,", || println!("Einstellungen")); // auch Satzzeichen
 window.on_close_requested(|| {                           // false = offen lassen
     ruf::dialog::confirm(None, "Beenden", "Wirklich schließen?")
 });
@@ -610,6 +611,9 @@ let rust = [FileFilter::new("Rust", &["*.rs"])];
 let file = ruf::dialog::open_file(Some(window.widget()), "Öffnen", &rust);
 let target = ruf::dialog::save_file(None, "Speichern unter", "main.rs", &rust);
 let folder = ruf::dialog::choose_folder(None, "Projektordner");
+// Startordner aller Dateidialoge (z. B. ein Arbeitsverzeichnis aus den Einstellungen);
+// None = Vorgabe von GTK.
+ruf::dialog::set_default_folder(Some(std::path::Path::new("/home/ich/Projekte")));
 ```
 
 Die Dialoge sind modal und blockieren bis zur Antwort – in automatischen Tests

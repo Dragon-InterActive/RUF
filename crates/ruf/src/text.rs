@@ -76,7 +76,7 @@ impl KeySpec {
 fn parse_key(name: &str) -> Option<Key> {
     let mut chars = name.chars();
     if let (Some(c), None) = (chars.next(), chars.clone().next())
-        && c.is_ascii_alphanumeric()
+        && (c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
     {
         return Some(Key::Char(c.to_ascii_lowercase()));
     }
@@ -87,6 +87,7 @@ fn parse_key(name: &str) -> Option<Key> {
         return Some(Key::F(n));
     }
     Some(match name {
+        "comma" | "komma" => Key::Char(','),
         "enter" | "return" => Key::Enter,
         "esc" | "escape" => Key::Escape,
         "tab" => Key::Tab,
@@ -253,6 +254,8 @@ mod tests {
         assert!(KeySpec::parse("Strg+Shift+Z").unwrap().shift);
         assert!(KeySpec::parse("").is_none());
         assert!(KeySpec::parse("Ctrl+").is_none());
+        assert_eq!(KeySpec::parse("Ctrl+,").unwrap().key, Key::Char(','));
+        assert_eq!(KeySpec::parse("Ctrl+Comma").unwrap().key, Key::Char(','));
         assert!(KeySpec::parse("Ctrl+S+T").is_none());
         assert!(KeySpec::parse("Hyper+X").is_none());
     }
