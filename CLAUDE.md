@@ -15,7 +15,7 @@ Die UI-Elemente (Buttons, Textfelder, Checkboxen …) sind einzelne Komponenten 
 nach demselben Muster schreiben und im Framework registrieren.
 
 RUF ist die Grundlage der Editor-Oberfläche des RAD-Tools
-[Freya TDE](https://github.com/Dragon-InterActive/Freya-TD) und des
+[Freya TDE](https://github.com/Dragon-InterActive/Freya-TDE) und des
 [CT-Editors](https://github.com/Dragon-InterActive/CT-E).
 
 ## Entscheidungen
