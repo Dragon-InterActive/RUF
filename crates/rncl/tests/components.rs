@@ -1088,4 +1088,13 @@ fn dialog_default_folder() {
     ruf::dialog::set_default_folder(Some(std::path::Path::new("/gibt/es/nicht")));
     assert_eq!(ruf::dialog::default_folder(), None);
     ruf::dialog::set_default_folder(None);
+    // Automatisch: keine Fenster, sofortige Antworten.
+    ruf::dialog::set_automatic(Some(true));
+    assert!(ruf::dialog::confirm(None, "Frage", "Ja?"));
+    assert_eq!(ruf::dialog::input(None, "Eingabe", "Name", "x"), None);
+    ruf::dialog::information(None, "Hinweis", "nur stderr");
+    ruf::dialog::set_automatic(Some(false));
+    assert!(!ruf::dialog::confirm(None, "Frage", "Ja?"));
+    assert_eq!(ruf::dialog::choose_folder(None, "Ordner"), None);
+    ruf::dialog::set_automatic(None);
 }

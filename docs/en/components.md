@@ -610,6 +610,9 @@ let folder = ruf::dialog::choose_folder(None, "Project folder");
 // Start folder of all file dialogs (e.g. a working directory from the settings);
 // None = GTK's default.
 ruf::dialog::set_default_folder(Some(std::path::Path::new("/home/me/projects")));
+// Headless tests: answer every dialog at once (Some(true) = “yes”),
+// the question goes to stderr; None switches back.
+ruf::dialog::set_automatic(Some(true));
 ```
 
 The dialogs are modal and block until answered – do not call them in automated

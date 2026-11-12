@@ -614,6 +614,9 @@ let folder = ruf::dialog::choose_folder(None, "Projektordner");
 // Startordner aller Dateidialoge (z. B. ein Arbeitsverzeichnis aus den Einstellungen);
 // None = Vorgabe von GTK.
 ruf::dialog::set_default_folder(Some(std::path::Path::new("/home/ich/Projekte")));
+// Tests ohne Bildschirm: alle Dialoge sofort beantworten (Some(true) = „Ja“),
+// die Frage steht in stderr; None schaltet zurück.
+ruf::dialog::set_automatic(Some(true));
 ```
 
 Die Dialoge sind modal und blockieren bis zur Antwort – in automatischen Tests
