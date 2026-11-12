@@ -192,6 +192,8 @@ pub enum Inner {
     Drop {
         drop: gtk::DropDown,
         model: gtk::StringList,
+        /// Hinweistexte der Einträge in der aufgeklappten Liste.
+        tips: Rc<RefCell<Vec<String>>>,
     },
     List(gtk::ListBox),
     Spin(gtk::SpinButton),
@@ -497,7 +499,36 @@ fn new_choice(id: Id, editable: bool) -> (gtk::Widget, Inner) {
         drop.connect_selected_notify(move |_| {
             glib::idle_add_local_once(move || notify(id, Notify::Changed));
         });
-        (drop.clone().upcast(), Inner::Drop { drop, model })
+        // Eigene Liste beim Aufklappen: mit Hinweistext je Eintrag.
+        let tips: Rc<RefCell<Vec<String>>> = Rc::default();
+        let factory = gtk::SignalListItemFactory::new();
+        factory.connect_setup(|_, item| {
+            if let Some(item) = item.downcast_ref::<gtk::ListItem>() {
+                let label = gtk::Label::new(None);
+                label.set_xalign(0.0);
+                item.set_child(Some(&label));
+            }
+        });
+        let shown = tips.clone();
+        factory.connect_bind(move |_, item| {
+            let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+                return;
+            };
+            if let (Some(label), Some(text)) = (
+                item.child().and_downcast::<gtk::Label>(),
+                item.item().and_downcast::<gtk::StringObject>(),
+            ) {
+                label.set_text(&text.string());
+                let tip = shown
+                    .borrow()
+                    .get(item.position() as usize)
+                    .cloned()
+                    .unwrap_or_default();
+                label.set_tooltip_text((!tip.is_empty()).then_some(tip.as_str()));
+            }
+        });
+        drop.set_list_factory(Some(&factory));
+        (drop.clone().upcast(), Inner::Drop { drop, model, tips })
     }
 }
 
@@ -1428,7 +1459,7 @@ impl Backend for Gtk {
                     .to_string()
             }
             Inner::Combo(c) => c.entry.text().to_string(),
-            Inner::Drop { drop, model } => model
+            Inner::Drop { drop, model, .. } => model
                 .string(drop.selected())
                 .map(|t| t.to_string())
                 .unwrap_or_default(),
@@ -1503,6 +1534,12 @@ impl Backend for Gtk {
         match &native.inner {
             Inner::Check(c) => c.is_active(),
             _ => false,
+        }
+    }
+
+    fn set_item_tooltips(native: &GtkNative, _kind: WidgetKind, tips: &[String]) {
+        if let Inner::Drop { tips: shown, .. } = &native.inner {
+            *shown.borrow_mut() = tips.to_vec();
         }
     }
 

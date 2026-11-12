@@ -154,6 +154,9 @@ pub(crate) trait Backend {
 
     /// Ersetzt alle Einträge; die Auswahl setzt der Kern danach.
     fn set_items(native: &Self::Native, kind: WidgetKind, items: &[String]);
+    /// Hinweistext je Eintrag (Auswahlliste ohne freie Eingabe); ohne
+    /// Unterstützung wirkungslos.
+    fn set_item_tooltips(_native: &Self::Native, _kind: WidgetKind, _tips: &[String]) {}
     fn set_current_index(native: &Self::Native, kind: WidgetKind, index: i32);
     fn current_index(native: &Self::Native, kind: WidgetKind) -> i32;
     /// Combobox mit/ohne freie Eingabe. Muss das Backend dafür ein neues

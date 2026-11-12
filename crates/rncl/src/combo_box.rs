@@ -54,6 +54,12 @@ impl RnclComboBox {
         self.widget.items()
     }
 
+    /// Hinweistext je Eintrag, gezeigt beim Darüberfahren in der
+    /// aufgeklappten Liste.
+    pub fn set_item_tooltips<S: AsRef<str>>(&self, tips: &[S]) {
+        self.widget.set_item_tooltips(tips);
+    }
+
     pub fn count(&self) -> i32 {
         self.widget.item_count()
     }

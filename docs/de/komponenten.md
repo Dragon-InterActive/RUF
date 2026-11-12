@@ -278,6 +278,7 @@ Nativ: GTK `GtkDropDown` (mit freier Eingabe: `GtkEntry` + Vorschlagsliste) · K
 ```rust
 let city = RnclComboBox::new(&window);
 city.set_items(&["Berlin", "Hamburg", "München"]); // erster Eintrag wird gewählt
+city.set_item_tooltips(&["Hauptstadt", "Hafen", "Bayern"]); // Hinweis je Eintrag in der Liste
 city.set_current_text("Hamburg");
 city.on_current_index_changed(|i| println!("Index {i}"));
 city.set_editable(true);                           // zusätzlich freie Eingabe

@@ -598,6 +598,13 @@ impl Widget {
         });
     }
 
+    /// Hinweistext je Eintrag einer Auswahlliste, gezeigt beim Darüberfahren
+    /// in der aufgeklappten Liste (leer = keiner).
+    pub fn set_item_tooltips<S: AsRef<str>>(&self, tips: &[S]) {
+        let tips: Vec<String> = tips.iter().map(|s| s.as_ref().to_owned()).collect();
+        self.native_call(|n, k| Platform::set_item_tooltips(n, k, &tips));
+    }
+
     /// Ausgewählter Eintrag bzw. aktive Seite; `-1` = keine Auswahl.
     pub fn set_current_index(&self, index: i32) {
         core::set_current_index(self.id, index);

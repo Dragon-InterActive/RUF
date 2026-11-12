@@ -276,6 +276,7 @@ Native: GTK `GtkDropDown` (editable: `GtkEntry` + suggestion list) · category *
 ```rust
 let city = RnclComboBox::new(&window);
 city.set_items(&["Berlin", "Hamburg", "Munich"]); // first item gets selected
+city.set_item_tooltips(&["capital", "port", "Bavaria"]); // a hint per entry in the list
 city.set_current_text("Hamburg");
 city.on_current_index_changed(|i| println!("index {i}"));
 city.set_editable(true);                          // allow free text as well
