@@ -237,6 +237,8 @@ pub struct GtkNative {
 // --- Globaler Zustand des Backends -----------------------------------------------------
 
 thread_local! {
+    /// Zähler für eindeutige Aktionsgruppen der Zusatz-Kontextmenüs.
+    static EXTRA_MENUS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static LOOPS: RefCell<Vec<glib::MainLoop>> = const { RefCell::new(Vec::new()) };
     static TIMERS: RefCell<HashMap<u64, glib::SourceId>> = RefCell::new(HashMap::new());
     static STYLES: RefCell<(Option<gtk::CssProvider>, HashMap<Id, String>)> = RefCell::new((None, HashMap::new()));
@@ -2171,6 +2173,47 @@ impl Backend for Gtk {
         if !bar.is_empty() {
             column.prepend(&gtk::PopoverMenuBar::from_model(Some(&model)));
         }
+    }
+
+    fn watch_context_menu(native: &GtkNative, _kind: WidgetKind) {
+        let id = native.id;
+        let target: gtk::Widget = match &native.inner {
+            Inner::Window(_) => native
+                .fixed
+                .clone()
+                .map(|f| f.upcast())
+                .unwrap_or(native.outer.clone()),
+            _ => native.outer.clone(),
+        };
+        let gesture = gtk::GestureClick::new();
+        gesture.set_button(gdk::BUTTON_SECONDARY);
+        gesture.connect_pressed(move |gesture, _, x, y| {
+            // Beanspruchen: das Elternteil bekommt denselben Klick nicht auch noch.
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            notify(id, Notify::ContextMenu(x as i32, y as i32));
+        });
+        target.add_controller(gesture);
+    }
+
+    fn set_extra_menu(native: &GtkNative, _kind: WidgetKind, window: &GtkNative, menu: &Menu) {
+        let (Inner::Code(view), Inner::Window(w)) = (&native.inner, &window.inner) else {
+            return;
+        };
+        let group = gio::SimpleActionGroup::new();
+        let mut counter = 0;
+        let prefix = format!("rufextra{}", EXTRA_MENUS.with(|n| n.replace(n.get() + 1)));
+        let model = build_menu(menu, &prefix, &group, &mut counter, window.id, None);
+        w.insert_action_group(&prefix, Some(&group));
+        view.set_extra_menu(Some(&model));
+    }
+
+    fn selected_text(native: &GtkNative, _kind: WidgetKind) -> Option<String> {
+        let buffer = match &native.inner {
+            Inner::Code(view) => view.buffer(),
+            _ => return None,
+        };
+        let (start, end) = buffer.selection_bounds()?;
+        Some(buffer.text(&start, &end, false).to_string())
     }
 
     fn popup_menu(

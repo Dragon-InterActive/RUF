@@ -949,6 +949,28 @@ impl Widget {
         core::popup_menu(self.id, menu, x, y)
     }
 
+    /// Rechtsklick auf das Widget mit der Position (relativ zum Widget, passend
+    /// für [`Widget::popup_menu`]).
+    pub fn on_context_menu(&self, f: impl FnMut(i32, i32) + 'static) -> bool {
+        core::connect_context_menu(self.id, f)
+    }
+
+    /// Simuliert einen Rechtsklick (Tests, Automatisierung).
+    pub fn simulate_context_menu(&self, x: i32, y: i32) {
+        core::notify(self.id, core::Notify::ContextMenu(x, y));
+    }
+
+    /// Zusätzliche Einträge im eingebauten Kontextmenü (Code-Editor: hinter
+    /// Kopieren, Einfügen …); die Wahl meldet `on_menu` des Fensters.
+    pub fn set_extra_menu(&self, menu: &Menu) -> bool {
+        core::set_extra_menu(self.id, menu)
+    }
+
+    /// Der markierte Text (Code-Editor); `None` ohne Markierung.
+    pub fn selected_text(&self) -> Option<String> {
+        core::selected_text(self.id)
+    }
+
     /// Simuliert ein Mausereignis auf einer Zeichenfläche (Tests, Automatisierung).
     pub fn simulate_mouse(&self, event: MouseEvent) {
         core::notify(self.id, core::Notify::Mouse(event));

@@ -38,6 +38,7 @@ fn main() {
         ("anchors", anchors),
         ("label_elide", label_elide),
         ("dialog_default_folder", dialog_default_folder),
+        ("context_menu_signal", context_menu_signal),
         ("timer", timer),
         ("gui_sender", gui_sender),
         ("text_area_code_editor", text_area_code_editor),
@@ -1097,4 +1098,19 @@ fn dialog_default_folder() {
     assert!(!ruf::dialog::confirm(None, "Frage", "Ja?"));
     assert_eq!(ruf::dialog::choose_folder(None, "Ordner"), None);
     ruf::dialog::set_automatic(None);
+}
+
+fn context_menu_signal() {
+    let window = RnclWindow::new("t");
+    let button = RnclButton::new(&window, "Knopf");
+    let seen = std::rc::Rc::new(std::cell::Cell::new(None));
+    let s = seen.clone();
+    assert!(button.widget().on_context_menu(move |x, y| s.set(Some((x, y)))));
+    button.widget().simulate_context_menu(5, 7);
+    assert_eq!(seen.get(), Some((5, 7)));
+    // Code-Editor: eigene Einträge, ohne Markierung kein Text.
+    let editor = RnclCodeEditor::new(&window);
+    editor.set_text("fn main() {}");
+    assert!(editor.set_extra_menu(&Menu::new().item("x.snippet", "Als Snippet speichern", None)));
+    assert_eq!(editor.selected_text(), None);
 }

@@ -215,6 +215,24 @@ pub(crate) trait Backend {
         y: i32,
     );
 
+    /// Meldet Rechtsklicks auf das Widget (`Notify::ContextMenu`).
+    fn watch_context_menu(_native: &Self::Native, _kind: WidgetKind) {}
+
+    /// Zusätzliche Einträge im eingebauten Kontextmenü (Code-Editor); die
+    /// Wahl meldet `window` wie bei der Menüleiste.
+    fn set_extra_menu(
+        _native: &Self::Native,
+        _kind: WidgetKind,
+        _window: &Self::Native,
+        _menu: &Menu,
+    ) {
+    }
+
+    /// Der markierte Text (Code-Editor, Textfelder); `None` ohne Markierung.
+    fn selected_text(_native: &Self::Native, _kind: WidgetKind) -> Option<String> {
+        None
+    }
+
     // --- Code-Editor ---------------------------------------------------------------
 
     /// Sprache für die Hervorhebung (`"rust"`, `"toml"` …; leer = keine).

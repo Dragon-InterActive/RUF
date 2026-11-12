@@ -132,6 +132,8 @@ pub(crate) enum Notify {
     Gutter(crate::code::GutterClick),
     /// Ziehen und Ablegen über einer Zeichenfläche.
     Drop(crate::canvas::DropEvent),
+    /// Rechtsklick an dieser Stelle (relativ zum Widget).
+    ContextMenu(i32, i32),
 }
 
 type Callback<F> = Rc<RefCell<F>>;
@@ -155,6 +157,7 @@ enum Handler {
     TreeToggled(Callback<dyn FnMut(String, bool)>),
     Gutter(Callback<dyn FnMut(crate::code::GutterClick)>),
     Drop(Callback<dyn FnMut(crate::canvas::DropEvent)>),
+    ContextMenu(Callback<dyn FnMut(i32, i32)>),
 }
 
 /// Ein Signal, das ein Widget anbieten kann.
@@ -177,6 +180,7 @@ pub(crate) enum Signal {
     TreeToggled,
     Gutter,
     Drop,
+    ContextMenu,
 }
 
 impl Signal {
@@ -203,6 +207,7 @@ impl Signal {
             }
             Signal::Gutter => kind == K::CodeEditor,
             Signal::Drop => kind == K::Canvas,
+            Signal::ContextMenu => true,
         }
     }
 }
@@ -985,6 +990,13 @@ pub(crate) fn notify(id: Id, event: Notify) {
             }),
             |f| f(event.clone()),
         ),
+        Notify::ContextMenu(x, y) => fire(
+            handlers(id, |h| match h {
+                Handler::ContextMenu(f) => Some(f.clone()),
+                _ => None,
+            }),
+            |f| f(x, y),
+        ),
     }
 }
 
@@ -1525,6 +1537,55 @@ pub(crate) fn connect_gutter(id: Id, f: impl FnMut(crate::code::GutterClick) + '
         Signal::Gutter,
         Handler::Gutter(Rc::new(RefCell::new(f))),
     )
+}
+
+pub(crate) fn connect_context_menu(id: Id, f: impl FnMut(i32, i32) + 'static) -> bool {
+    let added = add_handler(
+        id,
+        Signal::ContextMenu,
+        Handler::ContextMenu(Rc::new(RefCell::new(f))),
+    );
+    // Nur einmal je Widget beim System anmelden.
+    let first = added
+        && get(id, |n| {
+            n.handlers
+                .iter()
+                .filter(|h| matches!(h, Handler::ContextMenu(_)))
+                .count()
+                == 1
+        })
+        .unwrap_or(false);
+    if first && let Some((native, kind)) = native(id) {
+        setter(|| Platform::watch_context_menu(&native, kind));
+    }
+    added
+}
+
+/// The window an element belongs to.
+fn window_of(id: Id) -> Option<crate::backend::Native> {
+    let mut current = Some(id);
+    while let Some(i) = current {
+        let (kind, native, parent) = get(i, |n| (n.kind, n.native.clone(), n.parent))?;
+        if kind == WidgetKind::Window {
+            return Some(native);
+        }
+        current = parent;
+    }
+    None
+}
+
+/// Zusätzliche Einträge im eingebauten Kontextmenü (Code-Editor).
+pub(crate) fn set_extra_menu(id: Id, menu: &Menu) -> bool {
+    let (Some((native, kind)), Some(window)) = (native(id), window_of(id)) else {
+        return false;
+    };
+    setter(|| Platform::set_extra_menu(&native, kind, &window, menu));
+    true
+}
+
+pub(crate) fn selected_text(id: Id) -> Option<String> {
+    let (native, kind) = native(id)?;
+    Platform::selected_text(&native, kind)
 }
 
 /// Ersetzt, was eine Zeichenfläche malt.

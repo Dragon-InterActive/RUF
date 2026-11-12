@@ -99,6 +99,17 @@ impl RnclCodeEditor {
         self.widget.on_gutter_clicked(f);
     }
 
+    /// Eigene Einträge im Kontextmenü des Editors (hinter Kopieren, Einfügen …);
+    /// die Wahl meldet `on_menu` des Fensters.
+    pub fn set_extra_menu(&self, menu: &ruf::Menu) -> bool {
+        self.widget.set_extra_menu(menu)
+    }
+
+    /// Der markierte Text; `None` ohne Markierung.
+    pub fn selected_text(&self) -> Option<String> {
+        self.widget.selected_text()
+    }
+
     /// Setzt den Cursor an den Anfang der Zeile `line` (ab 1) und scrollt hin.
     pub fn goto_line(&self, line: usize) {
         self.widget.goto_line(line.saturating_sub(1) as i32);
